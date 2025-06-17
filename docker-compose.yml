@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+    backend:
+        build:
+            context: ./packages/backend
+            dockerfile: Dockerfile
+        ports:
+            - "3001:3000" # Expose the backend API on port 3001 change if needed
+        environment:
+            - NODE_ENV=production
+            - LOG_LEVEL=info
+            - SECRET_KEY=${SECRET_KEY} # Replace with your actual secret key
+        volumes:
+            - ./packages/backend/logs:/usr/src/app/logs
+            - ./packages/backend/resource:/usr/src/app/resource
+        command: ["npm", "run", "start"]
+        networks:
+            - nest-network
+
+    frontend:
+        build:
+            context: ./packages/frontend
+            dockerfile: Dockerfile
+        ports:
+            - "3002:3002" # Expose the frontend on port 3002
+        environment:
+            - NODE_ENV=production
+        depends_on:
+            - backend
+        networks:
+            - nest-network
+
+networks:
+    nest-network:
+        driver: bridge

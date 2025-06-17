@@ -1,0 +1,17 @@
+# dependencies
+node_modules
+**/node_modules
+logs
+**/logs
+dist
+**/dist
+
+# Ignore directories
+resource
+**/resource
+coverage
+**/coverage
+
+# Ignore database files
+*.db
+*.env*
