@@ -3,6 +3,7 @@ import eslint from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import stylistic from '@stylistic/eslint-plugin';
+import jest from 'eslint-plugin-jest';
 
 export default tseslint.config(
     {
@@ -26,6 +27,7 @@ export default tseslint.config(
         plugins: {
             // '@typescript-eslint': tseslint.plugin,
             '@stylistic': stylistic,
+            '@jest': jest,
         },
         rules: {
             "indent": ["error", 4],
@@ -57,6 +59,8 @@ export default tseslint.config(
                     }
                 },
             ],
+            '@typescript-eslint/unbound-method': 'off',
+            '@jest/unbound-method': 'error'
         },
     },
     {
