@@ -3,11 +3,10 @@ import eslint from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import stylistic from '@stylistic/eslint-plugin';
-import jest from 'eslint-plugin-jest';
 
 export default tseslint.config(
     {
-        ignores: ['eslint.config.mjs'],
+        ignores: ['eslint.config.js'],
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
@@ -16,9 +15,8 @@ export default tseslint.config(
         languageOptions: {
         globals: {
             ...globals.node,
-            ...globals.jest,
         },
-        sourceType: 'commonjs',
+        sourceType: 'module',
         parserOptions: {
                 projectService: true,
                 tsconfigRootDir: import.meta.dirname,
@@ -27,7 +25,6 @@ export default tseslint.config(
         plugins: {
             // '@typescript-eslint': tseslint.plugin,
             '@stylistic': stylistic,
-            '@jest': jest,
         },
         rules: {
             "indent": ["error", 4],
@@ -45,6 +42,23 @@ export default tseslint.config(
             ],
             '@typescript-eslint/no-empty-function': 'error',
             '@typescript-eslint/explicit-function-return-type': 'error',
+            // Security & Best Practices
+            '@typescript-eslint/no-misused-promises': 'error',
+            '@typescript-eslint/await-thenable': 'error',
+            '@typescript-eslint/no-unsafe-return': 'error',
+            '@typescript-eslint/no-unsafe-assignment': 'error',
+            '@typescript-eslint/no-unsafe-member-access': 'error',
+            '@typescript-eslint/no-unsafe-call': 'error',
+            // Code Quality
+            '@typescript-eslint/consistent-type-imports': ['error', {
+                prefer: 'type-imports',
+                fixable: 'code'
+            }],
+            '@typescript-eslint/consistent-type-exports': 'error',
+            '@typescript-eslint/no-unnecessary-condition': 'error',
+            '@typescript-eslint/prefer-nullish-coalescing': 'error',
+            '@typescript-eslint/prefer-optional-chain': 'error',
+            '@typescript-eslint/no-confusing-void-expression': 'error',
             '@stylistic/semi': ['error', 'always'],
             '@stylistic/member-delimiter-style': [
                 'error',
@@ -59,8 +73,13 @@ export default tseslint.config(
                     }
                 },
             ],
-            '@typescript-eslint/unbound-method': 'off',
-            '@jest/unbound-method': 'error'
+            // Import Rules - Enforce path aliases
+            'no-restricted-imports': ['error', {
+                patterns: [{
+                    group: ['../*', './*'],
+                    message: 'Use path aliases (@/*) instead of relative imports'
+                }]
+            }],
         },
     },
     {

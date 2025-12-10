@@ -1,8 +1,9 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { GoogleDriveService } from '../google-drive.service';
+import { GoogleDriveService } from '@integrations/google-drive/google-drive.service.js';
 
 // Mock the entire service since it's complex to mock Google APIs correctly
-jest.mock('../google-drive.service');
+vi.mock('../google-drive.service.js');
 
 describe('GoogleDriveService', () => {
     let service: GoogleDriveService;
@@ -14,8 +15,8 @@ describe('GoogleDriveService', () => {
 
         service = module.get<GoogleDriveService>(GoogleDriveService);
         
-        // Reset mocks
-        jest.clearAllMocks();
+        // Reset mock call history
+        vi.clearAllMocks();
     });
 
     it('should be defined', () => {
@@ -35,7 +36,7 @@ describe('GoogleDriveService', () => {
             };
 
             // Setup the mock
-            (service.createFolder as jest.Mock).mockResolvedValue(responseData);
+            vi.mocked(service.createFolder).mockResolvedValue(responseData);
 
             const result = await service.createFolder(folderName, parentId);
 
@@ -57,7 +58,7 @@ describe('GoogleDriveService', () => {
             };
 
             // Setup the mock
-            (service.listFiles as jest.Mock).mockResolvedValue(mockResult);
+            vi.mocked(service.listFiles).mockResolvedValue(mockResult);
 
             const result = await service.listFiles(folderId, 100);
 
@@ -79,11 +80,11 @@ describe('GoogleDriveService', () => {
             };
 
             // Setup the mock
-            (service.searchFiles as jest.Mock).mockResolvedValue(mockResult);
+            vi.mocked(service.searchFiles).mockResolvedValue(mockResult);
 
             const result = await service.searchFiles(query);
 
-            expect(service.searchFiles).toHaveBeenCalledWith(query, 100);
+            expect(service.searchFiles).toHaveBeenCalledWith(query);
             expect(result).toEqual(mockResult);
         });
     });

@@ -1,37 +1,28 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { GoogleDriveDirectoryService } from '../google-drive-directory.service';
-import { GoogleDriveService } from '../google-drive.service';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GoogleDriveDirectoryService } from '@integrations/google-drive/google-drive-directory.service.js';
+import { GoogleDriveService } from '@integrations/google-drive/google-drive.service.js';
 import { drive_v3 } from 'googleapis';
 
 describe('GoogleDriveDirectoryService', () => {
     let service: GoogleDriveDirectoryService;
-    let googleDriveService: GoogleDriveService;
-
-    const mockGoogleDriveService = {
-        createFolder: jest.fn(),
-        searchFiles: jest.fn(),
-        listFiles: jest.fn(),
-        moveFile: jest.fn(),
-        deleteFile: jest.fn(),
+    let mockGoogleDriveService: {
+        createFolder: ReturnType<typeof vi.fn>;
+        searchFiles: ReturnType<typeof vi.fn>;
+        listFiles: ReturnType<typeof vi.fn>;
+        moveFile: ReturnType<typeof vi.fn>;
+        deleteFile: ReturnType<typeof vi.fn>;
     };
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                GoogleDriveDirectoryService,
-                {
-                    provide: GoogleDriveService,
-                    useValue: mockGoogleDriveService,
-                },
-            ],
-        }).compile();
+    beforeEach(() => {
+        mockGoogleDriveService = {
+            createFolder: vi.fn(),
+            searchFiles: vi.fn(),
+            listFiles: vi.fn(),
+            moveFile: vi.fn(),
+            deleteFile: vi.fn(),
+        };
 
-        service = module.get<GoogleDriveDirectoryService>(GoogleDriveDirectoryService);
-        googleDriveService = module.get<GoogleDriveService>(GoogleDriveService);
-        expect(googleDriveService).toBeDefined();
-
-        // Clear all mocks before each test
-        jest.clearAllMocks();
+        service = new GoogleDriveDirectoryService(mockGoogleDriveService as unknown as GoogleDriveService);
     });
 
     it('should be defined', () => {

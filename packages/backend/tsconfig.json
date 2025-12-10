@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
+        "module": "Node16",
+        "moduleResolution": "node16",
         "declaration": true,
         "removeComments": true,
         "emitDecoratorMetadata": true,
@@ -9,7 +10,23 @@
         "target": "ES2023",
         "sourceMap": true,
         "outDir": "./dist",
-        "baseUrl": "./",
+        "baseUrl": "./src",
+        "paths": {
+            "@/*": ["./*"],
+            "@common/*": ["common/*"],
+            "@config/*": ["config/*"],
+            "@database/*": ["database/*"],
+            "@auth/*": ["auth/*"],
+            "@users/*": ["users/*"],
+            "@transactions/*": ["transactions/*"],
+            "@categories/*": ["categories/*"],
+            "@accounts/*": ["accounts/*"],
+            "@budgets/*": ["budgets/*"],
+            "@reports/*": ["reports/*"],
+            "@scraper/*": ["scraper/*"],
+            "@ai/*": ["ai/*"],
+            "@integrations/*": ["integrations/*"]
+        },
         "incremental": true,
         "skipLibCheck": true,
         "strictNullChecks": true,
