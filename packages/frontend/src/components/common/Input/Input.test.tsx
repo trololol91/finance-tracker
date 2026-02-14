@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Input } from '@components/common/Input/Input';
+import {
+    describe, it, expect
+} from 'vitest';
+import {
+    render, screen
+} from '@testing-library/react';
+import {Input} from '@components/common/Input/Input';
 
 describe('Input', () => {
     it('renders without label', () => {

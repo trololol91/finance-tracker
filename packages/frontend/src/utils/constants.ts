@@ -3,16 +3,16 @@ export const APP_CONSTANTS = {
     MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
     ALLOWED_FILE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
     DEBOUNCE_DELAY: 300,
-    TOAST_DURATION: 3000,
+    TOAST_DURATION: 3000
 } as const;
 
 export const TRANSACTION_TYPES = {
     INCOME: 'income',
-    EXPENSE: 'expense',
+    EXPENSE: 'expense'
 } as const;
 
 export const TRANSACTION_STATUS = {
     PENDING: 'pending',
     COMPLETED: 'completed',
-    CANCELLED: 'cancelled',
+    CANCELLED: 'cancelled'
 } as const;

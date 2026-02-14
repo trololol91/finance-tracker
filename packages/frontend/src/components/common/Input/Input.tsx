@@ -1,19 +1,21 @@
-import type { InputHTMLAttributes } from 'react';
-import './Input.css';
+import {useId} from 'react';
+import type {InputHTMLAttributes} from 'react';
+import '@components/common/Input/Input.css';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
 }
 
-export function Input({
+export const Input = ({
     label,
     error,
     className = '',
     id,
     ...props
-}: InputProps): React.JSX.Element {
-    const inputId = id || `input-${Math.random().toString(36).substring(7)}`;
+}: InputProps): React.JSX.Element => {
+    const generatedId = useId();
+    const inputId = id ?? `input-${generatedId}`;
 
     return (
         <div className={`input-wrapper ${className}`}>
@@ -30,4 +32,4 @@ export function Input({
             {error && <span className="input-error">{error}</span>}
         </div>
     );
-}
+};

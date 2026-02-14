@@ -8,7 +8,7 @@ import stylistic from '@stylistic/eslint-plugin';
 
 export default tseslint.config(
     {
-        ignores: ['dist', 'eslint.config.js'],
+        ignores: ['dist', 'eslint.config.js', 'vitest.config.ts'],
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
@@ -38,7 +38,49 @@ export default tseslint.config(
                 { allowConstantExport: true },
             ],
             // Consistent formatting with backend
-            'indent': ['error', 4],
+            '@stylistic/indent': ['error', 4],
+            '@stylistic/quotes': ['error', 'single', {
+                avoidEscape: true,
+                allowTemplateLiterals: false,
+            }],
+            '@stylistic/key-spacing': [
+                'error',
+                { afterColon: true },
+            ],
+            '@stylistic/max-len': [
+                'error',
+                {
+                    code: 100,
+                    tabWidth: 4,
+                    ignoreUrls: true,
+                    ignoreStrings: true,
+                    ignoreTemplateLiterals: true,
+                },
+            ],
+            '@stylistic/object-curly-spacing': ['error', 'never'],
+            '@stylistic/object-curly-newline': [
+                'error',
+                {
+                    ImportDeclaration: {
+                        multiline: true,
+                        minProperties: 2,
+                        consistent: true,
+                    },
+                    ExportDeclaration: {
+                        multiline: true,
+                        minProperties: 3,
+                        consistent: true,
+                    },
+                },
+            ],
+            '@stylistic/comma-dangle': [
+                'error',
+                'never',
+            ],
+            'prefer-arrow-callback': 'error',
+            'func-style': ['error', 'expression'],
+            'max-params': ['error', 5],
+            'max-lines-per-function': ['warn', 100],
             'no-empty-function': 'off',
             '@typescript-eslint/no-explicit-any': 'error',
             '@typescript-eslint/no-floating-promises': 'error',
@@ -63,13 +105,19 @@ export default tseslint.config(
             // Code Quality
             '@typescript-eslint/consistent-type-imports': ['error', {
                 prefer: 'type-imports',
-                fixable: 'code'
             }],
             '@typescript-eslint/consistent-type-exports': 'error',
             '@typescript-eslint/no-unnecessary-condition': 'error',
             '@typescript-eslint/prefer-nullish-coalescing': 'error',
             '@typescript-eslint/prefer-optional-chain': 'error',
             '@typescript-eslint/no-confusing-void-expression': 'error',
+            '@typescript-eslint/explicit-member-accessibility': [
+                'error',
+                {
+                    accessibility: 'explicit',
+                    overrides: { constructors: 'no-public' },
+                },
+            ],
             '@stylistic/semi': ['error', 'always'],
             '@stylistic/member-delimiter-style': [
                 'error',
@@ -91,6 +139,24 @@ export default tseslint.config(
                     message: 'Use path aliases (@/*) instead of relative imports'
                 }]
             }],
+        },
+    },
+    {
+        files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
+        rules: {
+            'max-lines-per-function': 'off',
+            'max-params': 'off',
+        },
+    },
+    {
+        files: [
+            'src/types/**',
+            'src/features/**/types/**',
+            'src/services/**/types/**',
+            'src/**/test/**',
+        ],
+        rules: {
+            '@typescript-eslint/explicit-member-accessibility': 'off',
         },
     },
     {

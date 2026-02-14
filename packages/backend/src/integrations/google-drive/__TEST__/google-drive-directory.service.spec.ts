@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GoogleDriveDirectoryService } from '@integrations/google-drive/google-drive-directory.service.js';
-import { GoogleDriveService } from '@integrations/google-drive/google-drive.service.js';
-import { drive_v3 } from 'googleapis';
+import {
+    describe, it, expect, vi, beforeEach
+} from 'vitest';
+import {GoogleDriveDirectoryService} from '@integrations/google-drive/google-drive-directory.service.js';
+import type {GoogleDriveService} from '@integrations/google-drive/google-drive.service.js';
+import type {drive_v3} from 'googleapis';
 
 describe('GoogleDriveDirectoryService', () => {
     let service: GoogleDriveDirectoryService;
@@ -19,10 +21,12 @@ describe('GoogleDriveDirectoryService', () => {
             searchFiles: vi.fn(),
             listFiles: vi.fn(),
             moveFile: vi.fn(),
-            deleteFile: vi.fn(),
+            deleteFile: vi.fn()
         };
 
-        service = new GoogleDriveDirectoryService(mockGoogleDriveService as unknown as GoogleDriveService);
+        service = new GoogleDriveDirectoryService(
+            mockGoogleDriveService as unknown as GoogleDriveService
+        );
     });
 
     it('should be defined', () => {
@@ -37,7 +41,7 @@ describe('GoogleDriveDirectoryService', () => {
                 id: 'folder123',
                 name: folderName,
                 mimeType: 'application/vnd.google-apps.folder',
-                parents: [parentId],
+                parents: [parentId]
             };
 
             mockGoogleDriveService.createFolder.mockResolvedValue(expectedResponse);
@@ -67,10 +71,10 @@ describe('GoogleDriveDirectoryService', () => {
                     {
                         id: 'dir123',
                         name: dirName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                    },
+                        mimeType: 'application/vnd.google-apps.folder'
+                    }
                 ],
-                nextPageToken: null,
+                nextPageToken: null
             };
 
             mockGoogleDriveService.searchFiles.mockResolvedValue(expectedResponse);
@@ -79,7 +83,7 @@ describe('GoogleDriveDirectoryService', () => {
 
             expect(mockGoogleDriveService.searchFiles).toHaveBeenCalledWith(
                 `name = '${dirName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents`,
-                10,
+                10
             );
             expect(result).toEqual(expectedResponse.files[0]);
         });
@@ -89,7 +93,7 @@ describe('GoogleDriveDirectoryService', () => {
             
             mockGoogleDriveService.searchFiles.mockResolvedValue({
                 files: [],
-                nextPageToken: null,
+                nextPageToken: null
             });
 
             const result = await service.findDirectoryByName(dirName);
@@ -106,17 +110,17 @@ describe('GoogleDriveDirectoryService', () => {
             // Mock the behavior for findDirectoryByName and createDirectory
             mockGoogleDriveService.searchFiles
                 // First directory doesn't exist
-                .mockResolvedValueOnce({ files: [], nextPageToken: null })
+                .mockResolvedValueOnce({files: [], nextPageToken: null})
                 // Second directory doesn't exist
-                .mockResolvedValueOnce({ files: [], nextPageToken: null })
+                .mockResolvedValueOnce({files: [], nextPageToken: null})
                 // Third directory doesn't exist
-                .mockResolvedValueOnce({ files: [], nextPageToken: null });
+                .mockResolvedValueOnce({files: [], nextPageToken: null});
 
             // Mock the createFolder responses
             mockGoogleDriveService.createFolder
-                .mockResolvedValueOnce({ id: 'finance123', name: 'Finance' })
-                .mockResolvedValueOnce({ id: '2025123', name: '2025' })
-                .mockResolvedValueOnce({ id: 'expenses123', name: 'Expenses' });
+                .mockResolvedValueOnce({id: 'finance123', name: 'Finance'})
+                .mockResolvedValueOnce({id: '2025123', name: '2025'})
+                .mockResolvedValueOnce({id: 'expenses123', name: 'Expenses'});
 
             const result = await service.createDirectoryPath(path, rootParentId);
 
@@ -126,7 +130,7 @@ describe('GoogleDriveDirectoryService', () => {
             expect(mockGoogleDriveService.createFolder).toHaveBeenNthCalledWith(2, '2025', 'finance123');
             expect(mockGoogleDriveService.createFolder).toHaveBeenNthCalledWith(3, 'Expenses', '2025123');
             
-            expect(result).toEqual({ id: 'expenses123', name: 'Expenses' });
+            expect(result).toEqual({id: 'expenses123', name: 'Expenses'});
         });
     });
 });

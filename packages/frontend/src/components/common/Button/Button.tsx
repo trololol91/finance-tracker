@@ -1,5 +1,7 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import './Button.css';
+import type {
+    ButtonHTMLAttributes, ReactNode
+} from 'react';
+import '@components/common/Button/Button.css';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     children: ReactNode;
@@ -8,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     isLoading?: boolean;
 }
 
-export function Button({
+export const Button = ({
     children,
     variant = 'primary',
     size = 'medium',
@@ -16,13 +18,13 @@ export function Button({
     disabled,
     className = '',
     ...props
-}: ButtonProps): React.JSX.Element {
+}: ButtonProps): React.JSX.Element => {
     const classes = [
         'button',
         `button--${variant}`,
         `button--${size}`,
         isLoading ? 'button--loading' : '',
-        className,
+        className
     ]
         .filter(Boolean)
         .join(' ');
@@ -30,10 +32,10 @@ export function Button({
     return (
         <button
             className={classes}
-            disabled={disabled || isLoading}
+            disabled={disabled ?? isLoading}
             {...props}
         >
             {isLoading ? 'Loading...' : children}
         </button>
     );
-}
+};

@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { helpers } from '@utils/helpers';
+import {
+    describe, it, expect, vi
+} from 'vitest';
+import {helpers} from '@utils/helpers';
 
 describe('helpers', () => {
     describe('sleep', () => {
@@ -73,9 +75,9 @@ describe('helpers', () => {
     describe('groupBy', () => {
         it('groups array by key', () => {
             const data = [
-                { type: 'a', value: 1 },
-                { type: 'b', value: 2 },
-                { type: 'a', value: 3 },
+                {type: 'a', value: 1},
+                {type: 'b', value: 2},
+                {type: 'a', value: 3}
             ];
             const grouped = helpers.groupBy(data, 'type');
             expect(grouped.a).toHaveLength(2);
@@ -85,14 +87,14 @@ describe('helpers', () => {
 
     describe('sortBy', () => {
         it('sorts array ascending', () => {
-            const data = [{ age: 30 }, { age: 20 }, { age: 25 }];
+            const data = [{age: 30}, {age: 20}, {age: 25}];
             const sorted = helpers.sortBy(data, 'age', 'asc');
             expect(sorted[0].age).toBe(20);
             expect(sorted[2].age).toBe(30);
         });
 
         it('sorts array descending', () => {
-            const data = [{ age: 30 }, { age: 20 }, { age: 25 }];
+            const data = [{age: 30}, {age: 20}, {age: 25}];
             const sorted = helpers.sortBy(data, 'age', 'desc');
             expect(sorted[0].age).toBe(30);
             expect(sorted[2].age).toBe(20);
@@ -102,9 +104,9 @@ describe('helpers', () => {
     describe('uniqueBy', () => {
         it('removes duplicates by key', () => {
             const data = [
-                { id: 1, name: 'A' },
-                { id: 2, name: 'B' },
-                { id: 1, name: 'C' },
+                {id: 1, name: 'A'},
+                {id: 2, name: 'B'},
+                {id: 1, name: 'C'}
             ];
             const unique = helpers.uniqueBy(data, 'id');
             expect(unique).toHaveLength(2);

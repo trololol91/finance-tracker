@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Card } from '@components/common/Card/Card';
+import {
+    describe, it, expect
+} from 'vitest';
+import {
+    render, screen
+} from '@testing-library/react';
+import {Card} from '@components/common/Card/Card';
 
 describe('Card', () => {
     it('renders children', () => {
@@ -21,7 +25,7 @@ describe('Card', () => {
     });
 
     it('applies custom className', () => {
-        const { container } = render(<Card className="custom-class">Content</Card>);
+        const {container} = render(<Card className="custom-class">Content</Card>);
         expect(container.firstChild).toHaveClass('card');
         expect(container.firstChild).toHaveClass('custom-class');
     });

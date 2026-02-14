@@ -1,4 +1,4 @@
-export { Button } from './Button/Button';
-export { Input } from './Input/Input';
-export { Card } from './Card/Card';
-export { Loading } from './Loading/Loading';
+export {Button} from '@components/common/Button/Button';
+export {Input} from '@components/common/Input/Input';
+export {Card} from '@components/common/Card/Card';
+export {Loading} from '@components/common/Loading/Loading';

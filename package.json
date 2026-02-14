@@ -12,7 +12,9 @@
     "prepare": "husky",
     "lint:all": "npm run -w packages/backend lint:eslint && npm run -w packages/frontend lint:eslint",
     "test:all": "npm run -w packages/backend test && npm run -w packages/frontend test",
-    "test:coverage:all": "npm run -w packages/backend test:coverage"
+    "test:coverage:all": "npm run -w packages/backend test:coverage",
+    "export:transactions:cibc": "node tools/export/export-transactions-by-week-cibc.mjs",
+    "export:transactions:td": "node tools/export/export-transactions-by-week-td.mjs"
   },
   "author": "",
   "license": "ISC",

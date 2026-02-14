@@ -51,9 +51,7 @@ export const helpers = {
     groupBy: <T>(array: T[], key: keyof T): Record<string, T[]> => {
         return array.reduce((result, item) => {
             const group = String(item[key]);
-            if (!result[group]) {
-                result[group] = [];
-            }
+            result[group] = result[group] ?? [];
             result[group].push(item);
             return result;
         }, {} as Record<string, T[]>);
@@ -80,5 +78,5 @@ export const helpers = {
             seen.add(value);
             return true;
         });
-    },
+    }
 } as const;

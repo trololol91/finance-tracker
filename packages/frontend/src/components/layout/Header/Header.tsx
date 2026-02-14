@@ -1,8 +1,8 @@
-import { Link } from 'react-router-dom';
-import { APP_ROUTES } from '@config/constants';
-import './Header.css';
+import {Link} from 'react-router-dom';
+import {APP_ROUTES} from '@config/constants';
+import '@components/layout/Header/Header.css';
 
-export function Header(): React.JSX.Element {
+export const Header = (): React.JSX.Element => {
     return (
         <header className="header">
             <div className="header-container">
@@ -26,4 +26,4 @@ export function Header(): React.JSX.Element {
             </div>
         </header>
     );
-}
+};

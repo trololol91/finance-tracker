@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { validators } from '@utils/validators';
+import {
+    describe, it, expect
+} from 'vitest';
+import {validators} from '@utils/validators';
 
 describe('validators', () => {
     describe('email', () => {

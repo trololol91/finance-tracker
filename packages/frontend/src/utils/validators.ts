@@ -4,7 +4,7 @@ export const validators = {
         return emailRegex.test(email);
     },
 
-    password: (password: string): { valid: boolean; errors: string[] } => {
+    password: (password: string): {valid: boolean, errors: string[]} => {
         const errors: string[] = [];
 
         if (password.length < 8) {
@@ -22,7 +22,7 @@ export const validators = {
 
         return {
             valid: errors.length === 0,
-            errors,
+            errors
         };
     },
 
@@ -47,5 +47,5 @@ export const validators = {
 
     isNumeric: (value: string): boolean => {
         return !isNaN(Number(value)) && !isNaN(parseFloat(value));
-    },
+    }
 } as const;

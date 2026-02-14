@@ -1,7 +1,9 @@
 import axios from 'axios';
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { env } from '@config/env';
-import { STORAGE_KEYS } from '@config/constants';
+import type {
+    AxiosInstance, AxiosRequestConfig, AxiosResponse
+} from 'axios';
+import {env} from '@config/env';
+import {STORAGE_KEYS} from '@config/constants';
 
 class ApiClient {
     private client: AxiosInstance;
@@ -11,8 +13,8 @@ class ApiClient {
             baseURL: env.API_BASE_URL,
             timeout: env.API_TIMEOUT,
             headers: {
-                'Content-Type': 'application/json',
-            },
+                'Content-Type': 'application/json'
+            }
         });
 
         this.setupInterceptors();
@@ -29,7 +31,7 @@ class ApiClient {
                 return config;
             },
             (error) => {
-                return Promise.reject(error);
+                return Promise.reject(new Error(String(error)));
             }
         );
 
@@ -37,38 +39,38 @@ class ApiClient {
         this.client.interceptors.response.use(
             (response) => response,
             (error) => {
-                if (error.response?.status === 401) {
+                if (axios.isAxiosError(error) && error.response?.status === 401) {
                     // Clear auth data and redirect to login
                     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
                     localStorage.removeItem(STORAGE_KEYS.USER);
                     window.location.href = '/login';
                 }
-                return Promise.reject(error);
+                return Promise.reject(new Error(String(error)));
             }
         );
     }
 
-    async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    public async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
         const response: AxiosResponse<T> = await this.client.get(url, config);
         return response.data;
     }
 
-    async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    public async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
         const response: AxiosResponse<T> = await this.client.post(url, data, config);
         return response.data;
     }
 
-    async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    public async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
         const response: AxiosResponse<T> = await this.client.put(url, data, config);
         return response.data;
     }
 
-    async patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    public async patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
         const response: AxiosResponse<T> = await this.client.patch(url, data, config);
         return response.data;
     }
 
-    async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    public async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
         const response: AxiosResponse<T> = await this.client.delete(url, config);
         return response.data;
     }

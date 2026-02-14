@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Test, TestingModule } from '@nestjs/testing';
-import { GoogleDriveService } from '@integrations/google-drive/google-drive.service.js';
+import {
+    describe, it, expect, vi, beforeEach
+} from 'vitest';
+import type {TestingModule} from '@nestjs/testing';
+import {Test} from '@nestjs/testing';
+import {GoogleDriveService} from '@integrations/google-drive/google-drive.service.js';
 
 // Mock the entire service since it's complex to mock Google APIs correctly
 vi.mock('../google-drive.service.js');
@@ -10,7 +13,7 @@ describe('GoogleDriveService', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [GoogleDriveService],
+            providers: [GoogleDriveService]
         }).compile();
 
         service = module.get<GoogleDriveService>(GoogleDriveService);
@@ -32,15 +35,16 @@ describe('GoogleDriveService', () => {
                 name: folderName,
                 mimeType: 'application/vnd.google-apps.folder',
                 parents: [parentId],
-                webViewLink: 'https://drive.google.com/folder123',
+                webViewLink: 'https://drive.google.com/folder123'
             };
 
             // Setup the mock
-            vi.mocked(service.createFolder).mockResolvedValue(responseData);
+            const createFolderSpy = vi.spyOn(service, 'createFolder')
+                .mockResolvedValue(responseData);
 
             const result = await service.createFolder(folderName, parentId);
 
-            expect(service.createFolder).toHaveBeenCalledWith(folderName, parentId);
+            expect(createFolderSpy).toHaveBeenCalledWith(folderName, parentId);
             expect(result).toEqual(responseData);
         });
     });
@@ -49,20 +53,21 @@ describe('GoogleDriveService', () => {
         it('should list files in a folder', async () => {
             const folderId = 'folder123';
             const files = [
-                { id: 'file1', name: 'File 1' },
-                { id: 'file2', name: 'File 2' },
+                {id: 'file1', name: 'File 1'},
+                {id: 'file2', name: 'File 2'}
             ];
             const mockResult = {
                 files,
-                nextPageToken: 'next-token',
+                nextPageToken: 'next-token'
             };
 
             // Setup the mock
-            vi.mocked(service.listFiles).mockResolvedValue(mockResult);
+            const listFilesSpy = vi.spyOn(service, 'listFiles')
+                .mockResolvedValue(mockResult);
 
             const result = await service.listFiles(folderId, 100);
 
-            expect(service.listFiles).toHaveBeenCalledWith(folderId, 100);
+            expect(listFilesSpy).toHaveBeenCalledWith(folderId, 100);
             expect(result).toEqual(mockResult);
         });
     });
@@ -71,20 +76,21 @@ describe('GoogleDriveService', () => {
         it('should search for files with a query', async () => {
             const query = "name contains 'test'";
             const files = [
-                { id: 'file1', name: 'Test File 1' },
-                { id: 'file2', name: 'Test File 2' },
+                {id: 'file1', name: 'Test File 1'},
+                {id: 'file2', name: 'Test File 2'}
             ];
             const mockResult = {
                 files,
-                nextPageToken: null,
+                nextPageToken: null
             };
 
             // Setup the mock
-            vi.mocked(service.searchFiles).mockResolvedValue(mockResult);
+            const searchFilesSpy = vi.spyOn(service, 'searchFiles')
+                .mockResolvedValue(mockResult);
 
             const result = await service.searchFiles(query);
 
-            expect(service.searchFiles).toHaveBeenCalledWith(query);
+            expect(searchFilesSpy).toHaveBeenCalledWith(query);
             expect(result).toEqual(mockResult);
         });
     });

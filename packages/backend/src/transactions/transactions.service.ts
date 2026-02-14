@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {Injectable} from '@nestjs/common';
 
 @Injectable()
 export class TransactionsService {
-    getAll(): string {
+    public getAll(): string {
         return 'List of all transactions';
     }
 }

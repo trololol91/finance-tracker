@@ -1,6 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { google, drive_v3 } from 'googleapis';
-import { Readable } from 'stream';
+import {
+    Injectable, Logger
+} from '@nestjs/common';
+import {
+    google, drive_v3
+} from 'googleapis';
+import {Readable} from 'stream';
 
 /**
  * Service for handling Google Drive operations
@@ -38,7 +42,7 @@ export class GoogleDriveService {
 
             this.drive = google.drive({
                 version: 'v3',
-                auth,
+                auth
             });
       
             this.logger.log('Google Drive service initialized');
@@ -54,17 +58,17 @@ export class GoogleDriveService {
      * @param parentId Optional parent folder ID
      * @returns Folder metadata including ID
      */
-    async createFolder(name: string, parentId?: string): Promise<drive_v3.Schema$File> {
+    public async createFolder(name: string, parentId?: string): Promise<drive_v3.Schema$File> {
         try {
             const fileMetadata: drive_v3.Schema$File = {
                 name,
                 mimeType: 'application/vnd.google-apps.folder',
-                parents: parentId ? [parentId] : undefined,
+                parents: parentId ? [parentId] : undefined
             };
 
             const response = await this.drive.files.create({
                 requestBody: fileMetadata,
-                fields: 'id, name, mimeType, parents, webViewLink',
+                fields: 'id, name, mimeType, parents, webViewLink'
             });
 
             this.logger.log(`Folder created: ${name}, ID: ${response.data.id}`);
@@ -83,7 +87,7 @@ export class GoogleDriveService {
      * @param parentId Optional parent folder ID
      * @returns File metadata including ID
      */
-    async uploadFile(
+    public async uploadFile(
         name: string, 
         content: Buffer | string | Readable, 
         mimeType: string, 
@@ -92,7 +96,7 @@ export class GoogleDriveService {
         try {
             const fileMetadata: drive_v3.Schema$File = {
                 name,
-                parents: parentId ? [parentId] : undefined,
+                parents: parentId ? [parentId] : undefined
             };
 
             // Convert string to buffer if needed
@@ -103,13 +107,13 @@ export class GoogleDriveService {
 
             const media = {
                 mimeType,
-                body: fileContent,
+                body: fileContent
             };
 
             const response = await this.drive.files.create({
                 requestBody: fileMetadata,
                 media,
-                fields: 'id, name, mimeType, parents, webViewLink, size',
+                fields: 'id, name, mimeType, parents, webViewLink, size'
             });
 
             this.logger.log(`File uploaded: ${name}, ID: ${response.data.id}`);
@@ -125,24 +129,26 @@ export class GoogleDriveService {
      * @param fileId ID of the file to download
      * @returns File content as a Buffer
      */
-    async downloadFile(fileId: string): Promise<{ buffer: Buffer, metadata: drive_v3.Schema$File }> {
+    public async downloadFile(
+        fileId: string
+    ): Promise<{buffer: Buffer, metadata: drive_v3.Schema$File}> {
         try {
             // Get file metadata
             const metadata = await this.drive.files.get({
                 fileId,
-                fields: 'id, name, mimeType, size',
+                fields: 'id, name, mimeType, size'
             });
 
             // Get file content
             const response = await this.drive.files.get({
                 fileId,
-                alt: 'media',
-            }, { responseType: 'arraybuffer' });
+                alt: 'media'
+            }, {responseType: 'arraybuffer'});
 
             const buffer = Buffer.from(response.data as ArrayBuffer);
       
             this.logger.log(`File downloaded: ${metadata.data.name}, ID: ${fileId}`);
-            return { buffer, metadata: metadata.data };
+            return {buffer, metadata: metadata.data};
         } catch (error) {
             this.logger.error(`Failed to download file ID: ${fileId}`, error);
             throw error;
@@ -157,7 +163,7 @@ export class GoogleDriveService {
      * @param newName Optional new name for the file
      * @returns Updated file metadata
      */
-    async updateFile(
+    public async updateFile(
         fileId: string, 
         content: Buffer | string | Readable, 
         mimeType: string, 
@@ -178,14 +184,14 @@ export class GoogleDriveService {
 
             const media = {
                 mimeType,
-                body: fileContent,
+                body: fileContent
             };
 
             const response = await this.drive.files.update({
                 fileId,
                 requestBody: fileMetadata,
                 media,
-                fields: 'id, name, mimeType, parents, webViewLink, size, modifiedTime',
+                fields: 'id, name, mimeType, parents, webViewLink, size, modifiedTime'
             });
 
             this.logger.log(`File updated: ${response.data.name}, ID: ${fileId}`);
@@ -201,10 +207,10 @@ export class GoogleDriveService {
      * @param fileId ID of the file or folder to delete
      * @returns True if deletion was successful
      */
-    async deleteFile(fileId: string): Promise<boolean> {
+    public async deleteFile(fileId: string): Promise<boolean> {
         try {
             await this.drive.files.delete({
-                fileId,
+                fileId
             });
       
             this.logger.log(`File/folder deleted: ${fileId}`);
@@ -222,23 +228,23 @@ export class GoogleDriveService {
      * @param pageToken Token for getting the next page of results
      * @returns List of files and folders
      */
-    async listFiles(
+    public async listFiles(
         folderId = 'root', 
         pageSize = 100, 
         pageToken?: string
-    ): Promise<{ files: drive_v3.Schema$File[], nextPageToken?: string | null }> {
+    ): Promise<{files: drive_v3.Schema$File[], nextPageToken?: string | null}> {
         try {
             const response = await this.drive.files.list({
                 q: `'${folderId}' in parents and trashed = false`,
                 pageSize,
                 pageToken,
-                fields: 'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink)',
+                fields: 'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink)'
             });
 
             this.logger.log(`Listed ${response.data.files?.length ?? 0} files in folder: ${folderId}`);
             return {
                 files: response.data.files ?? [],
-                nextPageToken: response.data.nextPageToken ?? null,
+                nextPageToken: response.data.nextPageToken ?? null
             };
         } catch (error) {
             this.logger.error(`Failed to list files in folder: ${folderId}`, error);
@@ -253,23 +259,23 @@ export class GoogleDriveService {
      * @param pageToken Token for getting the next page of results
      * @returns List of matching files and folders
      */
-    async searchFiles(
+    public async searchFiles(
         query: string,
         pageSize = 100,
         pageToken?: string
-    ): Promise<{ files: drive_v3.Schema$File[], nextPageToken?: string | null }> {
+    ): Promise<{files: drive_v3.Schema$File[], nextPageToken?: string | null}> {
         try {
             const response = await this.drive.files.list({
                 q: `${query} and trashed = false`,
                 pageSize,
                 pageToken,
-                fields: 'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink)',
+                fields: 'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink)'
             });
 
             this.logger.log(`Found ${response.data.files?.length ?? 0} files matching query: ${query}`);
             return {
                 files: response.data.files ?? [],
-                nextPageToken: response.data.nextPageToken ?? null,
+                nextPageToken: response.data.nextPageToken ?? null
             };
         } catch (error) {
             this.logger.error(`Failed to search files with query: ${query}`, error);
@@ -284,7 +290,7 @@ export class GoogleDriveService {
      * @param removeFromOldParents Whether to remove from current parents (default: true)
      * @returns Updated file metadata
      */
-    async moveFile(
+    public async moveFile(
         fileId: string, 
         newParentId: string, 
         removeFromOldParents = true
@@ -296,7 +302,7 @@ export class GoogleDriveService {
             if (removeFromOldParents) {
                 const file = await this.drive.files.get({
                     fileId,
-                    fields: 'parents',
+                    fields: 'parents'
                 });
 
                 previousParents = (file.data.parents ?? []).join(',');
@@ -306,7 +312,7 @@ export class GoogleDriveService {
                 fileId,
                 addParents: newParentId,
                 removeParents: removeFromOldParents ? previousParents : undefined,
-                fields: 'id, name, mimeType, parents, webViewLink',
+                fields: 'id, name, mimeType, parents, webViewLink'
             });
 
             this.logger.log(`File moved: ${response.data.name}, ID: ${fileId}, to folder: ${newParentId}`);
@@ -324,7 +330,7 @@ export class GoogleDriveService {
      * @param parentId Optional parent folder ID for the copy
      * @returns Metadata of the new copy
      */
-    async copyFile(
+    public async copyFile(
         fileId: string, 
         newName?: string, 
         parentId?: string
@@ -343,7 +349,7 @@ export class GoogleDriveService {
             const response = await this.drive.files.copy({
                 fileId,
                 requestBody: fileMetadata,
-                fields: 'id, name, mimeType, parents, webViewLink, size',
+                fields: 'id, name, mimeType, parents, webViewLink, size'
             });
 
             this.logger.log(`File copied: ${response.data.name}, ID: ${response.data.id}, from file: ${fileId}`);
@@ -359,11 +365,11 @@ export class GoogleDriveService {
      * @param fileId ID of the file or folder
      * @returns File metadata
      */
-    async getFileMetadata(fileId: string): Promise<drive_v3.Schema$File> {
+    public async getFileMetadata(fileId: string): Promise<drive_v3.Schema$File> {
         try {
             const response = await this.drive.files.get({
                 fileId,
-                fields: 'id, name, mimeType, parents, size, createdTime, modifiedTime, webViewLink, description',
+                fields: 'id, name, mimeType, parents, size, createdTime, modifiedTime, webViewLink, description'
             });
 
             this.logger.log(`Retrieved metadata for file: ${response.data.name}, ID: ${fileId}`);

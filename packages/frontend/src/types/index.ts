@@ -1,2 +1,2 @@
-export * from './common.types';
-export * from './api.types';
+export type * from '@types/common.types';
+export type * from '@types/api.types';

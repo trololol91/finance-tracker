@@ -1,13 +1,13 @@
-import { Navigate } from 'react-router-dom';
-import type { ReactNode } from 'react';
-import { storage } from '@services/storage/localStorage';
-import { APP_ROUTES } from '@config/constants';
+import {Navigate} from 'react-router-dom';
+import type {ReactNode} from 'react';
+import {storage} from '@services/storage/localStorage';
+import {APP_ROUTES} from '@config/constants';
 
 interface PrivateRouteProps {
     children: ReactNode;
 }
 
-export function PrivateRoute({ children }: PrivateRouteProps): React.JSX.Element {
+export const PrivateRoute = ({children}: PrivateRouteProps): React.JSX.Element => {
     const token = storage.getAuthToken();
 
     if (!token) {
@@ -15,4 +15,4 @@ export function PrivateRoute({ children }: PrivateRouteProps): React.JSX.Element
     }
 
     return <>{children}</>;
-}
+};

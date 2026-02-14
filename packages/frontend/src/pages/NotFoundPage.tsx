@@ -1,10 +1,10 @@
-export function NotFoundPage(): React.JSX.Element {
+export const NotFoundPage = (): React.JSX.Element => {
     return (
         <div>
             <h1>404 - Page Not Found</h1>
             <p>The page you are looking for does not exist.</p>
         </div>
     );
-}
+};
 
 export default NotFoundPage;

@@ -1,10 +1,12 @@
-import { format, parseISO, isValid } from 'date-fns';
+import {
+    format, parseISO, isValid
+} from 'date-fns';
 
 export const formatters = {
     currency: (amount: number, currency = 'USD'): string => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
-            currency,
+            currency
         }).format(amount);
     },
 
@@ -29,7 +31,7 @@ export const formatters = {
     compact: (value: number): string => {
         return new Intl.NumberFormat('en-US', {
             notation: 'compact',
-            compactDisplay: 'short',
+            compactDisplay: 'short'
         }).format(value);
-    },
+    }
 } as const;

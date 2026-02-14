@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from '@config/constants';
+import {STORAGE_KEYS} from '@config/constants';
 
 export const storage = {
     getAuthToken: (): string | null => {
@@ -28,5 +28,5 @@ export const storage = {
 
     clear: (): void => {
         localStorage.clear();
-    },
+    }
 } as const;

@@ -1,10 +1,10 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { PrivateRoute } from '@routes/PrivateRoute';
-import { PublicRoute } from '@routes/PublicRoute';
-import { APP_ROUTES } from '@config/constants';
+import {createBrowserRouter} from 'react-router-dom';
+import {PrivateRoute} from '@routes/PrivateRoute';
+import {PublicRoute} from '@routes/PublicRoute';
+import {APP_ROUTES} from '@config/constants';
 
 // Lazy load pages
-import { lazy } from 'react';
+import {lazy} from 'react';
 
 const HomePage = lazy(() => import('@pages/HomePage.tsx'));
 const LoginPage = lazy(() => import('@pages/LoginPage.tsx'));
@@ -20,7 +20,7 @@ const NotFoundPage = lazy(() => import('@pages/NotFoundPage.tsx'));
 export const router = createBrowserRouter([
     {
         path: APP_ROUTES.HOME,
-        element: <HomePage />,
+        element: <HomePage />
     },
     {
         path: APP_ROUTES.LOGIN,
@@ -28,7 +28,7 @@ export const router = createBrowserRouter([
             <PublicRoute>
                 <LoginPage />
             </PublicRoute>
-        ),
+        )
     },
     {
         path: APP_ROUTES.DASHBOARD,
@@ -36,7 +36,7 @@ export const router = createBrowserRouter([
             <PrivateRoute>
                 <DashboardPage />
             </PrivateRoute>
-        ),
+        )
     },
     {
         path: APP_ROUTES.TRANSACTIONS,
@@ -44,7 +44,7 @@ export const router = createBrowserRouter([
             <PrivateRoute>
                 <TransactionsPage />
             </PrivateRoute>
-        ),
+        )
     },
     {
         path: APP_ROUTES.CATEGORIES,
@@ -52,7 +52,7 @@ export const router = createBrowserRouter([
             <PrivateRoute>
                 <CategoriesPage />
             </PrivateRoute>
-        ),
+        )
     },
     {
         path: APP_ROUTES.ACCOUNTS,
@@ -60,7 +60,7 @@ export const router = createBrowserRouter([
             <PrivateRoute>
                 <AccountsPage />
             </PrivateRoute>
-        ),
+        )
     },
     {
         path: APP_ROUTES.BUDGETS,
@@ -68,7 +68,7 @@ export const router = createBrowserRouter([
             <PrivateRoute>
                 <BudgetsPage />
             </PrivateRoute>
-        ),
+        )
     },
     {
         path: APP_ROUTES.REPORTS,
@@ -76,7 +76,7 @@ export const router = createBrowserRouter([
             <PrivateRoute>
                 <ReportsPage />
             </PrivateRoute>
-        ),
+        )
     },
     {
         path: APP_ROUTES.SCRAPER,
@@ -84,10 +84,10 @@ export const router = createBrowserRouter([
             <PrivateRoute>
                 <ScraperPage />
             </PrivateRoute>
-        ),
+        )
     },
     {
         path: '*',
-        element: <NotFoundPage />,
-    },
+        element: <NotFoundPage />
+    }
 ]);
