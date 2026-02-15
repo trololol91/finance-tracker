@@ -1,98 +1,347 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Finance Tracker - Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS-based REST API server for the Finance Tracker application.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tech Stack
 
-## Description
+- **Framework:** NestJS v11.0.1
+- **Runtime:** Node.js v24.13.0
+- **Language:** TypeScript v5.7.3 (ESM modules)
+- **Testing:** Vitest v4.0.15
+- **Database:** PostgreSQL (planned - currently mock data)
+- **Linting:** ESLint v9 with TypeScript ESLint
+- **Architecture:** Feature-based modules with path aliases
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Prerequisites
 
-## Project setup
+- **Node.js:** v24.13.0 (use `.nvmrc` with nvm)
+- **npm:** v11.6.2 (bundled with Node.js)
+- **Docker:** (optional) For running PostgreSQL
+
+## Development Setup
+
+### 1. Install Node.js
 
 ```bash
-$ npm install
+# Using nvm (recommended)
+nvm install 24.13.0
+nvm use 24.13.0
+
+# Verify installation
+node --version  # Should output: v24.13.0
+npm --version   # Should output: v11.6.2
 ```
 
-## Compile and run the project
+### 2. Install Dependencies
 
+**From project root:**
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+**Or from backend directory:**
+```bash
+cd packages/backend
+npm install
+```
+
+### 3. Start Development Server
+
+**Option A: Without Database (Mock Data)**
+```bash
+# From project root
+npm run backend start:dev
+
+# Or from backend directory
+npm run start:dev
+```
+
+Server runs at: **http://localhost:3000**
+
+**Option B: With PostgreSQL Database**
+```bash
+# Start only database with Docker
+docker-compose up -d postgres
+
+# Run backend locally with database access
+npm run start:dev
+```
+
+Benefits:
+- ✅ Live reload on code changes
+- ✅ Local debugging capabilities
+- ✅ Real PostgreSQL database for testing
+
+### 4. Verify Installation
 
 ```bash
-# unit tests
-$ npm run test
+# Test root endpoint
+curl http://localhost:3000
 
-# e2e tests
-$ npm run test:e2e
+# Test health check
+curl http://localhost:3000/health
+```
 
-# test coverage
-$ npm run test:cov
+## Available Scripts
+
+### Development
+```bash
+npm run start          # Start server
+npm run start:dev      # Start with auto-reload (recommended)
+npm run start:debug    # Start with debugger (port 9229)
+npm run start:prod     # Start production build
+```
+
+### Testing
+```bash
+npm test               # Run all tests once
+npm run test:watch     # Run tests in watch mode
+npm run test:ui        # Open interactive test UI
+npm run test:coverage  # Generate coverage report
+npm run test:e2e       # Run end-to-end tests
+```
+
+### Code Quality
+```bash
+npm run lint           # Lint and auto-fix
+npm run format         # Format with Prettier
+```
+
+### Build
+```bash
+npm run build          # Compile to dist/
+```
+
+## Project Structure
+
+```
+packages/backend/
+├── src/
+│   ├── accounts/           # Account management module
+│   ├── ai/                 # AI categorization module
+│   ├── auth/               # Authentication module
+│   ├── budgets/            # Budget tracking module
+│   ├── categories/         # Transaction categories module
+│   ├── common/             # Shared utilities
+│   │   ├── decorators/     # Custom decorators
+│   │   ├── filters/        # Exception filters
+│   │   ├── guards/         # Auth guards
+│   │   └── interceptors/   # HTTP interceptors
+│   ├── config/             # Configuration module
+│   ├── database/           # Database module (planned)
+│   ├── integrations/       # External integrations
+│   │   └── google-drive/   # Google Drive integration
+│   ├── reports/            # Financial reports module
+│   ├── scraper/            # Data scraper module
+│   ├── transactions/       # Transaction management
+│   ├── users/              # User management
+│   ├── app.module.ts       # Root module
+│   ├── app.controller.ts   # Root controller
+│   ├── app.service.ts      # Root service
+│   └── main.ts             # Entry point
+├── test/                   # E2E tests
+├── database/               # Database initialization scripts
+│   └── init/               # SQL initialization files
+├── dist/                   # Compiled output
+├── Dockerfile              # Production container
+├── .dockerignore           # Docker ignore rules
+├── nest-cli.json           # NestJS configuration
+├── tsconfig.json           # TypeScript configuration
+├── vitest.config.ts        # Vitest configuration
+└── eslint.config.js        # ESLint configuration
+```
+
+## Path Aliases
+
+The project uses TypeScript path aliases for cleaner imports:
+
+```typescript
+import { SomeService } from '@/some.service.js';           // Root src/
+import { Guard } from '@common/guards/auth.guard.js';      // common/
+import { Transaction } from '@transactions/entities/...';   // transactions/
+import { User } from '@users/entities/user.entity.js';     // users/
+// etc.
+```
+
+**Important:** ESM requires `.js` extensions even for `.ts` files.
+
+## Environment Variables
+
+Currently not required for development. When database is integrated:
+
+```bash
+# Create .env file
+NODE_ENV=development
+PORT=3000
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=finance_user
+DATABASE_PASSWORD=finance_password
+DATABASE_NAME=finance_tracker
+```
+
+## Database Setup (PostgreSQL)
+
+### Using Docker Compose
+
+```bash
+# Start PostgreSQL only
+docker-compose up -d postgres
+
+# Access database shell
+docker-compose exec postgres psql -U finance_user -d finance_tracker
+
+# View logs
+docker-compose logs -f postgres
+
+# Stop database
+docker-compose stop postgres
+```
+
+### Database Credentials (Docker)
+- **Host:** localhost
+- **Port:** 5432
+- **User:** finance_user
+- **Password:** finance_password (change in `.env`)
+- **Database:** finance_tracker
+
+## IDE Setup (VS Code)
+
+### Recommended Extensions
+- **ESLint** (dbaeumer.vscode-eslint)
+- **Prettier** (esbenp.prettier-vscode)
+- **EditorConfig** (editorconfig.editorconfig)
+
+Settings are pre-configured in project files.
+
+## Debugging
+
+### VS Code Debug Configuration
+
+Create `.vscode/launch.json`:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug NestJS",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:debug"],
+      "port": 9229,
+      "restart": true,
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
+```
+
+Then press **F5** or use Debug panel.
+
+## Troubleshooting
+
+### Port 3000 Already in Use
+
+```bash
+# Find process using port
+lsof -i :3000              # macOS/Linux
+netstat -ano | findstr :3000  # Windows
+
+# Change port in src/main.ts or kill the process
+```
+
+### Module Not Found Errors
+
+```bash
+# Clean reinstall
+rm -rf node_modules dist
+npm install
+```
+
+### Path Alias Issues
+
+Ensure imports use `.js` extensions:
+```typescript
+// ✅ Correct
+import { Service } from '@/service.js';
+
+// ❌ Wrong
+import { Service } from '@/service';
+```
+
+### ESLint Errors
+
+```bash
+# Auto-fix most issues
+npm run lint
+
+# Check specific file
+npx eslint src/path/to/file.ts --fix
+```
+
+## Testing Guidelines
+
+### Writing Tests
+
+```typescript
+import { describe, it, expect } from 'vitest';
+
+describe('UserService', () => {
+  it('should return user by id', () => {
+    // Arrange
+    const userId = '123';
+    
+    // Act
+    const result = service.findOne(userId);
+    
+    // Assert
+    expect(result.id).toBe(userId);
+  });
+});
+```
+
+### Test Coverage
+
+```bash
+# Generate coverage report
+npm run test:coverage
+
+# Open coverage in browser
+open coverage/index.html  # macOS
+start coverage/index.html # Windows
 ```
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+See root [Docker Setup Guide](../../docs/docker-setup.md) for production deployment with PostgreSQL.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Code Style
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+- **TypeScript:** Strict mode with explicit types
+- **Imports:** Path aliases with `.js` extensions
+- **Functions:** Return type annotations required
+- **Formatting:** Prettier with 4-space indentation
+- **Linting:** ESLint with TypeScript rules
+- **Testing:** Vitest with AAA pattern
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## API Documentation
+
+(To be added - Swagger/OpenAPI integration planned)
+
+## Contributing
+
+See root [Contributing Guide](../../.github/copilot-instructions.md) for guidelines.
 
 ## Resources
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- [NestJS Documentation](https://docs.nestjs.com)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs)
+- [Vitest Documentation](https://vitest.dev)
+- [Project Architecture](./docs/directory-structure.md)
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED - Private project

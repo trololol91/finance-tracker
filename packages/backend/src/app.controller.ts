@@ -11,4 +11,12 @@ export class AppController {
     public getHello(): string {
         return this.appService.getHello();
     }
+
+    @Get('health')
+    public healthCheck(): {status: string, timestamp: string} {
+        return {
+            status: 'ok',
+            timestamp: new Date().toISOString()
+        };
+    }
 }

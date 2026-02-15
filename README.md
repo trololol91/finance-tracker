@@ -15,9 +15,13 @@ This project uses a monorepo structure with the following packages:
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
-- npm (v7 or higher)
-- Docker and Docker Compose (for containerized deployment)
+### Local Development
+- Node.js v24.13.0 (use `.nvmrc` file with nvm)
+- npm v11.6.2 (bundled with Node.js)
+
+### Docker Deployment
+- Docker Engine 20.10+
+- Docker Compose 2.0+
 
 ## Getting Started
 
@@ -82,10 +86,16 @@ npm run test:coverage:all
 
 ## Deployment
 
-The project includes Docker configuration for easy deployment:
+The project includes Docker Compose configuration with PostgreSQL database:
 
 ```bash
-# Build and start all services
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your configuration
+# Update SECRET_KEY and POSTGRES_PASSWORD
+
+# Build and start all services (PostgreSQL + Backend + Frontend)
 docker-compose up -d
 
 # View logs
@@ -95,12 +105,27 @@ docker-compose logs -f
 docker-compose down
 ```
 
+For detailed Docker documentation, see [Docker Setup Guide](./docs/docker-setup.md).
+
+### Services
+
+- **PostgreSQL Database** - Port 5432
+- **Backend API** - Port 3001 (http://localhost:3001)
+- **Frontend** - Port 3002 (http://localhost:3002)
+- **Health Check** - http://localhost:3001/health
+
 ### Environment Variables
 
-Create a `.env` file in the root directory with the following variables:
+Copy `.env.example` to `.env` and update the following:
 
-```
-SECRET_KEY=your_secret_key_here
+```bash
+# Required
+SECRET_KEY=your_secret_key_minimum_32_characters
+POSTGRES_PASSWORD=your_secure_password
+
+# Optional (have defaults)
+POSTGRES_USER=finance_user
+POSTGRES_DB=finance_tracker
 ```
 
 ## License
