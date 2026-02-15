@@ -6,46 +6,46 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 import stylistic from '@stylistic/eslint-plugin';
 
-export default tseslint.config(
+export default [
     {
-        ignores: ['dist', 'eslint.config.js', 'vitest.config.ts'],
+        ignores: ['dist', 'eslint.config.js', 'vitest.config.ts']
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
-    tseslint.configs.stylisticTypeChecked,
+    ...tseslint.configs.stylisticTypeChecked,
     {
         files: ['**/*.{ts,tsx}'],
         languageOptions: {
             ecmaVersion: 2020,
             globals: {
-                ...globals.browser,
+                ...globals.browser
             },
             sourceType: 'module',
             parserOptions: {
                 projectService: true,
-                tsconfigRootDir: import.meta.dirname,
-            },
+                tsconfigRootDir: import.meta.dirname
+            }
         },
         plugins: {
             '@stylistic': stylistic,
             'react-hooks': reactHooks,
-            'react-refresh': reactRefresh,
+            'react-refresh': reactRefresh
         },
         rules: {
             ...reactHooks.configs.recommended.rules,
             'react-refresh/only-export-components': [
                 'warn',
-                { allowConstantExport: true },
+                { allowConstantExport: true }
             ],
             // Consistent formatting with backend
             '@stylistic/indent': ['error', 4],
             '@stylistic/quotes': ['error', 'single', {
                 avoidEscape: true,
-                allowTemplateLiterals: false,
+                allowTemplateLiterals: false
             }],
             '@stylistic/key-spacing': [
                 'error',
-                { afterColon: true },
+                { afterColon: true }
             ],
             '@stylistic/max-len': [
                 'error',
@@ -54,8 +54,8 @@ export default tseslint.config(
                     tabWidth: 4,
                     ignoreUrls: true,
                     ignoreStrings: true,
-                    ignoreTemplateLiterals: true,
-                },
+                    ignoreTemplateLiterals: true
+                }
             ],
             '@stylistic/object-curly-spacing': ['error', 'never'],
             '@stylistic/object-curly-newline': [
@@ -64,18 +64,18 @@ export default tseslint.config(
                     ImportDeclaration: {
                         multiline: true,
                         minProperties: 2,
-                        consistent: true,
+                        consistent: true
                     },
                     ExportDeclaration: {
                         multiline: true,
                         minProperties: 3,
-                        consistent: true,
-                    },
-                },
+                        consistent: true
+                    }
+                }
             ],
             '@stylistic/comma-dangle': [
                 'error',
-                'never',
+                'never'
             ],
             'prefer-arrow-callback': 'error',
             'func-style': ['error', 'expression'],
@@ -90,8 +90,8 @@ export default tseslint.config(
                 {
                     argsIgnorePattern: '^_',
                     varsIgnorePattern: '^_',
-                    caughtErrorsIgnorePattern: '^_',
-                },
+                    caughtErrorsIgnorePattern: '^_'
+                }
             ],
             '@typescript-eslint/no-empty-function': 'error',
             '@typescript-eslint/explicit-function-return-type': 'error',
@@ -104,7 +104,7 @@ export default tseslint.config(
             '@typescript-eslint/no-unsafe-call': 'error',
             // Code Quality
             '@typescript-eslint/consistent-type-imports': ['error', {
-                prefer: 'type-imports',
+                prefer: 'type-imports'
             }],
             '@typescript-eslint/consistent-type-exports': 'error',
             '@typescript-eslint/no-unnecessary-condition': 'error',
@@ -115,8 +115,8 @@ export default tseslint.config(
                 'error',
                 {
                     accessibility: 'explicit',
-                    overrides: { constructors: 'no-public' },
-                },
+                    overrides: { constructors: 'no-public' }
+                }
             ],
             '@stylistic/semi': ['error', 'always'],
             '@stylistic/member-delimiter-style': [
@@ -124,13 +124,13 @@ export default tseslint.config(
                 {
                     multiline: {
                         delimiter: 'semi',
-                        requireLast: true,
+                        requireLast: true
                     },
                     singleline: {
                         delimiter: 'comma',
-                        requireLast: false,
-                    },
-                },
+                        requireLast: false
+                    }
+                }
             ],
             // Import Rules - Enforce path aliases
             'no-restricted-imports': ['error', {
@@ -138,15 +138,15 @@ export default tseslint.config(
                     group: ['../*', './*'],
                     message: 'Use path aliases (@/*) instead of relative imports'
                 }]
-            }],
-        },
+            }]
+        }
     },
     {
         files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
         rules: {
             'max-lines-per-function': 'off',
-            'max-params': 'off',
-        },
+            'max-params': 'off'
+        }
     },
     {
         files: [
@@ -156,11 +156,17 @@ export default tseslint.config(
             'src/**/test/**',
         ],
         rules: {
-            '@typescript-eslint/explicit-member-accessibility': 'off',
-        },
+            '@typescript-eslint/explicit-member-accessibility': 'off'
+        }
     },
     {
         files: ['**/*.js', '**/*.mjs'],
-        extends: [tseslint.configs.disableTypeChecked],
+        rules: {
+            '@typescript-eslint/no-unsafe-argument': 'off',
+            '@typescript-eslint/no-unsafe-assignment': 'off',
+            '@typescript-eslint/no-unsafe-call': 'off',
+            '@typescript-eslint/no-unsafe-member-access': 'off',
+            '@typescript-eslint/no-unsafe-return': 'off'
+        }
     }
-);
+];
