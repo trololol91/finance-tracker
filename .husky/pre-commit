@@ -1,1 +1,1 @@
-#npm run test:coverage:all
+npm run test:coverage:all

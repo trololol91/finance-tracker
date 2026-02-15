@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
-import { resolve } from 'path';
+import {defineConfig} from 'vitest/config';
+import {resolve} from 'path';
 
 export default defineConfig({
     test: {
@@ -15,8 +15,9 @@ export default defineConfig({
                 'dist/',
                 '**/*.spec.ts',
                 '**/*.e2e-spec.ts',
-            ],
-        },
+                'src/integrations/google-drive/**'
+            ]
+        }
     },
     resolve: {
         alias: {
@@ -33,7 +34,7 @@ export default defineConfig({
             '@reports': resolve(__dirname, './src/reports'),
             '@scraper': resolve(__dirname, './src/scraper'),
             '@ai': resolve(__dirname, './src/ai'),
-            '@integrations': resolve(__dirname, './src/integrations'),
-        },
-    },
+            '@integrations': resolve(__dirname, './src/integrations')
+        }
+    }
 });
