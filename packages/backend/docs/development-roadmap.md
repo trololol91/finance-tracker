@@ -1,0 +1,414 @@
+# Development Roadmap - Finance Tracker Backend
+
+This document outlines the implementation order for building the Finance Tracker backend with multi-user support.
+
+## Design Decision
+
+**Architecture:** Multi-user from the start
+**Reason:** Financial data requires strict user isolation. Retrofitting multi-user later is extremely difficult and error-prone.
+
+## Current State
+
+- ✅ Docker + PostgreSQL setup complete
+- ✅ NestJS scaffolding in place
+- ⚠️ Users module exists (stub with mock data)
+- ⚠️ Transactions module exists (stub with mock data, no user association)
+- ❌ No database integration
+- ❌ No authentication
+- ❌ No ORM configured
+
+## Implementation Order
+
+### Phase 1: Database Setup & Users Module
+
+**Priority:** CRITICAL - Foundation for everything else
+
+**Tasks:**
+1. **Choose and Configure ORM**
+   - Option A: TypeORM (NestJS native support)
+   - Option B: Prisma (modern, type-safe)
+   - Install dependencies
+   - Configure connection in `database/` module
+   - Connect to Docker PostgreSQL
+
+2. **Create User Entity** (`src/users/entities/user.entity.ts`)
+   ```typescript
+   - id: UUID (primary key)
+   - email: string (unique, not null)
+   - password_hash: string (not null)
+   - first_name: string (optional)
+   - last_name: string (optional)
+   - created_at: timestamp
+   - updated_at: timestamp
+   ```
+
+3. **Create User DTOs** (`src/users/dto/`)
+   - `create-user.dto.ts` - email, password, first_name, last_name
+   - `update-user.dto.ts` - partial update fields
+   - `user-response.dto.ts` - exclude password_hash
+
+4. **Implement Users Service** (`src/users/users.service.ts`)
+   - `create(createUserDto)` - hash password, save to DB
+   - `findOne(id)` - get user by ID
+   - `findByEmail(email)` - for authentication
+   - `update(id, updateUserDto)` - update user info
+   - `remove(id)` - soft delete or hard delete
+
+5. **Implement Users Controller** (`src/users/users.controller.ts`)
+   - POST `/users` - register new user (public for now)
+   - GET `/users/:id` - get user profile
+   - PATCH `/users/:id` - update user
+   - DELETE `/users/:id` - delete user
+
+**Validation:**
+- Test user creation via API
+- Verify password is hashed in database
+- Confirm email uniqueness constraint works
+
+**Estimated Time:** 1-2 days
+
+---
+
+### Phase 2: Authentication Module
+
+**Priority:** HIGH - Required before securing any endpoints
+
+**Tasks:**
+1. **Install Dependencies**
+   ```bash
+   npm install @nestjs/passport @nestjs/jwt passport passport-jwt bcrypt
+   npm install -D @types/passport-jwt @types/bcrypt
+   ```
+
+2. **Create Auth Module** (`src/auth/`)
+   - `auth.module.ts`
+   - `auth.service.ts`
+   - `auth.controller.ts`
+   - `strategies/jwt.strategy.ts`
+   - `guards/jwt-auth.guard.ts`
+   - `decorators/current-user.decorator.ts`
+
+3. **Implement Auth Service** (`src/auth/auth.service.ts`)
+   - `register(createUserDto)` - create user + return JWT
+   - `login(email, password)` - validate credentials + return JWT
+   - `validateUser(email, password)` - check password hash
+   - `generateToken(user)` - create JWT with user.id payload
+
+4. **Create JWT Strategy** (`src/auth/strategies/jwt.strategy.ts`)
+   - Extract JWT from Authorization header
+   - Validate token signature
+   - Load user from database
+   - Attach user to request object
+
+5. **Create Guards & Decorators**
+   - `jwt-auth.guard.ts` - protect routes requiring authentication
+   - `current-user.decorator.ts` - extract user from request
+   - Optional: `roles.guard.ts` - for future role-based access
+
+6. **Implement Auth Controller** (`src/auth/auth.controller.ts`)
+   - POST `/auth/register` - create new user account
+   - POST `/auth/login` - authenticate and get JWT
+   - GET `/auth/me` - get current user info (protected)
+
+7. **Environment Configuration**
+   - Add JWT_SECRET to .env
+   - Configure token expiration (e.g., 7 days)
+   - Set up refresh token strategy (optional for v1)
+
+**Validation:**
+- Register new user and receive JWT
+- Login with credentials and receive JWT
+- Access protected route with valid JWT
+- Verify invalid JWT is rejected
+- Test @CurrentUser() decorator
+
+**Estimated Time:** 1-2 days
+
+---
+
+### Phase 3: Secure Users Module
+
+**Priority:** HIGH - Lock down user endpoints
+
+**Tasks:**
+1. **Add Guards to Users Controller**
+   - Protect all endpoints except initial registration
+   - Use `@UseGuards(JwtAuthGuard)`
+   - Add `@CurrentUser()` to endpoints
+
+2. **Implement Ownership Guards**
+   - Users can only view/update their own profile
+   - Create `OwnershipGuard` to check `user.id === params.id`
+   - Exception: Admin role (future enhancement)
+
+3. **Update Users Service**
+   - All methods require authenticated user
+   - Filter queries by user.id where appropriate
+   - Remove ability to access other users' data
+
+**Validation:**
+- Cannot access other users' profiles
+- Cannot update other users' data
+- Unauthenticated requests are rejected
+
+**Estimated Time:** 0.5-1 day
+
+---
+
+### Phase 4: Transactions Module with User Context
+
+**Priority:** HIGH - Core business logic
+
+**Tasks:**
+1. **Update Transaction Entity** (`src/transactions/entities/transaction.entity.ts`)
+   ```typescript
+   - id: UUID (primary key)
+   - user_id: UUID (foreign key to users, not null)
+   - amount: decimal(10,2) (not null)
+   - description: string
+   - category_id: UUID (foreign key to categories, optional)
+   - account_id: UUID (foreign key to accounts, optional)
+   - transaction_type: enum ('income', 'expense', 'transfer')
+   - date: timestamp (transaction date)
+   - created_at: timestamp
+   - updated_at: timestamp
+   ```
+
+2. **Create Transaction DTOs** (`src/transactions/dto/`)
+   - `create-transaction.dto.ts` - amount, description, category, date
+   - `update-transaction.dto.ts` - partial updates
+   - `transaction-response.dto.ts` - with category/account details
+   - `transaction-filter.dto.ts` - date ranges, categories, amounts
+
+3. **Implement Transactions Service** (`src/transactions/transactions.service.ts`)
+   - All methods require `userId` parameter
+   - `create(userId, createDto)` - create transaction for user
+   - `findAll(userId, filters)` - get user's transactions with filters
+   - `findOne(userId, transactionId)` - get specific transaction
+   - `update(userId, transactionId, updateDto)` - update transaction
+   - `remove(userId, transactionId)` - delete transaction
+   - `getMonthlyTotals(userId, year, month)` - aggregation query
+
+4. **Implement Transactions Controller** (`src/transactions/transactions.controller.ts`)
+   - Protect all routes with `@UseGuards(JwtAuthGuard)`
+   - Use `@CurrentUser()` to get authenticated user
+   - POST `/transactions` - create transaction
+   - GET `/transactions` - list with filters
+   - GET `/transactions/:id` - get specific transaction
+   - PATCH `/transactions/:id` - update transaction
+   - DELETE `/transactions/:id` - delete transaction
+
+5. **Add Ownership Validation**
+   - Verify transaction belongs to current user
+   - Return 404 if transaction doesn't exist or belongs to another user
+   - Never expose other users' data
+
+**Validation:**
+- Create transaction as authenticated user
+- List only own transactions
+- Cannot access other users' transactions
+- Filters work correctly (date range, category, amount)
+- Update/delete only own transactions
+
+**Estimated Time:** 2-3 days
+
+---
+
+### Phase 5: Categories Module
+
+**Priority:** MEDIUM - Needed for transaction organization
+
+**Tasks:**
+1. **Create Categories Entity**
+   ```typescript
+   - id: UUID
+   - user_id: UUID (foreign key)
+   - name: string
+   - type: enum ('income', 'expense')
+   - color: string (hex color for UI)
+   - icon: string (icon identifier)
+   - parent_category_id: UUID (for subcategories)
+   - created_at: timestamp
+   - updated_at: timestamp
+   ```
+
+2. **Implement Categories CRUD**
+   - User-scoped categories
+   - Optional: System default categories + user custom
+   - Support for nested categories
+
+3. **Update Transactions**
+   - Add category relationship
+   - Validate category belongs to same user
+
+**Estimated Time:** 1-2 days
+
+---
+
+### Phase 6: Accounts Module
+
+**Priority:** MEDIUM - Track multiple accounts
+
+**Tasks:**
+1. **Create Accounts Entity**
+   ```typescript
+   - id: UUID
+   - user_id: UUID
+   - name: string (e.g., "Chase Checking")
+   - type: enum ('checking', 'savings', 'credit', 'investment', 'cash')
+   - balance: decimal(10,2)
+   - currency: string (default 'USD')
+   - institution: string (optional)
+   - account_number: string (encrypted, optional)
+   - created_at: timestamp
+   - updated_at: timestamp
+   ```
+
+2. **Implement Accounts CRUD**
+   - User-scoped accounts
+   - Track current balance
+   - Update balance on transaction create/update/delete
+
+3. **Update Transactions**
+   - Add account relationship
+   - Support transfers between accounts
+
+**Estimated Time:** 1-2 days
+
+---
+
+### Phase 7: Budgets Module
+
+**Priority:** LOW - Premium feature
+
+**Tasks:**
+1. **Create Budgets Entity**
+   ```typescript
+   - id: UUID
+   - user_id: UUID
+   - category_id: UUID (optional)
+   - amount: decimal(10,2)
+   - period: enum ('monthly', 'quarterly', 'yearly')
+   - start_date: timestamp
+   - end_date: timestamp (optional)
+   - created_at: timestamp
+   - updated_at: timestamp
+   ```
+
+2. **Implement Budget Tracking**
+   - Compare actual spending vs budget
+   - Alert when approaching/exceeding limits
+   - Historical budget performance
+
+**Estimated Time:** 2-3 days
+
+---
+
+### Phase 8: Reports Module
+
+**Priority:** LOW - Analytics and insights
+
+**Tasks:**
+1. **Implement Report Endpoints**
+   - Monthly spending by category
+   - Income vs expenses trends
+   - Account balances over time
+   - Net worth calculation
+   - Budget performance
+
+2. **Create Visualization Data**
+   - Format data for charts
+   - Aggregate by time periods
+   - Calculate percentages and trends
+
+**Estimated Time:** 2-3 days
+
+---
+
+## Development Best Practices
+
+### Database Migrations
+- Create migration for each schema change
+- Never modify existing migrations
+- Test migrations on fresh database
+- Document breaking changes
+
+### Testing Strategy
+- Unit tests for services (business logic)
+- Integration tests for controllers (API endpoints)
+- E2E tests for critical user flows
+- Test with multiple users to ensure isolation
+
+### Security Checklist
+- [ ] All endpoints protected with authentication
+- [ ] User data properly scoped by user_id
+- [ ] Passwords hashed with bcrypt (cost factor 10-12)
+- [ ] JWT secrets in environment variables
+- [ ] Input validation on all DTOs
+- [ ] SQL injection prevention (ORM parameterized queries)
+- [ ] Rate limiting on auth endpoints
+- [ ] CORS configured properly
+
+### Code Standards
+- Use path aliases (`@users/`, `@transactions/`, etc.)
+- Return type annotations on all functions
+- Explicit `.js` extensions on imports (ESM)
+- Follow NestJS module pattern
+- Use dependency injection
+- Write comprehensive error messages
+
+---
+
+## Quick Start Commands
+
+```bash
+# Install ORM (choose one)
+npm install @nestjs/typeorm typeorm pg           # TypeORM
+npm install @prisma/client && npm install -D prisma  # Prisma
+
+# Install authentication packages
+npm install @nestjs/passport @nestjs/jwt passport passport-jwt bcrypt
+npm install -D @types/passport-jwt @types/bcrypt
+
+# Start development database
+docker-compose up -d postgres
+
+# Run migrations (TypeORM)
+npm run migration:run
+
+# Start development server
+npm run start:dev
+
+# Run tests
+npm test
+npm run test:watch
+```
+
+---
+
+## Milestones
+
+- **Milestone 1:** Users + Auth working (can register/login)
+- **Milestone 2:** Transactions CRUD with user association
+- **Milestone 3:** Categories + Accounts + Budgets
+- **Milestone 4:** Reports and analytics
+- **Milestone 5:** Production deployment
+
+**Total Estimated Time:** 2-3 weeks for Phases 1-4 (MVP)
+
+---
+
+## Future Enhancements
+
+- [ ] Recurring transactions
+- [ ] Transaction import (CSV, bank APIs)
+- [ ] Multi-currency support
+- [ ] Shared accounts (household mode)
+- [ ] Mobile app support
+- [ ] Email notifications
+- [ ] Two-factor authentication
+- [ ] OAuth providers (Google, Apple)
+- [ ] Receipt image upload
+- [ ] AI-powered categorization
+- [ ] Financial goals tracking
+- [ ] Investment portfolio tracking
