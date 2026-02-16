@@ -120,20 +120,26 @@ export default [
                     }
                 }
             ],
-            // Import Rules - Enforce path aliases
+            // Import Rules - Use Node.js subpath imports (#prefix) for cross-module imports
             'no-restricted-imports': ['error', {
                 patterns: [{
-                    group: ['../*', './*'],
-                    message: 'Use path aliases (@/*) instead of relative imports'
+                    group: ['../*'],
+                    message: 'Use path aliases (#common/*, #database/*, etc.) instead of parent directory imports'
                 }]
             }]
         }
     },
     {
-        files: ['**/*.spec.ts', '**/*.test.ts'],
+        files: ['**/*.spec.ts', '**/*.test.ts', '**/__TEST__/**/*.ts'],
         rules: {
             'max-lines-per-function': 'off',
-            'max-params': 'off'
+            'max-params': 'off',
+            '@typescript-eslint/no-unsafe-assignment': 'off',
+            '@typescript-eslint/no-unsafe-call': 'off',
+            '@typescript-eslint/no-unsafe-member-access': 'off',
+            '@typescript-eslint/no-unsafe-argument': 'off',
+            '@typescript-eslint/no-empty-function': 'off',
+            '@typescript-eslint/explicit-function-return-type': 'off'
         }
     },
     {

@@ -1,8 +1,8 @@
 import {
     describe, it, expect, beforeEach
 } from 'vitest';
-import {AppController} from '@/app.controller.js';
-import {AppService} from '@/app.service.js';
+import {AppController} from '#root/app.controller.js';
+import {AppService} from '#root/app.service.js';
 
 describe('AppController', () => {
     let appController: AppController;

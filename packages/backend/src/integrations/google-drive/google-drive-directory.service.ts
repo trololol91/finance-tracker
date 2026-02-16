@@ -2,7 +2,7 @@ import {
     Injectable, Logger
 } from '@nestjs/common';
 import {drive_v3} from 'googleapis';
-import {GoogleDriveService} from '@integrations/google-drive/google-drive.service.js';
+import {GoogleDriveService} from './google-drive.service.js';
 
 /**
  * Interface for directory structure template

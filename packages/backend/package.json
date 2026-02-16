@@ -6,6 +6,23 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "imports": {
+    "#root/*": "./dist/src/*",
+    "#common/*": "./dist/src/common/*",
+    "#config/*": "./dist/src/config/*",
+    "#database/*": "./dist/src/database/*",
+    "#auth/*": "./dist/src/auth/*",
+    "#users/*": "./dist/src/users/*",
+    "#transactions/*": "./dist/src/transactions/*",
+    "#categories/*": "./dist/src/categories/*",
+    "#accounts/*": "./dist/src/accounts/*",
+    "#budgets/*": "./dist/src/budgets/*",
+    "#reports/*": "./dist/src/reports/*",
+    "#scraper/*": "./dist/src/scraper/*",
+    "#ai/*": "./dist/src/ai/*",
+    "#integrations/*": "./dist/src/integrations/*",
+    "#generated/*": "./dist/src/generated/*"
+  },
   "engines": {
     "node": "24.13.0"
   },
@@ -24,13 +41,23 @@
     "test:coverage": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --inspect --no-file-parallelism",
     "test:e2e": "vitest run --config ./test/vitest-e2e.config.ts",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@nestjs/common": "11.0.1",
+    "@nestjs/config": "4.0.3",
     "@nestjs/core": "11.0.1",
     "@nestjs/platform-express": "11.0.1",
+    "@prisma/adapter-pg": "7.4.0",
+    "@prisma/client": "7.4.0",
+    "dotenv": "16.6.1",
     "googleapis": "168.0.0",
+    "pg": "8.18.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.1"
   },
@@ -53,6 +80,7 @@
     "eslint-plugin-prettier": "5.2.2",
     "globals": "16.0.0",
     "prettier": "3.4.2",
+    "prisma": "7.4.0",
     "source-map-support": "0.5.21",
     "supertest": "7.0.0",
     "ts-loader": "9.5.2",

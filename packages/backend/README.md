@@ -8,9 +8,42 @@ NestJS-based REST API server for the Finance Tracker application.
 - **Runtime:** Node.js v24.13.0
 - **Language:** TypeScript v5.7.3 (ESM modules)
 - **Testing:** Vitest v4.0.15
-- **Database:** PostgreSQL (planned - currently mock data)
+- **Database:** PostgreSQL 17 + Prisma ORM
 - **Linting:** ESLint v9 with TypeScript ESLint
 - **Architecture:** Feature-based modules with path aliases
+
+## Quick Start
+
+Get the backend running in under 2 minutes:
+
+```bash
+# 1. Install dependencies (from project root)
+npm install
+
+# 2. Start PostgreSQL database
+docker-compose up -d postgres
+
+# 3. Run database migrations
+cd packages/backend
+npm run prisma:migrate
+
+# 4. Start development server
+npm run start:dev
+```
+
+**Server runs at:** http://localhost:3001
+
+**Test endpoints:**
+```bash
+curl http://localhost:3001/health
+```
+
+**Database GUI:**
+```bash
+npm run prisma:studio  # Opens at http://localhost:5555
+```
+
+> **Note:** For detailed setup instructions, environment configuration, and troubleshooting, see sections below.
 
 ## Prerequisites
 
@@ -45,9 +78,32 @@ cd packages/backend
 npm install
 ```
 
-### 3. Start Development Server
+### 3. Setup Database
 
-**Option A: Without Database (Mock Data)**
+**Start PostgreSQL with Docker:**
+```bash
+# From project root
+docker-compose up -d postgres
+```
+
+**Configure environment** (already set in `.env`):
+```env
+DATABASE_URL="postgresql://finance_user:change_this_password@localhost:5432/finance_tracker"
+```
+
+**Run migrations:**
+```bash
+cd packages/backend
+npm run prisma:migrate
+```
+
+**Generate Prisma Client** (if needed):
+```bash
+npm run prisma:generate
+```
+
+### 4. Start Development Server
+
 ```bash
 # From project root
 npm run backend start:dev
@@ -56,30 +112,24 @@ npm run backend start:dev
 npm run start:dev
 ```
 
-Server runs at: **http://localhost:3000**
-
-**Option B: With PostgreSQL Database**
-```bash
-# Start only database with Docker
-docker-compose up -d postgres
-
-# Run backend locally with database access
-npm run start:dev
-```
+Server runs at: **http://localhost:3001**
 
 Benefits:
 - ✅ Live reload on code changes
-- ✅ Local debugging capabilities
-- ✅ Real PostgreSQL database for testing
+- ✅ Hot module replacement
+- ✅ PostgreSQL database with Prisma ORM
+- ✅ Type-safe database access
 
-### 4. Verify Installation
+### 5. Verify Installation
 
 ```bash
-# Test root endpoint
-curl http://localhost:3000
-
 # Test health check
-curl http://localhost:3000/health
+curl http://localhost:3001/health
+```
+
+**Open Prisma Studio** (database GUI):
+```bash
+npm run prisma:studio  # http://localhost:5555
 ```
 
 ## Available Scripts
@@ -107,6 +157,15 @@ npm run lint           # Lint and auto-fix
 npm run format         # Format with Prettier
 ```
 
+### Database (Prisma)
+```bash
+npm run prisma:generate  # Generate Prisma Client
+npm run prisma:migrate   # Create and apply migration
+npm run prisma:deploy    # Apply pending migrations (production)
+npm run prisma:studio    # Open database GUI
+npm run prisma:seed      # Run seed script
+```
+
 ### Build
 ```bash
 npm run build          # Compile to dist/
@@ -128,7 +187,7 @@ packages/backend/
 │   │   ├── guards/         # Auth guards
 │   │   └── interceptors/   # HTTP interceptors
 │   ├── config/             # Configuration module
-│   ├── database/           # Database module (planned)
+│   ├── database/           # Database module (Prisma + PostgreSQL)
 │   ├── integrations/       # External integrations
 │   │   └── google-drive/   # Google Drive integration
 │   ├── reports/            # Financial reports module
@@ -167,18 +226,22 @@ import { User } from '@users/entities/user.entity.js';     // users/
 
 ## Environment Variables
 
-Currently not required for development. When database is integrated:
+The backend uses a `.env` file for configuration (already created during setup):
 
-```bash
-# Create .env file
-NODE_ENV=development
-PORT=3000
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USER=finance_user
-DATABASE_PASSWORD=finance_password
-DATABASE_NAME=finance_tracker
+```env
+# Database URL for Prisma
+DATABASE_URL="postgresql://finance_user:change_this_password@localhost:5432/finance_tracker"
+
+# JWT Authentication (for Phase 2)
+JWT_SECRET="your_jwt_secret_key_here_minimum_32_characters_long_for_production"
+JWT_EXPIRES_IN="7d"
+
+# Application
+PORT=3001
+NODE_ENV="development"
 ```
+
+**Note:** The `.env` file is gitignored. See `.env.example` in project root for reference.
 
 ## Database Setup (PostgreSQL)
 
