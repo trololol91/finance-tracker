@@ -24,41 +24,38 @@ This document outlines the implementation order for building the Finance Tracker
 **Priority:** CRITICAL - Foundation for everything else
 
 **Tasks:**
-1. **Choose and Configure ORM**
-   - Option A: TypeORM (NestJS native support)
-   - Option B: Prisma (modern, type-safe)
-   - Install dependencies
-   - Configure connection in `database/` module
-   - Connect to Docker PostgreSQL
+1. **~~Choose and Configure ORM~~** ✅
+   - ✅ Prisma installed and configured
+   - ✅ Database connection configured
+   - ✅ Connected to Docker PostgreSQL
 
-2. **Create User Entity** (`src/users/entities/user.entity.ts`)
-   ```typescript
-   - id: UUID (primary key)
-   - email: string (unique, not null)
-   - password_hash: string (not null)
-   - first_name: string (optional)
-   - last_name: string (optional)
-   - created_at: timestamp
-   - updated_at: timestamp
-   ```
+2. **~~Define User Model in Prisma Schema~~** ✅ (`prisma/schema.prisma`)
+   - ✅ User model created with all fields
+   - ✅ UserRole enum (USER, ADMIN)
+   - ✅ Migration created and applied
+   - ✅ Prisma Client generated (types available in `@generated/prisma`)
+   - **Note:** No entity files needed - Prisma generates types automatically
 
-3. **Create User DTOs** (`src/users/dto/`)
-   - `create-user.dto.ts` - email, password, first_name, last_name
-   - `update-user.dto.ts` - partial update fields
-   - `user-response.dto.ts` - exclude password_hash
+3. **~~Create User DTOs~~** ✅ (`src/users/dto/`)
+   - ✅ `create-user.dto.ts` - email, password, firstName, lastName, timezone, currency
+   - ✅ `update-user.dto.ts` - partial update fields (firstName, lastName, timezone, currency, isActive)
+   - ✅ `user-response.dto.ts` - excludes passwordHash and deletedAt
+   - ✅ All with proper class-validator decorators
 
-4. **Implement Users Service** (`src/users/users.service.ts`)
-   - `create(createUserDto)` - hash password, save to DB
-   - `findOne(id)` - get user by ID
-   - `findByEmail(email)` - for authentication
-   - `update(id, updateUserDto)` - update user info
-   - `remove(id)` - soft delete or hard delete
+4. **~~Implement Users Service~~** ✅ (`src/users/users.service.ts`)
+   - ✅ `create(createUserDto)` - hash password with bcrypt (saltRounds: 10), save to DB
+   - ✅ `findOne(id)` - get user by ID (excludes soft-deleted users)
+   - ✅ `findByEmail(email)` - for authentication (excludes soft-deleted users)
+   - ✅ `update(id, updateUserDto)` - update user info
+   - ✅ `remove(id)` - soft delete (sets deletedAt timestamp and isActive=false)
 
-5. **Implement Users Controller** (`src/users/users.controller.ts`)
-   - POST `/users` - register new user (public for now)
-   - GET `/users/:id` - get user profile
-   - PATCH `/users/:id` - update user
-   - DELETE `/users/:id` - delete user
+5. **~~Implement Users Controller~~** ✅ (`src/users/users.controller.ts`)
+   - ✅ POST `/users` - register new user (public for now)
+   - ✅ GET `/users/:id` - get user profile
+   - ✅ PATCH `/users/:id` - update user
+   - ✅ DELETE `/users/:id` - soft delete user
+   - ✅ All endpoints return UserResponseDto (excludes sensitive fields)
+   - ✅ Proper HTTP status codes (201 for create, 204 for delete)
 
 **Validation:**
 - Test user creation via API

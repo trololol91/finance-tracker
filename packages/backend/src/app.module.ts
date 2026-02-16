@@ -5,6 +5,7 @@ import {AppService} from './app.service.js';
 import {CommonModule} from '#common/common.module.js';
 import {DatabaseModule} from '#database/database.module.js';
 import {TransactionsModule} from '#transactions/transactions.module.js';
+import {UsersModule} from '#users/users.module.js';
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import {TransactionsModule} from '#transactions/transactions.module.js';
         }),
         DatabaseModule,
         CommonModule,
+        UsersModule,
         TransactionsModule
     ],
     controllers: [AppController],

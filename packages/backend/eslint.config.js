@@ -83,6 +83,7 @@ export default [
             ],
             '@typescript-eslint/no-empty-function': 'error',
             '@typescript-eslint/explicit-function-return-type': 'error',
+            '@typescript-eslint/require-await': 'error',
             // Security & Best Practices
             '@typescript-eslint/no-misused-promises': 'error',
             '@typescript-eslint/await-thenable': 'error',
@@ -139,13 +140,18 @@ export default [
             '@typescript-eslint/no-unsafe-member-access': 'off',
             '@typescript-eslint/no-unsafe-argument': 'off',
             '@typescript-eslint/no-empty-function': 'off',
-            '@typescript-eslint/explicit-function-return-type': 'off'
+            '@typescript-eslint/explicit-function-return-type': 'off',
+            '@typescript-eslint/unbound-method': 'off'
         }
     },
     {
         files: ['src/**/dto/**', 'src/**/entities/**'],
         rules: {
-            '@typescript-eslint/explicit-member-accessibility': 'off'
+            '@typescript-eslint/explicit-member-accessibility': 'off',
+            // Decorators from class-validator trigger these rules but are safe
+            '@typescript-eslint/no-unsafe-call': 'off',
+            '@typescript-eslint/no-unsafe-assignment': 'off',
+            '@typescript-eslint/no-unsafe-return': 'off'
         }
     },
     {

@@ -20,10 +20,14 @@ This is a finance tracker monorepo with:
 - Use `interface` for object shapes, `type` for unions/intersections
 
 ### Import Rules
-- **REQUIRED**: Use path aliases (`@/`, `@components/`, `@features/`, etc.) - NO relative imports
+- **REQUIRED**: Use path aliases - NO relative imports
+  - **Backend**: Use `#` aliases (`#users/`, `#common/`, `#database/`, etc.)
+  - **Frontend**: Use `@` aliases (`@/`, `@components/`, `@features/`, etc.)
 - ESM requires explicit `.js` extensions on imports (even for `.ts` files)
 - Group imports: external → internal → relative
-- Example: `import { Button } from '@components/common';`
+- Examples:
+  - Backend: `import { UsersService } from '#users/users.service.js';`
+  - Frontend: `import { Button } from '@components/common';`
 
 ### Naming Conventions
 - Components: PascalCase (`TransactionList.tsx`)
