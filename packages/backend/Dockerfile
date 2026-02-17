@@ -10,9 +10,16 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 COPY tsconfig*.json ./
 COPY nest-cli.json ./
+COPY prisma.config.ts ./
 
 # Install dependencies (including dev dependencies for build)
 RUN npm ci
+
+# Copy Prisma schema and migrations
+COPY prisma ./prisma
+
+# Generate Prisma Client
+RUN npx prisma generate
 
 # Copy source code
 COPY src ./src
@@ -35,10 +42,17 @@ WORKDIR /usr/src/app
 
 # Copy package files
 COPY --chown=nestjs:nodejs package*.json ./
+COPY --chown=nestjs:nodejs prisma.config.ts ./
 
 # Install production dependencies only
 RUN npm ci --only=production && \
     npm cache clean --force
+
+# Copy Prisma files for migrations
+COPY --chown=nestjs:nodejs prisma ./prisma
+
+# Generate Prisma Client in production
+RUN npx prisma generate
 
 # Copy built application from builder stage
 COPY --chown=nestjs:nodejs --from=builder /usr/src/app/dist ./dist
@@ -50,14 +64,14 @@ RUN mkdir -p logs && chown -R nestjs:nodejs logs
 USER nestjs
 
 # Expose application port
-EXPOSE 3000
+EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start the application
+# Start the application (migrations run via docker-compose command override)
 CMD ["node", "dist/main.js"]

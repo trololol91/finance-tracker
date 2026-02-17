@@ -19,7 +19,45 @@ This document outlines the implementation order for building the Finance Tracker
 
 ## Implementation Order
 
-### Phase 1: Database Setup & Users Module
+### Standard Checklist for Each Phase
+
+**Every phase should complete these tasks to maintain quality and consistency:**
+
+#### ✅ **Core Implementation**
+- [ ] Business logic implemented in service layer
+- [ ] Controller with proper HTTP methods and status codes
+- [ ] DTOs with class-validator decorators
+- [ ] All imports use path aliases (no relative imports)
+
+#### ✅ **Documentation**
+- [ ] Swagger decorators on all endpoints (`@ApiOperation`, `@ApiResponse`, `@ApiParam`, `@ApiBody`)
+- [ ] Swagger decorators on all DTOs (`@ApiProperty` with descriptions and examples)
+- [ ] Added to appropriate `@ApiTags` group
+- [ ] Test endpoints in Swagger UI
+
+#### ✅ **Testing**
+- [ ] Unit tests for service (business logic)
+- [ ] Unit tests for controller (endpoint behavior)
+- [ ] Test error cases (404, 400, 409, etc.)
+- [ ] All tests passing (`npm test`)
+- [ ] No linting errors (`npm run lint`)
+
+#### ✅ **Security & Validation**
+- [ ] Input validation on all DTOs
+- [ ] Response DTOs exclude sensitive fields
+- [ ] Authentication guards applied (if needed)
+- [ ] User data scoped by userId (if applicable)
+- [ ] SQL injection prevention (parameterized queries)
+
+#### ✅ **Database**
+- [ ] Prisma schema updated (if needed)
+- [ ] Migration created (`npx prisma migrate dev`)
+- [ ] Migration tested on fresh database
+- [ ] Foreign key relationships correct
+
+---
+
+### Phase 1: Database Setup & Users Module ✅ **COMPLETE**
 
 **Priority:** CRITICAL - Foundation for everything else
 
@@ -41,6 +79,7 @@ This document outlines the implementation order for building the Finance Tracker
    - ✅ `update-user.dto.ts` - partial update fields (firstName, lastName, timezone, currency, isActive)
    - ✅ `user-response.dto.ts` - excludes passwordHash and deletedAt
    - ✅ All with proper class-validator decorators
+   - ✅ All with Swagger `@ApiProperty` decorators
 
 4. **~~Implement Users Service~~** ✅ (`src/users/users.service.ts`)
    - ✅ `create(createUserDto)` - hash password with bcrypt (saltRounds: 10), save to DB
@@ -56,11 +95,23 @@ This document outlines the implementation order for building the Finance Tracker
    - ✅ DELETE `/users/:id` - soft delete user
    - ✅ All endpoints return UserResponseDto (excludes sensitive fields)
    - ✅ Proper HTTP status codes (201 for create, 204 for delete)
+   - ✅ Full Swagger documentation
+
+**Testing & Documentation:** ✅
+- ✅ 22 unit tests (15 service, 7 controller) - all passing
+- ✅ Swagger UI configured with JWT auth support
+- ✅ All endpoints documented and testable in Swagger
+
+**Deployment & Security:** ✅
+- ✅ Production-ready Dockerfile with Prisma support
+- ✅ docker-compose.yml with auto-migrations
+- ✅ Secure environment variable configuration (no defaults)
+- ✅ DEPLOYMENT.md with security checklist
 
 **Validation:**
-- Test user creation via API
-- Verify password is hashed in database
-- Confirm email uniqueness constraint works
+- ✅ Test user creation via API
+- ✅ Verify password is hashed in database
+- ✅ Confirm email uniqueness constraint works
 
 **Estimated Time:** 1-2 days
 
@@ -73,8 +124,8 @@ This document outlines the implementation order for building the Finance Tracker
 **Tasks:**
 1. **Install Dependencies**
    ```bash
-   npm install @nestjs/passport @nestjs/jwt passport passport-jwt bcrypt
-   npm install -D @types/passport-jwt @types/bcrypt
+   npm install @nestjs/passport @nestjs/jwt passport passport-jwt
+   npm install -D @types/passport-jwt
    ```
 
 2. **Create Auth Module** (`src/auth/`)
@@ -108,9 +159,16 @@ This document outlines the implementation order for building the Finance Tracker
    - GET `/auth/me` - get current user info (protected)
 
 7. **Environment Configuration**
-   - Add JWT_SECRET to .env
+   - JWT_SECRET already in .env
    - Configure token expiration (e.g., 7 days)
    - Set up refresh token strategy (optional for v1)
+
+**Phase 2 Checklist:** (Use Standard Checklist above)
+- [ ] **Core:** Auth service, controller, DTOs, guards, decorators implemented
+- [ ] **Documentation:** Swagger decorators on auth endpoints, test login/register in Swagger UI
+- [ ] **Testing:** Unit tests for auth service and controller (token generation, validation, login flow)
+- [ ] **Security:** JWT properly configured, tokens validated, passwords compared with bcrypt
+- [ ] **Database:** No schema changes needed (uses existing User model)
 
 **Validation:**
 - Register new user and receive JWT
@@ -118,6 +176,7 @@ This document outlines the implementation order for building the Finance Tracker
 - Access protected route with valid JWT
 - Verify invalid JWT is rejected
 - Test @CurrentUser() decorator
+- Test in Swagger UI with "Authorize" button
 
 **Estimated Time:** 1-2 days
 
@@ -143,10 +202,18 @@ This document outlines the implementation order for building the Finance Tracker
    - Filter queries by user.id where appropriate
    - Remove ability to access other users' data
 
+**Phase 3 Checklist:** (Use Standard Checklist above)
+- [ ] **Core:** Guards implemented and applied to Users controller
+- [ ] **Documentation:** Swagger updated with `@ApiBearerAuth()` decorator
+- [ ] **Testing:** Unit tests for ownership validation, unauthorized access attempts
+- [ ] **Security:** All endpoints protected except public registration, ownership verified
+- [ ] **Database:** No changes needed
+
 **Validation:**
 - Cannot access other users' profiles
 - Cannot update other users' data
 - Unauthenticated requests are rejected
+- Swagger "Authorize" button works correctly
 
 **Estimated Time:** 0.5-1 day
 
@@ -157,7 +224,7 @@ This document outlines the implementation order for building the Finance Tracker
 **Priority:** HIGH - Core business logic
 
 **Tasks:**
-1. **Update Transaction Entity** (`src/transactions/entities/transaction.entity.ts`)
+1. **Define Transaction Model in Prisma Schema** (`prisma/schema.prisma`)
    ```typescript
    - id: UUID (primary key)
    - user_id: UUID (foreign key to users, not null)
@@ -200,12 +267,20 @@ This document outlines the implementation order for building the Finance Tracker
    - Return 404 if transaction doesn't exist or belongs to another user
    - Never expose other users' data
 
+**Phase 4 Checklist:** (Use Standard Checklist above)
+- [ ] **Core:** Transaction service, controller, DTOs implemented with user scoping
+- [ ] **Documentation:** Swagger decorators on all endpoints, test in Swagger UI with auth token
+- [ ] **Testing:** Unit tests for CRUD, filtering, ownership validation, aggregation queries
+- [ ] **Security:** All endpoints protected with JwtAuthGuard, userId scoping enforced
+- [ ] **Database:** Prisma schema updated, migration created with user_id foreign key
+
 **Validation:**
 - Create transaction as authenticated user
 - List only own transactions
 - Cannot access other users' transactions
 - Filters work correctly (date range, category, amount)
 - Update/delete only own transactions
+- Monthly totals aggregate correctly
 
 **Estimated Time:** 2-3 days
 
@@ -216,7 +291,7 @@ This document outlines the implementation order for building the Finance Tracker
 **Priority:** MEDIUM - Needed for transaction organization
 
 **Tasks:**
-1. **Create Categories Entity**
+1. **Define Categories Model in Prisma Schema** (`prisma/schema.prisma`)
    ```typescript
    - id: UUID
    - user_id: UUID (foreign key)
@@ -238,16 +313,18 @@ This document outlines the implementation order for building the Finance Tracker
    - Add category relationship
    - Validate category belongs to same user
 
+**Phase 5 Checklist:** Apply Standard Checklist (Core, Documentation, Testing, Security, Database)
+
 **Estimated Time:** 1-2 days
 
 ---
 
 ### Phase 6: Accounts Module
 
-**Priority:** MEDIUM - Track multiple accounts
+**Priority:** LOW - Track multiple accounts
 
 **Tasks:**
-1. **Create Accounts Entity**
+1. **Define Accounts Model in Prisma Schema** (`prisma/schema.prisma`)
    ```typescript
    - id: UUID
    - user_id: UUID
@@ -270,6 +347,8 @@ This document outlines the implementation order for building the Finance Tracker
    - Add account relationship
    - Support transfers between accounts
 
+**Phase 6 Checklist:** Apply Standard Checklist (Core, Documentation, Testing, Security, Database)
+
 **Estimated Time:** 1-2 days
 
 ---
@@ -279,7 +358,7 @@ This document outlines the implementation order for building the Finance Tracker
 **Priority:** LOW - Premium feature
 
 **Tasks:**
-1. **Create Budgets Entity**
+1. **Define Budgets Model in Prisma Schema** (`prisma/schema.prisma`)
    ```typescript
    - id: UUID
    - user_id: UUID
@@ -296,6 +375,8 @@ This document outlines the implementation order for building the Finance Tracker
    - Compare actual spending vs budget
    - Alert when approaching/exceeding limits
    - Historical budget performance
+
+**Phase 7 Checklist:** Apply Standard Checklist (Core, Documentation, Testing, Security, Database)
 
 **Estimated Time:** 2-3 days
 
@@ -317,6 +398,8 @@ This document outlines the implementation order for building the Finance Tracker
    - Format data for charts
    - Aggregate by time periods
    - Calculate percentages and trends
+
+**Phase 8 Checklist:** Apply Standard Checklist (Core, Documentation, Testing, Security, Database)
 
 **Estimated Time:** 2-3 days
 
@@ -404,6 +487,7 @@ npm run test:watch
 - [ ] Mobile app support
 - [ ] Email notifications
 - [ ] Two-factor authentication
+- [ ] Email change workflow with verification (send confirmation to old and new email, require password)
 - [ ] OAuth providers (Google, Apple)
 - [ ] Receipt image upload
 - [ ] AI-powered categorization
