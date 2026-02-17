@@ -7,6 +7,7 @@ import {
 } from 'vitest';
 import type {TestingModule} from '@nestjs/testing';
 import {Test} from '@nestjs/testing';
+import {ConfigModule} from '@nestjs/config';
 import {DatabaseModule} from '#database/database.module.js';
 import {PrismaService} from '#database/prisma.service.js';
 
@@ -46,7 +47,13 @@ describe('DatabaseModule', () => {
         process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
         
         module = await Test.createTestingModule({
-            imports: [DatabaseModule]
+            imports: [
+                ConfigModule.forRoot({
+                    isGlobal: true,
+                    envFilePath: '.env'
+                }),
+                DatabaseModule
+            ]
         }).compile();
     });
 
@@ -64,7 +71,13 @@ describe('DatabaseModule', () => {
         it('should export PrismaService for use in other modules', async () => {
             // Create a test module that imports DatabaseModule
             const testModule = await Test.createTestingModule({
-                imports: [DatabaseModule],
+                imports: [
+                    ConfigModule.forRoot({
+                        isGlobal: true,
+                        envFilePath: '.env'
+                    }),
+                    DatabaseModule
+                ],
                 providers: []
             }).compile();
 
@@ -75,9 +88,15 @@ describe('DatabaseModule', () => {
 
     describe('global module', () => {
         it('should make PrismaService available globally', async () => {
-            // Create a module without importing DatabaseModule
+            // Create a module with ConfigModule and DatabaseModule
             const globalTestModule = await Test.createTestingModule({
-                imports: [DatabaseModule],
+                imports: [
+                    ConfigModule.forRoot({
+                        isGlobal: true,
+                        envFilePath: '.env'
+                    }),
+                    DatabaseModule
+                ],
                 providers: []
             }).compile();
 

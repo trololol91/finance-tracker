@@ -1,5 +1,6 @@
 import {NestFactory} from '@nestjs/core';
 import {ValidationPipe} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import {
     DocumentBuilder, SwaggerModule
 } from '@nestjs/swagger';
@@ -49,7 +50,11 @@ const bootstrap = async (): Promise<void> => {
         }
     });
 
-    await app.listen(process.env.PORT ?? 3001);
+    // Get port from configuration
+    const configService = app.get(ConfigService);
+    const port = configService.get<number>('PORT') ?? 3001;
+
+    await app.listen(port);
     console.log(`Application is running on: ${await app.getUrl()}`);
     console.log(`Swagger documentation: ${await app.getUrl()}/api`);
 };

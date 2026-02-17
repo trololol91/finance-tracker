@@ -5,6 +5,7 @@ import {
     beforeEach,
     vi
 } from 'vitest';
+import type {ConfigService} from '@nestjs/config';
 import {PrismaService} from '#database/prisma.service.js';
 
 // Mock pg and adapter
@@ -37,11 +38,18 @@ vi.mock('#generated/prisma/client.js', () => {
 
 describe('PrismaService', () => {
     let prismaService: PrismaService;
+    let mockConfigService: ConfigService;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
-        prismaService = new PrismaService();
+        const databaseUrl = 'postgresql://test:test@localhost:5432/test';
+        
+        // Mock ConfigService
+        mockConfigService = {
+            get: vi.fn().mockReturnValue(databaseUrl)
+        } as unknown as ConfigService;
+        
+        prismaService = new PrismaService(mockConfigService);
     });
 
     describe('constructor', () => {
