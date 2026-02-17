@@ -109,6 +109,9 @@ export class AuthService {
      * @returns User object if found, null otherwise
      */
     public async validateJwtPayload(payload: JwtPayload): Promise<User | null> {
-        return this.usersService.findOne(payload.sub);
+        // TODO: Use payload.sub (user ID) instead of payload.email for lookup
+        // This requires handling NotFoundException from findOne() or adding a new method
+        // Use findByEmail since it returns User | null instead of throwing
+        return this.usersService.findByEmail(payload.email);
     }
 }
