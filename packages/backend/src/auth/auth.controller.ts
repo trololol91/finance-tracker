@@ -1,18 +1,24 @@
 import {
-    Controller, Post, Get, Body, UseGuards
+    Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus
 } from '@nestjs/common';
+import {
+    ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth
+} from '@nestjs/swagger';
 import {AuthService} from '#auth/auth.service.js';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import {CreateUserDto} from '#users/dto/create-user.dto.js';
 import {UserResponseDto} from '#users/dto/user-response.dto.js';
-import {LoginDto} from '#auth/dto/index.js';
+import {
+    LoginDto, AuthResponseDto
+} from '#auth/dto/index.js';
 import type {AuthResponse} from '#auth/dto/index.js';
 import type {User} from '#generated/prisma/client.js';
 
 /**
  * Authentication controller handling user registration, login, and profile access
  */
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
@@ -24,6 +30,12 @@ export class AuthController {
      * @throws {ConflictException} If email is already registered
      */
     @Post('register')
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation({summary: 'Register a new user', description: 'Create a new user account and receive a JWT token'})
+    @ApiBody({type: CreateUserDto})
+    @ApiResponse({status: 201, description: 'User successfully registered', type: AuthResponseDto})
+    @ApiResponse({status: 409, description: 'Email already exists'})
+    @ApiResponse({status: 400, description: 'Invalid input data'})
     public async register(@Body() createUserDto: CreateUserDto): Promise<AuthResponse> {
         return this.authService.register(createUserDto);
     }
@@ -35,6 +47,12 @@ export class AuthController {
      * @throws {UnauthorizedException} If credentials are invalid
      */
     @Post('login')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({summary: 'User login', description: 'Authenticate with email and password to receive a JWT token'})
+    @ApiBody({type: LoginDto})
+    @ApiResponse({status: 200, description: 'Successfully authenticated', type: AuthResponseDto})
+    @ApiResponse({status: 401, description: 'Invalid credentials'})
+    @ApiResponse({status: 400, description: 'Invalid input data'})
     public async login(@Body() loginDto: LoginDto): Promise<AuthResponse> {
         return this.authService.login(loginDto.email, loginDto.password);
     }
@@ -47,6 +65,10 @@ export class AuthController {
      */
     @Get('me')
     @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation({summary: 'Get current user profile', description: 'Retrieve the authenticated user\'s profile information'})
+    @ApiResponse({status: 200, description: 'User profile retrieved', type: UserResponseDto})
+    @ApiResponse({status: 401, description: 'Unauthorized - Invalid or missing JWT token'})
     public getProfile(@CurrentUser() user: User): UserResponseDto {
         return {
             id: user.id,
