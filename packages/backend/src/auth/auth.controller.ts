@@ -9,10 +9,9 @@ import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import {CreateUserDto} from '#users/dto/create-user.dto.js';
 import {UserResponseDto} from '#users/dto/user-response.dto.js';
-import {
-    LoginDto, AuthResponseDto
-} from '#auth/dto/index.js';
-import type {AuthResponse} from '#auth/dto/index.js';
+import {LoginDto} from '#auth/dto/login.dto.js';
+import {AuthResponseDto} from '#auth/dto/auth-response.dto.js';
+import type {AuthResponse} from '#auth/dto/auth-response.dto.js';
 import type {User} from '#generated/prisma/client.js';
 
 /**

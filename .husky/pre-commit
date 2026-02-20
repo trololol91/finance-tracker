@@ -1,1 +1,3 @@
+npm run typecheck:all
+npm run lint:all
 npm run test:coverage:all

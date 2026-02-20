@@ -13,7 +13,7 @@ import type {User} from '#generated/prisma/client.js';
 import type {CreateUserDto} from '#users/dto/create-user.dto.js';
 import type {
     AuthResponse, JwtPayload
-} from '#auth/dto/index.js';
+} from '#auth/dto/auth-response.dto.js';
 import * as bcrypt from 'bcrypt';
 
 vi.mock('bcrypt');

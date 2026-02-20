@@ -10,6 +10,7 @@
     "backend": "npm run -w packages/backend",
     "frontend": "npm run -w packages/frontend",
     "prepare": "husky",
+    "typecheck:all": "npm run -w packages/backend typecheck && npm run -w packages/frontend typecheck",
     "lint:all": "npm run -w packages/backend lint:eslint && npm run -w packages/frontend lint:eslint",
     "test:all": "npm run -w packages/backend test && npm run -w packages/frontend test",
     "test:coverage:all": "npm run -w packages/backend test:coverage && npm run -w packages/frontend test:coverage",

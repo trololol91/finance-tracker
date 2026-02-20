@@ -201,10 +201,13 @@ This document outlines the implementation order for building the Finance Tracker
    - ✅ All protected endpoints return 401 without token
    - ✅ Swagger updated with `@ApiBearerAuth()` decorator
 
-2. **Implement Ownership Guards**
-   - Users can only view/update their own profile
-   - Create `OwnershipGuard` to check `user.id === params.id`
-   - Exception: Admin role (future enhancement)
+2. **~~Implement Ownership Guards~~** ✅
+   - ✅ Users can only view/update their own profile
+   - ✅ Created `OwnershipGuard` to check `user.id === params.id`
+   - ✅ Admin role exception implemented (future enhancement ready)
+   - ✅ Applied to GET, PATCH, DELETE endpoints
+   - ✅ Returns 403 Forbidden when accessing other users' resources
+   - ✅ 8 tests for OwnershipGuard (100% coverage)
 
 3. **Update Users Service**
    - All methods require authenticated user

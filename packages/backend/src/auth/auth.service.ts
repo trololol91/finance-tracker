@@ -8,10 +8,10 @@ import type {CreateUserDto} from '#users/dto/create-user.dto.js';
 import type {User} from '#generated/prisma/client.js';
 import type {
     AuthResponse, JwtPayload
-} from '#auth/dto/index.js';
+} from '#auth/dto/auth-response.dto.js';
 
 // Re-export types for convenience
-export type {AuthResponse, JwtPayload} from '#auth/dto/index.js';
+export type {AuthResponse, JwtPayload} from '#auth/dto/auth-response.dto.js';
 
 /**
  * Authentication service handling user registration, login, and JWT token management

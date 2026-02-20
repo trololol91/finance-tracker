@@ -8,7 +8,7 @@ import stylistic from '@stylistic/eslint-plugin';
 
 export default [
     {
-        ignores: ['dist', 'eslint.config.js', 'vitest.config.ts']
+        ignores: ['dist', 'coverage', 'eslint.config.js', 'vitest.config.ts']
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,

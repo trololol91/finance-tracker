@@ -19,10 +19,11 @@ import {
     ApiBearerAuth
 } from '@nestjs/swagger';
 import {UsersService} from './users.service.js';
-import {
-    CreateUserDto, UpdateUserDto, UserResponseDto
-} from './dto/index.js';
+import {CreateUserDto} from './dto/create-user.dto.js';
+import {UpdateUserDto} from './dto/update-user.dto.js';
+import {UserResponseDto} from './dto/user-response.dto.js';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {OwnershipGuard} from '#common/guards/ownership.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 
@@ -52,13 +53,14 @@ export class UsersController {
      * GET /users/:id
      */
     @Get(':id')
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, OwnershipGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation({summary: 'Get user by ID', description: 'Retrieve user profile information by user ID'})
     @ApiParam({name: 'id', description: 'User UUID', type: String})
     @ApiResponse({status: 200, description: 'User found', type: UserResponseDto})
     @ApiResponse({status: 404, description: 'User not found'})
     @ApiResponse({status: 401, description: 'Unauthorized - Invalid or missing JWT token'})
+    @ApiResponse({status: 403, description: 'Forbidden - Cannot access another user\'s profile'})
     public async findOne(
         @Param('id') id: string,
         @CurrentUser() _currentUser: User
@@ -72,7 +74,7 @@ export class UsersController {
      * PATCH /users/:id
      */
     @Patch(':id')
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, OwnershipGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation({summary: 'Update user', description: 'Update user profile information'})
     @ApiParam({name: 'id', description: 'User UUID', type: String})
@@ -81,6 +83,7 @@ export class UsersController {
     @ApiResponse({status: 404, description: 'User not found'})
     @ApiResponse({status: 400, description: 'Invalid input data'})
     @ApiResponse({status: 401, description: 'Unauthorized - Invalid or missing JWT token'})
+    @ApiResponse({status: 403, description: 'Forbidden - Cannot update another user\'s profile'})
     public async update(
         @Param('id') id: string,
         @Body() updateUserDto: UpdateUserDto,
@@ -95,7 +98,7 @@ export class UsersController {
      * DELETE /users/:id
      */
     @Delete(':id')
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard, OwnershipGuard)
     @ApiBearerAuth('JWT-auth')
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({summary: 'Delete user', description: 'Soft delete a user account (sets deletedAt timestamp)'})
@@ -103,6 +106,7 @@ export class UsersController {
     @ApiResponse({status: 204, description: 'User successfully deleted'})
     @ApiResponse({status: 404, description: 'User not found'})
     @ApiResponse({status: 401, description: 'Unauthorized - Invalid or missing JWT token'})
+    @ApiResponse({status: 403, description: 'Forbidden - Cannot delete another user\'s account'})
     public async remove(
         @Param('id') id: string,
         @CurrentUser() _currentUser: User

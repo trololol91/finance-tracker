@@ -10,7 +10,7 @@ import type {ConfigService} from '@nestjs/config';
 import {JwtStrategy} from '#auth/strategies/jwt.strategy.js';
 import type {AuthService} from '#auth/auth.service.js';
 import type {User} from '#generated/prisma/client.js';
-import type {JwtPayload} from '#auth/dto/index.js';
+import type {JwtPayload} from '#auth/dto/auth-response.dto.js';
 
 describe('JwtStrategy', () => {
     let strategy: JwtStrategy;

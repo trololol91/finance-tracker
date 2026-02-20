@@ -10,8 +10,8 @@ import type {AuthService} from '#auth/auth.service.js';
 import type {User} from '#generated/prisma/client.js';
 import type {CreateUserDto} from '#users/dto/create-user.dto.js';
 import type {UserResponseDto} from '#users/dto/user-response.dto.js';
-import type {AuthResponse} from '#auth/dto/index.js';
-import type {LoginDto} from '#auth/dto/index.js';
+import type {AuthResponse} from '#auth/dto/auth-response.dto.js';
+import type {LoginDto} from '#auth/dto/login.dto.js';
 
 describe('AuthController', () => {
     let controller: AuthController;
