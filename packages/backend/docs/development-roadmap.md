@@ -249,37 +249,46 @@ This document outlines the implementation order for building the Finance Tracker
    - user_id: UUID (foreign key to users, not null)
    - amount: decimal(10,2) (not null)
    - description: string
+   - notes: string (optional, for additional comments/details)
    - category_id: UUID (foreign key to categories, optional)
    - account_id: UUID (foreign key to accounts, optional)
    - transaction_type: enum ('income', 'expense', 'transfer')
-   - date: timestamp (transaction date)
+   - date: timestamp (transaction date, can be updated)
+   - original_date: timestamp (initial transaction date, set on creation, immutable)
+   - is_active: boolean (default true, false to exclude from calculations)
    - created_at: timestamp
    - updated_at: timestamp
    ```
 
 2. **Create Transaction DTOs** (`src/transactions/dto/`)
-   - `create-transaction.dto.ts` - amount, description, category, date
-   - `update-transaction.dto.ts` - partial updates
-   - `transaction-response.dto.ts` - with category/account details
-   - `transaction-filter.dto.ts` - date ranges, categories, amounts
+   - `create-transaction.dto.ts` - amount, description, notes, category, account, type, date
+   - `update-transaction.dto.ts` - partial updates (amount, description, notes, category, account, date, is_active)
+   - `transaction-response.dto.ts` - with category/account details, includes date, original_date, is_active
+   - `transaction-filter.dto.ts` - date ranges, categories, amounts, type, is_active filter
+   - `transaction-totals-response.dto.ts` - total income, total expense, net total, date range
 
 3. **Implement Transactions Service** (`src/transactions/transactions.service.ts`)
    - All methods require `userId` parameter
-   - `create(userId, createDto)` - create transaction for user
-   - `findAll(userId, filters)` - get user's transactions with filters
+   - `create(userId, createDto)` - create transaction for user (is_active defaults to true, original_date set from date)
+   - `findAll(userId, filters)` - get user's transactions with filters (default: active only)
    - `findOne(userId, transactionId)` - get specific transaction
-   - `update(userId, transactionId, updateDto)` - update transaction
-   - `remove(userId, transactionId)` - delete transaction
-   - `getMonthlyTotals(userId, year, month)` - aggregation query
+   - `update(userId, transactionId, updateDto)` - update transaction (including notes and is_active, can update date but original_date remains unchanged)
+   - `toggleActive(userId, transactionId)` - toggle is_active status
+   - `remove(userId, transactionId)` - delete transaction (permanent)
+   - `getTotals(userId, startDate, endDate)` - aggregation query for date range (active transactions only)
+   - `getMonthlyTotals(userId, year, month)` - convenience method, calls getTotals with month boundaries
 
 4. **Implement Transactions Controller** (`src/transactions/transactions.controller.ts`)
    - Protect all routes with `@UseGuards(JwtAuthGuard)`
    - Use `@CurrentUser()` to get authenticated user
    - POST `/transactions` - create transaction
-   - GET `/transactions` - list with filters
+   - GET `/transactions` - list with filters (supports ?is_active=true/false/all)
    - GET `/transactions/:id` - get specific transaction
-   - PATCH `/transactions/:id` - update transaction
-   - DELETE `/transactions/:id` - delete transaction
+   - GET `/transactions/totals` - get totals by date range (?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD)
+   - GET `/transactions/totals/:year/:month` - monthly totals (convenience endpoint)
+   - PATCH `/transactions/:id` - update transaction (including notes and is_active)
+   - PATCH `/transactions/:id/toggle-active` - toggle is_active status
+   - DELETE `/transactions/:id` - delete transaction permanently
 
 5. **Add Ownership Validation**
    - Verify transaction belongs to current user
@@ -294,12 +303,19 @@ This document outlines the implementation order for building the Finance Tracker
 - [ ] **Database:** Prisma schema updated, migration created with user_id foreign key
 
 **Validation:**
-- Create transaction as authenticated user
-- List only own transactions
+- Create transaction as authenticated user with notes
+- List only own transactions (active by default)
+- Filter by is_active status (true/false/all)
 - Cannot access other users' transactions
-- Filters work correctly (date range, category, amount)
+- Filters work correctly (date range, category, amount, status)
 - Update/delete only own transactions
-- Monthly totals aggregate correctly
+- Toggle transaction active status
+- Update transaction date - original_date remains unchanged
+- Response includes both date and original_date fields
+- Inactive transactions excluded from monthly totals
+- Get totals for custom date range (active only)
+- Monthly totals endpoint works as convenience method
+- Totals calculate correctly (income, expense, net)
 
 **Estimated Time:** 2-3 days
 
