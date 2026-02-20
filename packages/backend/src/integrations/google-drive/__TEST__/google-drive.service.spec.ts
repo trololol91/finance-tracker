@@ -3,7 +3,7 @@ import {
 } from 'vitest';
 import type {TestingModule} from '@nestjs/testing';
 import {Test} from '@nestjs/testing';
-import {GoogleDriveService} from '@integrations/google-drive/google-drive.service.js';
+import {GoogleDriveService} from '#integrations/google-drive/google-drive.service.js';
 
 // Mock the entire service since it's complex to mock Google APIs correctly
 vi.mock('../google-drive.service.js');

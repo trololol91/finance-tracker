@@ -1,8 +1,8 @@
 import {
     describe, it, expect, vi, beforeEach
 } from 'vitest';
-import {GoogleDriveDirectoryService} from '@integrations/google-drive/google-drive-directory.service.js';
-import type {GoogleDriveService} from '@integrations/google-drive/google-drive.service.js';
+import {GoogleDriveDirectoryService} from '#integrations/google-drive/google-drive-directory.service.js';
+import type {GoogleDriveService} from '#integrations/google-drive/google-drive.service.js';
 import type {drive_v3} from 'googleapis';
 
 describe('GoogleDriveDirectoryService', () => {
