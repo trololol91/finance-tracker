@@ -7,19 +7,24 @@ import {
     Body,
     Param,
     HttpCode,
-    HttpStatus
+    HttpStatus,
+    UseGuards
 } from '@nestjs/common';
 import {
     ApiTags,
     ApiOperation,
     ApiResponse,
     ApiParam,
-    ApiBody
+    ApiBody,
+    ApiBearerAuth
 } from '@nestjs/swagger';
 import {UsersService} from './users.service.js';
 import {
     CreateUserDto, UpdateUserDto, UserResponseDto
 } from './dto/index.js';
+import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
+import type {User} from '#generated/prisma/client.js';
 
 @ApiTags('users')
 @Controller('users')
@@ -47,11 +52,17 @@ export class UsersController {
      * GET /users/:id
      */
     @Get(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
     @ApiOperation({summary: 'Get user by ID', description: 'Retrieve user profile information by user ID'})
     @ApiParam({name: 'id', description: 'User UUID', type: String})
     @ApiResponse({status: 200, description: 'User found', type: UserResponseDto})
     @ApiResponse({status: 404, description: 'User not found'})
-    public async findOne(@Param('id') id: string): Promise<UserResponseDto> {
+    @ApiResponse({status: 401, description: 'Unauthorized - Invalid or missing JWT token'})
+    public async findOne(
+        @Param('id') id: string,
+        @CurrentUser() _currentUser: User
+    ): Promise<UserResponseDto> {
         const user = await this.usersService.findOne(id);
         return UserResponseDto.fromEntity(user);
     }
@@ -61,15 +72,19 @@ export class UsersController {
      * PATCH /users/:id
      */
     @Patch(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
     @ApiOperation({summary: 'Update user', description: 'Update user profile information'})
     @ApiParam({name: 'id', description: 'User UUID', type: String})
     @ApiBody({type: UpdateUserDto})
     @ApiResponse({status: 200, description: 'User successfully updated', type: UserResponseDto})
     @ApiResponse({status: 404, description: 'User not found'})
     @ApiResponse({status: 400, description: 'Invalid input data'})
+    @ApiResponse({status: 401, description: 'Unauthorized - Invalid or missing JWT token'})
     public async update(
         @Param('id') id: string,
-        @Body() updateUserDto: UpdateUserDto
+        @Body() updateUserDto: UpdateUserDto,
+        @CurrentUser() _currentUser: User
     ): Promise<UserResponseDto> {
         const user = await this.usersService.update(id, updateUserDto);
         return UserResponseDto.fromEntity(user);
@@ -80,12 +95,18 @@ export class UsersController {
      * DELETE /users/:id
      */
     @Delete(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({summary: 'Delete user', description: 'Soft delete a user account (sets deletedAt timestamp)'})
     @ApiParam({name: 'id', description: 'User UUID', type: String})
     @ApiResponse({status: 204, description: 'User successfully deleted'})
     @ApiResponse({status: 404, description: 'User not found'})
-    public async remove(@Param('id') id: string): Promise<void> {
+    @ApiResponse({status: 401, description: 'Unauthorized - Invalid or missing JWT token'})
+    public async remove(
+        @Param('id') id: string,
+        @CurrentUser() _currentUser: User
+    ): Promise<void> {
         await this.usersService.remove(id);
     }
 }

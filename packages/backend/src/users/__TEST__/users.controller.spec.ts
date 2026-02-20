@@ -91,7 +91,7 @@ describe('UsersController', () => {
         it('should return a user by id', async () => {
             vi.mocked(service.findOne).mockResolvedValue(mockUser);
 
-            const result: UserResponseDto = await controller.findOne(mockUser.id);
+            const result: UserResponseDto = await controller.findOne(mockUser.id, mockUser);
 
             expect(service.findOne).toHaveBeenCalledWith(mockUser.id);
             expect(result).toEqual(mockUserResponse);
@@ -100,7 +100,7 @@ describe('UsersController', () => {
         it('should exclude sensitive fields from response', async () => {
             vi.mocked(service.findOne).mockResolvedValue(mockUser);
 
-            const result: UserResponseDto = await controller.findOne(mockUser.id);
+            const result: UserResponseDto = await controller.findOne(mockUser.id, mockUser);
 
             expect(result).not.toHaveProperty('passwordHash');
             expect(result).not.toHaveProperty('deletedAt');
@@ -117,7 +117,9 @@ describe('UsersController', () => {
             const updatedUser: User = {...mockUser, ...updateUserDto};
             vi.mocked(service.update).mockResolvedValue(updatedUser);
 
-            const result: UserResponseDto = await controller.update(mockUser.id, updateUserDto);
+            const result: UserResponseDto = await controller.update(
+                mockUser.id, updateUserDto, mockUser
+            );
 
             expect(service.update).toHaveBeenCalledWith(mockUser.id, updateUserDto);
             expect(result.firstName).toBe(updateUserDto.firstName);
@@ -128,7 +130,9 @@ describe('UsersController', () => {
             const updatedUser: User = {...mockUser, ...updateUserDto};
             vi.mocked(service.update).mockResolvedValue(updatedUser);
 
-            const result: UserResponseDto = await controller.update(mockUser.id, updateUserDto);
+            const result: UserResponseDto = await controller.update(
+                mockUser.id, updateUserDto, mockUser
+            );
 
             expect(result).not.toHaveProperty('passwordHash');
             expect(result).not.toHaveProperty('deletedAt');
@@ -144,7 +148,7 @@ describe('UsersController', () => {
             };
             vi.mocked(service.remove).mockResolvedValue(deletedUser);
 
-            await controller.remove(mockUser.id);
+            await controller.remove(mockUser.id, mockUser);
 
             expect(service.remove).toHaveBeenCalledWith(mockUser.id);
         });

@@ -192,10 +192,14 @@ This document outlines the implementation order for building the Finance Tracker
 **Priority:** HIGH - Lock down user endpoints
 
 **Tasks:**
-1. **Add Guards to Users Controller**
-   - Protect all endpoints except initial registration
-   - Use `@UseGuards(JwtAuthGuard)`
-   - Add `@CurrentUser()` to endpoints
+1. **~~Add Guards to Users Controller~~** ✅
+   - ✅ Protect all endpoints except initial registration
+   - ✅ Use `@UseGuards(JwtAuthGuard)`
+   - ✅ Add `@CurrentUser()` to endpoints
+   - ✅ POST /users remains public (registration)
+   - ✅ GET, PATCH, DELETE require JWT authentication
+   - ✅ All protected endpoints return 401 without token
+   - ✅ Swagger updated with `@ApiBearerAuth()` decorator
 
 2. **Implement Ownership Guards**
    - Users can only view/update their own profile
