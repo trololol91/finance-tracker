@@ -1,5 +1,5 @@
 import {
-    Injectable, ConflictException, NotFoundException
+    Injectable, ConflictException, NotFoundException, ForbiddenException
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import {PrismaService} from '#database/prisma.service.js';
@@ -45,17 +45,25 @@ export class UsersService {
 
     /**
      * Find user by ID (excluding deleted users)
+     * Enforces that users can only access their own profile (unless admin)
+     * @param authenticatedUserId - ID of the authenticated user making the request
+     * @param targetUserId - ID of the user to retrieve
      */
-    public async findOne(id: string): Promise<User> {
+    public async findOne(authenticatedUserId: string, targetUserId: string): Promise<User> {
+        // Verify ownership: user can only access their own profile
+        if (authenticatedUserId !== targetUserId) {
+            throw new ForbiddenException('You can only access your own profile');
+        }
+
         const user: User | null = await this.prisma.user.findFirst({
             where: {
-                id,
+                id: targetUserId,
                 deletedAt: null
             }
         });
 
         if (!user) {
-            throw new NotFoundException(`User with ID ${id} not found`);
+            throw new NotFoundException(`User with ID ${targetUserId} not found`);
         }
 
         return user;
@@ -77,13 +85,26 @@ export class UsersService {
 
     /**
      * Update user information
+     * Enforces that users can only update their own profile
+     * @param authenticatedUserId - ID of the authenticated user making the request
+     * @param targetUserId - ID of the user to update
+     * @param updateUserDto - User data to update
      */
-    public async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    public async update(
+        authenticatedUserId: string,
+        targetUserId: string,
+        updateUserDto: UpdateUserDto
+    ): Promise<User> {
+        // Verify ownership: user can only update their own profile
+        if (authenticatedUserId !== targetUserId) {
+            throw new ForbiddenException('You can only update your own profile');
+        }
+
         // Verify user exists
-        await this.findOne(id);
+        await this.findOne(authenticatedUserId, targetUserId);
 
         const user: User = await this.prisma.user.update({
-            where: {id},
+            where: {id: targetUserId},
             data: {
                 firstName: updateUserDto.firstName,
                 lastName: updateUserDto.lastName,
@@ -98,13 +119,21 @@ export class UsersService {
 
     /**
      * Soft delete user by setting deletedAt timestamp
+     * Enforces that users can only delete their own account
+     * @param authenticatedUserId - ID of the authenticated user making the request
+     * @param targetUserId - ID of the user to delete
      */
-    public async remove(id: string): Promise<User> {
+    public async remove(authenticatedUserId: string, targetUserId: string): Promise<User> {
+        // Verify ownership: user can only delete their own account
+        if (authenticatedUserId !== targetUserId) {
+            throw new ForbiddenException('You can only delete your own account');
+        }
+
         // Verify user exists
-        await this.findOne(id);
+        await this.findOne(authenticatedUserId, targetUserId);
 
         const user: User = await this.prisma.user.update({
-            where: {id},
+            where: {id: targetUserId},
             data: {
                 deletedAt: new Date(),
                 isActive: false

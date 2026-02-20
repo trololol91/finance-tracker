@@ -93,7 +93,7 @@ describe('UsersController', () => {
 
             const result: UserResponseDto = await controller.findOne(mockUser.id, mockUser);
 
-            expect(service.findOne).toHaveBeenCalledWith(mockUser.id);
+            expect(service.findOne).toHaveBeenCalledWith(mockUser.id, mockUser.id);
             expect(result).toEqual(mockUserResponse);
         });
 
@@ -121,7 +121,7 @@ describe('UsersController', () => {
                 mockUser.id, updateUserDto, mockUser
             );
 
-            expect(service.update).toHaveBeenCalledWith(mockUser.id, updateUserDto);
+            expect(service.update).toHaveBeenCalledWith(mockUser.id, mockUser.id, updateUserDto);
             expect(result.firstName).toBe(updateUserDto.firstName);
             expect(result.timezone).toBe(updateUserDto.timezone);
         });
@@ -150,7 +150,7 @@ describe('UsersController', () => {
 
             await controller.remove(mockUser.id, mockUser);
 
-            expect(service.remove).toHaveBeenCalledWith(mockUser.id);
+            expect(service.remove).toHaveBeenCalledWith(mockUser.id, mockUser.id);
         });
     });
 });

@@ -63,9 +63,9 @@ export class UsersController {
     @ApiResponse({status: 403, description: 'Forbidden - Cannot access another user\'s profile'})
     public async findOne(
         @Param('id') id: string,
-        @CurrentUser() _currentUser: User
+        @CurrentUser() currentUser: User
     ): Promise<UserResponseDto> {
-        const user = await this.usersService.findOne(id);
+        const user = await this.usersService.findOne(currentUser.id, id);
         return UserResponseDto.fromEntity(user);
     }
 
@@ -87,9 +87,9 @@ export class UsersController {
     public async update(
         @Param('id') id: string,
         @Body() updateUserDto: UpdateUserDto,
-        @CurrentUser() _currentUser: User
+        @CurrentUser() currentUser: User
     ): Promise<UserResponseDto> {
-        const user = await this.usersService.update(id, updateUserDto);
+        const user = await this.usersService.update(currentUser.id, id, updateUserDto);
         return UserResponseDto.fromEntity(user);
     }
 
@@ -109,8 +109,8 @@ export class UsersController {
     @ApiResponse({status: 403, description: 'Forbidden - Cannot delete another user\'s account'})
     public async remove(
         @Param('id') id: string,
-        @CurrentUser() _currentUser: User
+        @CurrentUser() currentUser: User
     ): Promise<void> {
-        await this.usersService.remove(id);
+        await this.usersService.remove(currentUser.id, id);
     }
 }

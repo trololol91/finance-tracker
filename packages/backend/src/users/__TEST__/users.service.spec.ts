@@ -6,7 +6,7 @@ import {
     vi
 } from 'vitest';
 import {
-    ConflictException, NotFoundException
+    ConflictException, NotFoundException, ForbiddenException
 } from '@nestjs/common';
 import {UsersService} from '#users/users.service.js';
 import type {PrismaService} from '#database/prisma.service.js';
@@ -138,41 +138,57 @@ describe('UsersService', () => {
     });
 
     describe('findOne', () => {
-        it('should return a user by id', async () => {
+        const authenticatedUserId = mockUser.id;
+        const targetUserId = mockUser.id;
+
+        it('should return a user by id when user accesses own profile', async () => {
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(mockUser);
 
-            const result: User = await service.findOne(mockUser.id);
+            const result: User = await service.findOne(authenticatedUserId, targetUserId);
 
             expect(prismaService.user.findFirst).toHaveBeenCalledWith({
                 where: {
-                    id: mockUser.id,
+                    id: targetUserId,
                     deletedAt: null
                 }
             });
             expect(result).toEqual(mockUser);
         });
 
+        it('should throw ForbiddenException when user tries to access another user\'s profile', async () => {
+            const otherUserId = '999e4567-e89b-12d3-a456-426614174999';
+
+            await expect(service.findOne(authenticatedUserId, otherUserId))
+                .rejects
+                .toThrow(ForbiddenException);
+            await expect(service.findOne(authenticatedUserId, otherUserId))
+                .rejects
+                .toThrow('You can only access your own profile');
+
+            expect(prismaService.user.findFirst).not.toHaveBeenCalled();
+        });
+
         it('should throw NotFoundException if user not found', async () => {
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(null);
 
-            await expect(service.findOne('nonexistent-id'))
+            await expect(service.findOne(authenticatedUserId, targetUserId))
                 .rejects
                 .toThrow(NotFoundException);
-            await expect(service.findOne('nonexistent-id'))
+            await expect(service.findOne(authenticatedUserId, targetUserId))
                 .rejects
-                .toThrow('User with ID nonexistent-id not found');
+                .toThrow(`User with ID ${targetUserId} not found`);
         });
 
         it('should exclude soft-deleted users', async () => {
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(null);
 
-            await expect(service.findOne(mockUser.id))
+            await expect(service.findOne(authenticatedUserId, targetUserId))
                 .rejects
                 .toThrow(NotFoundException);
 
             expect(prismaService.user.findFirst).toHaveBeenCalledWith({
                 where: {
-                    id: mockUser.id,
+                    id: targetUserId,
                     deletedAt: null
                 }
             });
@@ -218,27 +234,31 @@ describe('UsersService', () => {
     });
 
     describe('update', () => {
+        const authenticatedUserId = mockUser.id;
+        const targetUserId = mockUser.id;
         const updateUserDto: UpdateUserDto = {
             firstName: 'UpdatedName',
             timezone: 'America/New_York'
         };
 
-        it('should update user information', async () => {
+        it('should update user information when user updates own profile', async () => {
             const updatedUser: User = {...mockUser, ...updateUserDto};
 
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(mockUser);
             vi.mocked(prismaService.user.update).mockResolvedValue(updatedUser);
 
-            const result: User = await service.update(mockUser.id, updateUserDto);
+            const result: User = await service.update(
+                authenticatedUserId, targetUserId, updateUserDto
+            );
 
             expect(prismaService.user.findFirst).toHaveBeenCalledWith({
                 where: {
-                    id: mockUser.id,
+                    id: targetUserId,
                     deletedAt: null
                 }
             });
             expect(prismaService.user.update).toHaveBeenCalledWith({
-                where: {id: mockUser.id},
+                where: {id: targetUserId},
                 data: {
                     firstName: updateUserDto.firstName,
                     lastName: undefined,
@@ -250,10 +270,24 @@ describe('UsersService', () => {
             expect(result).toEqual(updatedUser);
         });
 
+        it('should throw ForbiddenException when user tries to update another user\'s profile', async () => {
+            const otherUserId = '999e4567-e89b-12d3-a456-426614174999';
+
+            await expect(service.update(authenticatedUserId, otherUserId, updateUserDto))
+                .rejects
+                .toThrow(ForbiddenException);
+            await expect(service.update(authenticatedUserId, otherUserId, updateUserDto))
+                .rejects
+                .toThrow('You can only update your own profile');
+
+            expect(prismaService.user.findFirst).not.toHaveBeenCalled();
+            expect(prismaService.user.update).not.toHaveBeenCalled();
+        });
+
         it('should throw NotFoundException if user does not exist', async () => {
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(null);
 
-            await expect(service.update('nonexistent-id', updateUserDto))
+            await expect(service.update(authenticatedUserId, targetUserId, updateUserDto))
                 .rejects
                 .toThrow(NotFoundException);
 
@@ -267,10 +301,10 @@ describe('UsersService', () => {
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(mockUser);
             vi.mocked(prismaService.user.update).mockResolvedValue(updatedUser);
 
-            await service.update(mockUser.id, updateDto);
+            await service.update(authenticatedUserId, targetUserId, updateDto);
 
             expect(prismaService.user.update).toHaveBeenCalledWith({
-                where: {id: mockUser.id},
+                where: {id: targetUserId},
                 data: expect.objectContaining({
                     isActive: false
                 })
@@ -279,7 +313,10 @@ describe('UsersService', () => {
     });
 
     describe('remove', () => {
-        it('should soft delete a user', async () => {
+        const authenticatedUserId = mockUser.id;
+        const targetUserId = mockUser.id;
+
+        it('should soft delete a user when user deletes own account', async () => {
             const deletedUser: User = {
                 ...mockUser,
                 deletedAt: new Date(),
@@ -289,16 +326,16 @@ describe('UsersService', () => {
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(mockUser);
             vi.mocked(prismaService.user.update).mockResolvedValue(deletedUser);
 
-            const result: User = await service.remove(mockUser.id);
+            const result: User = await service.remove(authenticatedUserId, targetUserId);
 
             expect(prismaService.user.findFirst).toHaveBeenCalledWith({
                 where: {
-                    id: mockUser.id,
+                    id: targetUserId,
                     deletedAt: null
                 }
             });
             expect(prismaService.user.update).toHaveBeenCalledWith({
-                where: {id: mockUser.id},
+                where: {id: targetUserId},
                 data: {
                     deletedAt: expect.any(Date),
                     isActive: false
@@ -308,10 +345,24 @@ describe('UsersService', () => {
             expect(result.isActive).toBe(false);
         });
 
+        it('should throw ForbiddenException when user tries to delete another user\'s account', async () => {
+            const otherUserId = '999e4567-e89b-12d3-a456-426614174999';
+
+            await expect(service.remove(authenticatedUserId, otherUserId))
+                .rejects
+                .toThrow(ForbiddenException);
+            await expect(service.remove(authenticatedUserId, otherUserId))
+                .rejects
+                .toThrow('You can only delete your own account');
+
+            expect(prismaService.user.findFirst).not.toHaveBeenCalled();
+            expect(prismaService.user.update).not.toHaveBeenCalled();
+        });
+
         it('should throw NotFoundException if user does not exist', async () => {
             vi.mocked(prismaService.user.findFirst).mockResolvedValue(null);
 
-            await expect(service.remove('nonexistent-id'))
+            await expect(service.remove(authenticatedUserId, targetUserId))
                 .rejects
                 .toThrow(NotFoundException);
 

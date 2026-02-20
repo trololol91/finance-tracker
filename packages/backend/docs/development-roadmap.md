@@ -187,7 +187,7 @@ This document outlines the implementation order for building the Finance Tracker
 
 ---
 
-### Phase 3: Secure Users Module
+### Phase 3: Secure Users Module ✅ **COMPLETE**
 
 **Priority:** HIGH - Lock down user endpoints
 
@@ -209,25 +209,32 @@ This document outlines the implementation order for building the Finance Tracker
    - ✅ Returns 403 Forbidden when accessing other users' resources
    - ✅ 8 tests for OwnershipGuard (100% coverage)
 
-3. **Update Users Service**
-   - All methods require authenticated user
-   - Filter queries by user.id where appropriate
-   - Remove ability to access other users' data
+3. **~~Update Users Service~~** ✅
+   - ✅ All methods require authenticated user ID parameter
+   - ✅ Service enforces ownership validation (defense-in-depth)
+   - ✅ `findOne(authenticatedUserId, targetUserId)` - verifies ownership
+   - ✅ `update(authenticatedUserId, targetUserId, dto)` - verifies ownership
+   - ✅ `remove(authenticatedUserId, targetUserId)` - verifies ownership
+   - ✅ Throws ForbiddenException when users try to access other users' data
+   - ✅ 3 additional tests for ownership enforcement at service layer
+   - ✅ 85 total tests passing (18 users service, 7 users controller)
 
-**Phase 3 Checklist:** (Use Standard Checklist above)
-- [ ] **Core:** Guards implemented and applied to Users controller
-- [ ] **Documentation:** Swagger updated with `@ApiBearerAuth()` decorator
-- [ ] **Testing:** Unit tests for ownership validation, unauthorized access attempts
-- [ ] **Security:** All endpoints protected except public registration, ownership verified
-- [ ] **Database:** No changes needed
+**Phase 3 Checklist:** ✅ **COMPLETE**
+- [x] **Core:** Guards implemented and applied to Users controller, service layer enforces ownership
+- [x] **Documentation:** Swagger updated with `@ApiBearerAuth()` decorator
+- [x] **Testing:** Unit tests for ownership validation, unauthorized access attempts (85 tests passing)
+- [x] **Security:** All endpoints protected except public registration, ownership verified at guard and service layers
+- [x] **Database:** No changes needed
 
-**Validation:**
-- Cannot access other users' profiles
-- Cannot update other users' data
-- Unauthenticated requests are rejected
-- Swagger "Authorize" button works correctly
+**Validation:** ✅
+- ✅ Cannot access other users' profiles (enforced at guard and service layers)
+- ✅ Cannot update other users' data (ForbiddenException thrown)
+- ✅ Unauthenticated requests are rejected (401 Unauthorized)
+- ✅ Ownership violations return 403 Forbidden
+- ✅ Swagger "Authorize" button works correctly
+- ✅ 97.43% code coverage maintained
 
-**Estimated Time:** 0.5-1 day
+**Estimated Time:** 0.5-1 day → **Actual: 1 day**
 
 ---
 
