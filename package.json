@@ -15,7 +15,9 @@
     "test:all": "npm run -w packages/backend test && npm run -w packages/frontend test",
     "test:coverage:all": "npm run -w packages/backend test:coverage && npm run -w packages/frontend test:coverage",
     "export:transactions:cibc": "node tools/export/export-transactions-by-week-cibc.mjs",
-    "export:transactions:td": "node tools/export/export-transactions-by-week-td.mjs"
+    "export:transactions:td": "node tools/export/export-transactions-by-week-td.mjs",
+    "generate:api": "npm run -w packages/frontend generate:api",
+    "generate:api:live": "npm run -w packages/frontend generate:api:live"
   },
   "author": "",
   "license": "ISC",

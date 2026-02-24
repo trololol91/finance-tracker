@@ -158,7 +158,9 @@ export default [
         files: ['tools/**', 'scripts/**'],
         rules: {
             'max-lines-per-function': 'off',
-            'max-params': 'off'
+            'max-params': 'off',
+            // Scripts live outside src/ and cannot use # path aliases
+            'no-restricted-imports': 'off'
         }
     },
     {

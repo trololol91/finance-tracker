@@ -1,6 +1,6 @@
 import {Navigate} from 'react-router-dom';
 import type {ReactNode} from 'react';
-import {storage} from '@services/storage/localStorage';
+import {authStorage} from '@services/storage/authStorage.js';
 import {APP_ROUTES} from '@config/constants';
 
 interface PublicRouteProps {
@@ -8,7 +8,7 @@ interface PublicRouteProps {
 }
 
 export const PublicRoute = ({children}: PublicRouteProps): React.JSX.Element => {
-    const token = storage.getAuthToken();
+    const token = authStorage.getToken();
 
     if (token) {
         return <Navigate to={APP_ROUTES.DASHBOARD} replace />;

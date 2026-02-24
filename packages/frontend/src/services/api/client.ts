@@ -74,6 +74,16 @@ class ApiClient {
         const response: AxiosResponse<T> = await this.client.delete(url, config);
         return response.data;
     }
+
+    /**
+     * Generic request method used by the Orval-generated API client mutator.
+     * Passes any AxiosRequestConfig directly to the underlying axios instance
+     * so all interceptors (auth, error handling) are applied automatically.
+     */
+    public async request<T>(config: AxiosRequestConfig): Promise<T> {
+        const response: AxiosResponse<T> = await this.client.request(config);
+        return response.data;
+    }
 }
 
 export const apiClient = new ApiClient();

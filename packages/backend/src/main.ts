@@ -26,9 +26,7 @@ const bootstrap = async (): Promise<void> => {
                 type: 'http',
                 scheme: 'bearer',
                 bearerFormat: 'JWT',
-                name: 'JWT',
-                description: 'Enter JWT token',
-                in: 'header'
+                description: 'Enter JWT token'
             },
             'JWT-auth' // This name will be used in @ApiBearerAuth() decorator
         )

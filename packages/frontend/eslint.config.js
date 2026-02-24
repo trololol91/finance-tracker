@@ -8,7 +8,7 @@ import stylistic from '@stylistic/eslint-plugin';
 
 export default [
     {
-        ignores: ['dist', 'coverage', 'eslint.config.js', 'vitest.config.ts']
+        ignores: ['dist', 'coverage', 'eslint.config.js', 'vitest.config.ts', 'src/api/**']
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
@@ -145,7 +145,9 @@ export default [
         files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
         rules: {
             'max-lines-per-function': 'off',
-            'max-params': 'off'
+            'max-params': 'off',
+            '@typescript-eslint/no-empty-function': 'off',
+            '@typescript-eslint/explicit-function-return-type': 'off'
         }
     },
     {

@@ -12,6 +12,7 @@ export default defineConfig({
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json', 'html'],
+            include: ['src/**/*.{ts,tsx}'],
             exclude: [
                 'node_modules/',
                 'src/test/',
@@ -19,7 +20,28 @@ export default defineConfig({
                 '**/*.config.*',
                 '**/mockData',
                 'src/main.tsx',
+                'src/**/__TEST__/**',
+                '**/*.test.{ts,tsx}',
+                '**/*.spec.{ts,tsx}',
+                'src/types/**',
+                'src/**/types/**',
+                '**/*.types.ts',
+                '**/index.ts',
+                'src/routes/**',
+                'src/pages/**',
+                'src/App.tsx',
+                'src/services/api/**',
+                'src/api/**',
+                'src/components/layout/**',
+                'src/utils/constants.ts',
+                'src/config/env.ts'
             ],
+            thresholds: {
+                lines: 90,
+                functions: 90,
+                branches: 90,
+                statements: 90
+            }
         },
     },
     resolve: {
