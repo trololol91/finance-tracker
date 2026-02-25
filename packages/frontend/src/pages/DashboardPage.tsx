@@ -13,10 +13,17 @@ export const DashboardPage = (): React.JSX.Element => {
         void navigate(APP_ROUTES.LOGIN, {replace: true});
     };
 
+    const handleProfile = (): void => {
+        void navigate(APP_ROUTES.PROFILE);
+    };
+
     return (
         <div>
             <h1>Dashboard</h1>
             <p>Welcome{user?.firstName ? `, ${user.firstName}` : ''}! Your financial overview will appear here.</p>
+            <Button variant="secondary" onClick={handleProfile}>
+                My Profile
+            </Button>
             <Button variant="secondary" onClick={handleLogout}>
                 Log out
             </Button>

@@ -131,6 +131,15 @@ This is a finance tracker monorepo with:
 5. Use path aliases for imports
 6. Write component and utility tests
 
+### Validating Frontend Pages (REQUIRED)
+**INSTRUCTION**: After creating or editing any frontend page or component, always validate it is working:
+1. Run `get_errors` on every file created or modified — fix all TypeScript and ESLint errors before finishing
+2. Run ESLint via terminal: `npx eslint <file> --max-warnings 0` — confirm zero warnings and errors
+3. If the dev server is already running, verify the page renders without a runtime crash by checking the browser console output or terminal for errors
+4. If the dev server is not running, run `npm run dev` in `packages/frontend` (background) and verify it starts successfully
+5. Confirm the page is reachable at its route (e.g. navigate to `/profile` after adding ProfilePage)
+6. Open the page in the Simple Browser (`open_simple_browser`) and confirm it loads without a blank screen or error boundary
+
 ### Adding a New Component
 1. Create component directory in appropriate location
 2. Add `.tsx` file with component

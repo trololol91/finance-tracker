@@ -286,12 +286,12 @@ Contains `User` and `AuthContextType`. `LoginRequest`, `RegisterRequest`, and `A
 
 ### Phase 1 Checklist
 
-- [ ] **Core:** AuthContext, login/register pages, form validation
-- [ ] **API Integration:** Auth service methods, token storage, API client interceptor
-- [ ] **State Management:** Auth context provider, useAuth hook
-- [ ] **Testing:** Login form, registration form, auth context, route protection
-- [ ] **Accessibility:** Keyboard navigation, ARIA labels, focus management
-- [ ] **Documentation:** Auth flow documented, types defined
+- [x] **Core:** AuthContext, login/register pages, form validation
+- [x] **API Integration:** Auth service methods, token storage, API client interceptor
+- [x] **State Management:** Auth context provider, useAuth hook
+- [x] **Testing:** Login form, registration form, auth context, route protection
+- [x] **Accessibility:** Keyboard navigation, ARIA labels, focus management
+- [x] **Documentation:** Auth flow documented, types defined
 
 ### Validation Criteria
 
@@ -324,7 +324,7 @@ Contains `User` and `AuthContextType`. `LoginRequest`, `RegisterRequest`, and `A
 
 ### Tasks
 
-#### 2.1 Create User Profile Types & Services
+#### 2.1 Create User Profile Types & Services ✅ Complete
 
 > ⚠️ **Orval note:** `userService.ts` is **not needed**. Orval generates `src/api/users/users.ts` with:
 > - `usersControllerFindOne(id)` / `useUsersControllerFindOne(id)` — GET /users/:id
@@ -333,24 +333,33 @@ Contains `User` and `AuthContextType`. `LoginRequest`, `RegisterRequest`, and `A
 >
 > `UpdateUserRequest` is already generated as `UpdateUserDto` in `src/api/model/`. Import it directly.
 
-**Files to Create:**
-- `src/features/users/types/user.types.ts` (frontend-specific types only)
+**Files Created:**
+- ✅ `src/features/users/types/user.types.ts`
 
 **`user.types.ts`:**
 ```typescript
-// Import generated DTO types from Orval — do not redefine these:
-// import type { UpdateUserDto, UserResponseDto } from '@/api/model';
+// Import generated DTO types from Orval directly where needed — do not redefine them:
+// import type { UserResponseDto } from '@/api/model/userResponseDto.js';
+// import type { UpdateUserDto } from '@/api/model/updateUserDto.js';
 
-// Only define types specific to the frontend profile feature:
-export type UserProfile = UserResponseDto; // alias for clarity
+// Only define types that have no backend equivalent:
+export type ProfileMode = 'view' | 'edit';
 ```
 
-**API hooks to use (from `src/api/users/users.ts`):**
-- `useUsersControllerFindOne(id)` — GET /users/:id (self)
-- `useUsersControllerUpdate()` — PATCH /users/:id
-- `useUsersControllerRemove()` — DELETE /users/:id
+**API hooks available (from `src/api/users/users.ts`):**
+- ✅ `useUsersControllerFindOne(id)` — GET /users/:id (self)
+- ✅ `useUsersControllerUpdate()` — PATCH /users/:id
+- ✅ `useUsersControllerRemove()` — DELETE /users/:id
 
-#### 2.2 Create Profile Page
+#### 2.2 Create Profile Page ✅ Complete
+
+**Files Created:**
+- ✅ `src/pages/ProfilePage.tsx`
+- ✅ `src/pages/ProfilePage.css`
+
+**Also Updated:**
+- ✅ `src/config/constants.ts` — added `PROFILE: '/profile'` to `APP_ROUTES`
+- ✅ `src/routes/index.tsx` — added lazy-loaded `ProfilePage` behind `PrivateRoute`
 
 **File:** `src/pages/ProfilePage.tsx`
 

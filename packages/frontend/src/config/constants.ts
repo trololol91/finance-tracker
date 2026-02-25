@@ -27,6 +27,7 @@ export const APP_ROUTES = {
     LOGIN: '/login',
     REGISTER: '/register',
     DASHBOARD: '/dashboard',
+    PROFILE: '/profile',
     TRANSACTIONS: '/transactions',
     CATEGORIES: '/categories',
     ACCOUNTS: '/accounts',
