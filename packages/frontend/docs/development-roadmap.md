@@ -898,7 +898,7 @@ npm run preview
 - [ ] Add "Remember me" functionality
 - [ ] Password strength indicator
 - [ ] Email verification flow
-- [ ] Forgot password flow
+- [ ] Forgot password flow *(button is rendered but disabled in `LoginForm.tsx` pending this feature)*
 - [ ] Two-factor authentication
 - [ ] OAuth providers (Google, GitHub)
 

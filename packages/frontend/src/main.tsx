@@ -5,7 +5,7 @@ import {createRoot} from 'react-dom/client';
 import {RouterProvider} from 'react-router-dom';
 import {router} from '@routes/index';
 import {AuthProvider} from '@features/auth/context/AuthContext.js';
-import {Loading} from '@components/common';
+import {Loading} from '@components/common/Loading/Loading.js';
 import '@/index.css';
 
 createRoot(document.getElementById('root')!).render(

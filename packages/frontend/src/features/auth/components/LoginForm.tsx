@@ -8,6 +8,10 @@ import {Button} from '@components/common/Button/Button.js';
 import {Input} from '@components/common/Input/Input.js';
 import {validators} from '@utils/validators.js';
 import {APP_ROUTES} from '@config/constants';
+import {
+    Eye,
+    EyeOff
+} from 'lucide-react';
 import '@features/auth/components/LoginForm.css';
 
 interface FormState {
@@ -177,7 +181,7 @@ export const LoginForm = (): React.JSX.Element => {
                             tabIndex={0}
                             disabled={isSubmitting}
                         >
-                            {showPassword ? '🙈' : '👁️'}
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                     </div>
                     {errors.password && (
@@ -214,8 +218,12 @@ export const LoginForm = (): React.JSX.Element => {
             </Button>
 
             <div className="login-form__links">
-                {/* Placeholder — forgot password flow is future work */}
-                <button type="button" className="login-form__link-btn">
+                {/* TODO: forgot password flow — hidden until implemented */}
+                <button
+                    type="button"
+                    className="login-form__link-btn"
+                    style={{display: 'none'}}
+                >
                     Forgot password?
                 </button>
 

@@ -1,13 +1,13 @@
 .header {
-    background: white;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-white);
+    border-bottom: 1px solid var(--color-gray-200);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: var(--z-sticky);
 }
 
 .header-container {
-    max-width: 1280px;
+    max-width: var(--max-width-content);
     margin: 0 auto;
     padding: 1rem 1.5rem;
     display: flex;
@@ -16,9 +16,9 @@
 }
 
 .header-logo {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #3b82f6;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
     text-decoration: none;
 }
 
@@ -28,12 +28,12 @@
 }
 
 .header-link {
-    color: #374151;
+    color: var(--color-gray-700);
     text-decoration: none;
-    font-weight: 500;
-    transition: color 0.2s;
+    font-weight: var(--font-weight-medium);
+    transition: color var(--transition-base);
 }
 
 .header-link:hover {
-    color: #3b82f6;
+    color: var(--color-primary);
 }

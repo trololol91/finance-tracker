@@ -515,6 +515,7 @@ npm run test:watch
 
 ## Future Enhancements
 
+- [ ] Forgot password / password reset flow (`POST /auth/forgot-password` — send reset email with time-limited token; `POST /auth/reset-password` — validate token and set new password)
 - [ ] Recurring transactions
 - [ ] Transaction import (CSV, bank APIs)
 - [ ] Multi-currency support

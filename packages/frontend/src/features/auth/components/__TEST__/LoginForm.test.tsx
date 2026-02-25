@@ -64,9 +64,6 @@ describe('LoginForm', () => {
             expect(
                 screen.getByRole('checkbox', {name: /remember me/i})
             ).toBeInTheDocument();
-            expect(
-                screen.getByRole('button', {name: /forgot password/i})
-            ).toBeInTheDocument();
             expect(screen.getByRole('link', {name: /sign up/i})).toBeInTheDocument();
         });
 

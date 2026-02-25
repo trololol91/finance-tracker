@@ -1,6 +1,10 @@
 import React from 'react';
+import {Link} from 'react-router-dom';
 import {LoginForm} from '@features/auth/components/LoginForm.js';
-import {APP_NAME} from '@config/constants';
+import {
+    APP_NAME,
+    APP_ROUTES
+} from '@config/constants';
 import '@pages/LoginPage.css';
 
 const LoginPage = (): React.JSX.Element => {
@@ -13,6 +17,13 @@ const LoginPage = (): React.JSX.Element => {
                 </header>
 
                 <LoginForm />
+
+                <div className="login-page__footer">
+                    <p className="login-page__footer-text">Don&apos;t have an account?</p>
+                    <Link to={APP_ROUTES.REGISTER} className="login-page__register-btn">
+                        Create account
+                    </Link>
+                </div>
             </div>
         </main>
     );

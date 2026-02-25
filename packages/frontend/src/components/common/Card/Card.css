@@ -1,17 +1,17 @@
 .card {
-    background: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
     padding: 1.5rem;
 }
 
 .card-title {
     margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #111827;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-gray-900);
 }
 
 .card-content {
-    color: #374151;
+    color: var(--color-gray-700);
 }
