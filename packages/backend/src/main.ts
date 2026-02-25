@@ -48,6 +48,12 @@ const bootstrap = async (): Promise<void> => {
         }
     });
 
+    // Enable CORS for frontend dev server
+    app.enableCors({
+        origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+        credentials: true
+    });
+
     // Get port from configuration
     const configService = app.get(ConfigService);
     const port = configService.get<number>('PORT') ?? 3001;
