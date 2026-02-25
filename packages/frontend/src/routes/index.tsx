@@ -6,7 +6,6 @@ import {APP_ROUTES} from '@config/constants';
 // Lazy load pages
 import {lazy} from 'react';
 
-const HomePage = lazy(() => import('@pages/HomePage.tsx'));
 const LoginPage = lazy(() => import('@pages/LoginPage.tsx'));
 const RegisterPage = lazy(() => import('@pages/RegisterPage.tsx'));
 const DashboardPage = lazy(() => import('@pages/DashboardPage.tsx'));
@@ -22,7 +21,11 @@ const NotFoundPage = lazy(() => import('@pages/NotFoundPage.tsx'));
 export const router = createBrowserRouter([
     {
         path: APP_ROUTES.HOME,
-        element: <HomePage />
+        element: (
+            <PublicRoute>
+                <LoginPage />
+            </PublicRoute>
+        )
     },
     {
         path: APP_ROUTES.LOGIN,

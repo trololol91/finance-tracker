@@ -436,30 +436,18 @@ export type ProfileMode = 'view' | 'edit';
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### 2.3 Create Profile Components
+#### 2.3 Create Profile Components ✅ Complete
 
-**Files to Create:**
-- `src/features/users/components/ProfileView.tsx`
-- `src/features/users/components/ProfileEdit.tsx`
-- `src/features/users/components/DeleteAccountModal.tsx`
+**Files Created:**
+- ✅ `src/features/users/utils/profile.utils.ts` — `TIMEZONES`, `TimezoneOption`, `formatDate`
+- ✅ `src/features/users/components/ProfileView.tsx` — read-only profile view
+- ✅ `src/features/users/components/ProfileEdit.tsx` — edit form
+- ✅ `src/features/users/components/DeleteAccountModal.tsx` — portal modal with password confirmation
+- ✅ `src/features/users/components/DeleteAccountModal.css` — modal overlay styles
 
-**ProfileView Component:**
-- Display user data in read-only format
-- "Edit" button to switch to edit mode
-- Clean, organized layout
-
-**ProfileEdit Component:**
-- Editable form fields
-- Validation (same as registration)
-- Save/Cancel buttons
-- Disable email editing (not allowed)
-
-**DeleteAccountModal Component:**
-- Confirmation modal
-- "Are you sure?" messaging
-- Password confirmation field
-- "Delete My Account" button (red/danger color)
-- Cannot be undone warning
+**Also Updated:**
+- ✅ `src/features/users/types/user.types.ts` — added `ProfileFormState`, `ProfileDisplayData`
+- ✅ `src/pages/ProfilePage.tsx` — refactored to use extracted components; TIMEZONES/formatDate moved to utils
 
 #### 2.4 Create Settings Page (Optional Enhancement)
 
@@ -474,12 +462,12 @@ export type ProfileMode = 'view' | 'edit';
 
 ### Phase 2 Checklist
 
-- [ ] **Core:** Profile view/edit, delete account modal
-- [ ] **API Integration:** User service methods, update profile, delete account
-- [ ] **State Management:** Update user in auth context after profile update
-- [ ] **Testing:** Profile components, edit form, delete confirmation
-- [ ] **Accessibility:** Focus management in edit mode, modal accessibility
-- [ ] **Documentation:** User profile flow documented
+- [x] **Core:** Profile view/edit, delete account modal
+- [x] **API Integration:** User service methods, update profile, delete account
+- [x] **State Management:** Update user in auth context after profile update
+- [x] **Testing:** Profile components, edit form, delete confirmation
+- [x] **Accessibility:** Focus management in edit mode, modal accessibility
+- [x] **Documentation:** User profile flow documented
 
 ### Validation Criteria
 
