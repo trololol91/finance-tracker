@@ -10,10 +10,10 @@ export class UserResponseDto {
     @ApiProperty({description: 'User email address', example: 'user@example.com'})
     email!: string;
 
-    @ApiProperty({description: 'User first name', example: 'John', nullable: true, required: false})
+    @ApiProperty({description: 'User first name', example: 'John', nullable: true, required: false, type: String})
     firstName?: string | null;
 
-    @ApiProperty({description: 'User last name', example: 'Doe', nullable: true, required: false})
+    @ApiProperty({description: 'User last name', example: 'Doe', nullable: true, required: false, type: String})
     lastName?: string | null;
 
     @ApiProperty({description: 'Email verification status', example: false})

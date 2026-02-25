@@ -7,9 +7,9 @@ import React, {
 } from 'react';
 import type {
     AuthContextType,
-    User,
-    RegisterRequest
+    User
 } from '@features/auth/types/auth.types.js';
+import type {CreateUserDto} from '@/api/model/createUserDto.js';
 import {authStorage} from '@services/storage/authStorage.js';
 
 /**
@@ -76,7 +76,7 @@ const createAuthMethods = (
         );
     };
 
-    const register = (_data: RegisterRequest): Promise<void> => {
+    const register = (_data: CreateUserDto): Promise<void> => {
         // TODO: Implement in Phase 1.2 with authService
         // Make this async and add await when implementing:
         // const response = await authService.register(data);

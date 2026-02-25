@@ -35,11 +35,11 @@ This document outlines the implementation order for building the Finance Tracker
 - [ ] Loading states for async operations
 
 #### ✅ **API Integration**
-- [ ] API client methods in `services/api/endpoints.ts`
-- [ ] Feature-specific service functions in `features/[feature]/services/`
+- [ ] Use Orval-generated hooks from `src/api/[feature]/` — do **not** create manual service files
+- [ ] Run `npm run generate:api` if backend endpoints have changed
+- [ ] Import generated DTO types from `src/api/model/` — do **not** redefine them in feature `types/` files
 - [ ] Error handling with user-friendly messages
-- [ ] Request/response TypeScript types
-- [ ] Loading and error states
+- [ ] Loading and error states from React Query (`isPending`, `isError`, `error`)
 
 #### ✅ **State Management**
 - [ ] Local state with useState for UI-only state
@@ -82,59 +82,23 @@ This document outlines the implementation order for building the Finance Tracker
 
 ### Tasks
 
-#### 1.1 Setup Authentication Context & Types
+#### 1.1 Setup Authentication Context & Types ✅ Complete
 
-**Files to Create:**
-- `src/features/auth/types/auth.types.ts`
-- `src/features/auth/context/AuthContext.tsx`
-- `src/features/auth/hooks/useAuth.ts`
-- `src/services/storage/authStorage.ts`
+**Files Created:**
+- ✅ `src/features/auth/types/auth.types.ts`
+- ✅ `src/features/auth/context/AuthContext.tsx`
+- ✅ `src/features/auth/hooks/useAuth.ts`
+- ✅ `src/services/storage/authStorage.ts`
 
 **Implementation Details:**
 
-**`auth.types.ts`:**
-```typescript
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  timezone: string;
-  currency: string;
-  isActive: boolean;
-  createdAt: string;
-}
+**`auth.types.ts`:** ✅ Created & cleaned up
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+Contains `User` and `AuthContextType`. `LoginRequest`, `RegisterRequest`, and `AuthResponse` have been removed:
+- `RegisterRequest` → replaced by `CreateUserDto` from `src/api/model/`
+- `LoginRequest` / `AuthResponse` → were unused, deleted
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  timezone?: string;
-  currency?: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: User;
-}
-
-export interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
-  logout: () => void;
-  updateUser: (user: User) => void;
-}
-```
+> 📝 **Note:** `User` is kept as a local type rather than using `UserResponseDto`. Both now generate correctly (backend `@ApiProperty` decorators were fixed with `type: String` for nullable fields — `auth-response.dto.ts` and `user-response.dto.ts`). `UserResponseDto` has all needed fields but `firstName`/`lastName` are `string | null` (nullable) vs the local `User` which has them as `string`. Replacing requires null-handling updates across `AuthContext.tsx`, `authStorage.ts`, and test files — defer to a future cleanup.
 
 **`AuthContext.tsx`:**
 - Create context with AuthContextType
@@ -154,20 +118,26 @@ export interface AuthContextType {
 
 #### 1.2 Implement Auth API Service
 
-**Files to Create/Update:**
-- `src/features/auth/services/authService.ts`
-- `src/services/api/endpoints.ts` (update)
+> ⚠️ **Orval note:** `authService.ts` and a manual `endpoints.ts` update are **not needed**. Orval generates fully typed API functions and React Query mutation hooks in `src/api/auth/auth.ts`:
+> - `authControllerLogin(loginDto)` / `useAuthControllerLogin()` — POST /auth/login
+> - `authControllerRegister(createUserDto)` / `useAuthControllerRegister()` — POST /auth/register
+> - `authControllerGetMe()` / `useAuthControllerGetMe()` — GET /auth/me
+>
+> Use these generated functions directly in `AuthContext.tsx` to implement `login` and `register`. Re-run `npm run generate:api` after backend changes to regenerate.
 
-**`authService.ts` Methods:**
-- `login(email, password)` - POST /auth/login
-- `register(data)` - POST /auth/register
-- `getCurrentUser()` - GET /auth/me
-- `logout()` - clear local state (no API call needed)
+**Files to Update:**
+- `src/features/auth/context/AuthContext.tsx` — wire up Orval-generated functions
 
-**API Client Updates:**
-- Add Authorization header interceptor
-- Handle 401 responses (token expired)
-- Redirect to login on auth failure
+**`AuthContext.tsx` integration:**
+- Import `authControllerLogin`, `authControllerRegister` from `@/api/auth/auth.js`
+- Import types `LoginDto`, `CreateUserDto`, `AuthResponseDto` from `@/api/model`
+- Call generated functions inside the `login` and `register` methods
+- Store token/user via `authStorage` after successful response
+
+**API Client (already complete in `services/api/client.ts`):**
+- ✅ Authorization header interceptor
+- ✅ 401 response handling (token expired)
+- ✅ Redirect to login on auth failure
 
 #### 1.3 Create Login Page
 
@@ -339,28 +309,29 @@ export interface AuthContextType {
 
 #### 2.1 Create User Profile Types & Services
 
+> ⚠️ **Orval note:** `userService.ts` is **not needed**. Orval generates `src/api/users/users.ts` with:
+> - `usersControllerFindOne(id)` / `useUsersControllerFindOne(id)` — GET /users/:id
+> - `usersControllerUpdate(id, updateUserDto)` / `useUsersControllerUpdate()` — PATCH /users/:id
+> - `usersControllerRemove(id)` / `useUsersControllerRemove()` — DELETE /users/:id
+>
+> `UpdateUserRequest` is already generated as `UpdateUserDto` in `src/api/model/`. Import it directly.
+
 **Files to Create:**
-- `src/features/users/types/user.types.ts`
-- `src/features/users/services/userService.ts`
+- `src/features/users/types/user.types.ts` (frontend-specific types only)
 
 **`user.types.ts`:**
 ```typescript
-export interface UpdateUserRequest {
-  firstName?: string;
-  lastName?: string;
-  timezone?: string;
-  currency?: string;
-}
+// Import generated DTO types from Orval — do not redefine these:
+// import type { UpdateUserDto, UserResponseDto } from '@/api/model';
 
-export interface UserProfile extends User {
-  // Additional profile-specific fields if needed
-}
+// Only define types specific to the frontend profile feature:
+export type UserProfile = UserResponseDto; // alias for clarity
 ```
 
-**`userService.ts` Methods:**
-- `getCurrentUser()` - GET /users/:id (self)
-- `updateProfile(userId, data)` - PATCH /users/:id
-- `deleteAccount(userId)` - DELETE /users/:id
+**API hooks to use (from `src/api/users/users.ts`):**
+- `useUsersControllerFindOne(id)` — GET /users/:id (self)
+- `useUsersControllerUpdate()` — PATCH /users/:id
+- `useUsersControllerRemove()` — DELETE /users/:id
 
 #### 2.2 Create Profile Page
 
@@ -519,60 +490,26 @@ export interface UserProfile extends User {
 
 #### 3.1 Create Transaction Types & Services
 
+> ⚠️ **Orval note:** `transactionService.ts` is **not needed**. Orval generates `src/api/transactions/transactions.ts` with typed React Query hooks for all transaction endpoints. Re-run `npm run generate:api` once the backend Transactions module exposes its Swagger docs to get fully typed hooks.
+>
+> Entity and DTO types (`Transaction`, `CreateTransactionDto`, `UpdateTransactionDto`) will also be generated in `src/api/model/`. Check there before defining them manually.
+
 **Files to Create:**
-- `src/features/transactions/types/transaction.types.ts`
-- `src/features/transactions/services/transactionService.ts`
+- `src/features/transactions/types/transaction.types.ts` (frontend-specific types only)
 
 **`transaction.types.ts`:**
 ```typescript
-export enum TransactionType {
-  INCOME = 'income',
-  EXPENSE = 'expense',
-  TRANSFER = 'transfer',
-}
+// Import generated DTO/entity types from Orval — do not redefine these:
+// import type { CreateTransactionDto, UpdateTransactionDto } from '@/api/model';
+// (Transaction entity type will be generated once backend exposes it)
 
-export interface Transaction {
-  id: string;
-  userId: string;
-  amount: number;
-  description: string;
-  notes?: string;
-  categoryId?: string;
-  accountId?: string;
-  transactionType: TransactionType;
-  date: string;
-  originalDate: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateTransactionRequest {
-  amount: number;
-  description: string;
-  notes?: string;
-  categoryId?: string;
-  accountId?: string;
-  transactionType: TransactionType;
-  date: string;
-}
-
-export interface UpdateTransactionRequest {
-  amount?: number;
-  description?: string;
-  notes?: string;
-  categoryId?: string;
-  accountId?: string;
-  date?: string;
-  isActive?: boolean;
-}
-
+// Frontend-specific types not covered by generated models:
 export interface TransactionFilter {
   startDate?: string;
   endDate?: string;
   categoryId?: string;
   accountId?: string;
-  transactionType?: TransactionType;
+  transactionType?: string;
   isActive?: boolean | 'all';
   page?: number;
   limit?: number;
@@ -585,24 +522,15 @@ export interface TransactionTotals {
   startDate: string;
   endDate: string;
 }
-
-export interface TransactionListResponse {
-  transactions: Transaction[];
-  total: number;
-  page: number;
-  limit: number;
-}
 ```
 
-**`transactionService.ts` Methods:**
-- `getTransactions(filters)` - GET /transactions with query params
-- `getTransaction(id)` - GET /transactions/:id
-- `createTransaction(data)` - POST /transactions
-- `updateTransaction(id, data)` - PATCH /transactions/:id
-- `toggleActive(id)` - PATCH /transactions/:id/toggle-active
-- `deleteTransaction(id)` - DELETE /transactions/:id
-- `getTotals(startDate, endDate)` - GET /transactions/totals
-- `getMonthlyTotals(year, month)` - GET /transactions/totals/:year/:month
+**API hooks to use (from `src/api/transactions/transactions.ts` once generated):**
+- `useTransactionsControllerGetAll(params)` — GET /transactions
+- `useTransactionsControllerFindOne(id)` — GET /transactions/:id
+- `useTransactionsControllerCreate()` — POST /transactions
+- `useTransactionsControllerUpdate()` — PATCH /transactions/:id
+- `useTransactionsControllerToggleActive()` — PATCH /transactions/:id/toggle-active
+- `useTransactionsControllerRemove()` — DELETE /transactions/:id
 
 #### 3.2 Create Transactions Page
 
@@ -706,63 +634,23 @@ export interface TransactionListResponse {
 
 #### 3.4 Create Transaction Hooks
 
+> ⚠️ **Orval note:** `useTransactions.ts` is **not needed**. Orval generates React Query hooks in `src/api/transactions/transactions.ts` that handle fetching, loading state, error state, and caching automatically. Use those directly in components or compose them within `useTransactionFilters`.
+
 **Files to Create:**
-- `src/features/transactions/hooks/useTransactions.ts`
 - `src/features/transactions/hooks/useTransactionFilters.ts`
 - `src/features/transactions/hooks/useTransactionForm.ts`
 
-**useTransactions Hook:**
-```typescript
-export function useTransactions(filters?: TransactionFilter) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchTransactions = async () => {
-    // Implementation
-  };
-
-  const createTransaction = async (data: CreateTransactionRequest) => {
-    // Implementation
-  };
-
-  const updateTransaction = async (id: string, data: UpdateTransactionRequest) => {
-    // Implementation
-  };
-
-  const deleteTransaction = async (id: string) => {
-    // Implementation
-  };
-
-  const toggleActive = async (id: string) => {
-    // Implementation
-  };
-
-  return {
-    transactions,
-    total,
-    loading,
-    error,
-    fetchTransactions,
-    createTransaction,
-    updateTransaction,
-    deleteTransaction,
-    toggleActive,
-  };
-}
-```
-
 **useTransactionFilters Hook:**
-- Manages filter state (date range, category, status, search)
+- Manages filter UI state (date range, category, status, search)
 - Provides filter change handlers
 - Provides clear filters function
 - Updates URL query params for shareable links
+- Calls `useTransactionsControllerGetAll(filters)` from `src/api/transactions/transactions.ts`
 
 **useTransactionForm Hook:**
 - Form state management
 - Validation logic
-- Submit handler
+- Submit handler calling Orval mutation hooks (`useTransactionsControllerCreate`, `useTransactionsControllerUpdate`)
 - Reset function
 
 #### 3.5 Implement Pagination
@@ -894,12 +782,14 @@ export function useTransactions(filters?: TransactionFilter) {
 - Avoid prop drilling (max 2-3 levels)
 
 ### API Integration
-- Centralized API client in `services/api/client.ts`
-- Endpoint definitions in `services/api/endpoints.ts`
-- Feature-specific services in `features/[feature]/services/`
+- Orval generates typed React Query hooks in `src/api/[feature]/` from the OpenAPI spec — use these instead of manual service files
+- Orval generates all DTO/entity types in `src/api/model/` — import from there, do not duplicate in feature `types/` files
+- Regenerate with `npm run generate:api` (live backend) or `npm run generate:api:file` (snapshot)
+- Centralized API client in `services/api/client.ts` — all generated calls route through it automatically via `src/services/api/mutator.ts`
+- `services/api/endpoints.ts` kept as URL reference constants only
 - Proper error handling with user-friendly messages
-- Loading states for all async operations
-- Request cancellation for cleanup
+- Loading states via React Query (`isPending`, `isError`)
+- Request cancellation handled automatically by React Query + AbortSignal
 
 ### Testing Strategy
 - Test user-facing behavior, not implementation

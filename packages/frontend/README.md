@@ -1,73 +1,338 @@
-# React + TypeScript + Vite
+# Finance Tracker - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React-based single-page application for the Finance Tracker project.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Framework:** React v19.2.0
+- **Build Tool:** Vite v7.2.7
+- **Runtime:** Node.js v24.13.0
+- **Language:** TypeScript v5.9.3 (ESM modules)
+- **Testing:** Vitest v4.0.15 + React Testing Library
+- **API Client:** Orval v8.4.2 (generated from OpenAPI spec)
+- **State:** TanStack Query v5 (server state) + Zustand v5 (client state)
+- **Routing:** React Router v7
+- **Forms:** React Hook Form v7 + Zod v3
+- **Linting:** ESLint v9 with TypeScript ESLint
+- **Architecture:** Feature-based modules with path aliases
 
-## React Compiler
+## Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Get the frontend running in under 2 minutes:
 
-## Expanding the ESLint configuration
+```bash
+# 1. Install dependencies (from project root)
+npm install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 2. Start development server
+cd packages/frontend
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+**App runs at:** http://localhost:5173
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+> **Note:** The backend must be running for API calls to work. See the [backend README](../backend/README.md) for setup.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Prerequisites
+
+- **Node.js:** v24.13.0 (use `.nvmrc` with nvm)
+- **npm:** v11.6.2 (bundled with Node.js)
+- **Backend:** Running at `http://localhost:3001` for API calls
+
+## Development Setup
+
+### 1. Install Node.js
+
+```bash
+# Using nvm (recommended)
+nvm install 24.13.0
+nvm use 24.13.0
+
+# Verify installation
+node --version  # Should output: v24.13.0
+npm --version   # Should output: v11.6.2
 ```
+
+### 2. Install Dependencies
+
+**From project root:**
+```bash
+npm install
+```
+
+**Or from frontend directory:**
+```bash
+cd packages/frontend
+npm install
+```
+
+### 3. Start Development Server
+
+```bash
+# From frontend directory
+npm run dev
+```
+
+App runs at: **http://localhost:5173**
+
+Benefits:
+- ✅ Hot module replacement (HMR)
+- ✅ TypeScript type checking
+- ✅ Path alias resolution
+- ✅ Fast refresh on save
+
+### 4. Verify Installation
+
+Open http://localhost:5173 in your browser. The app should load. API calls require the backend to be running.
+
+## Available Scripts
+
+### Development
+```bash
+npm run dev            # Start dev server with HMR
+npm run preview        # Preview production build locally
+```
+
+### Build
+```bash
+npm run build          # Type-check and compile to dist/
+```
+
+### Testing
+```bash
+npm test               # Run all tests once
+npm run test:watch     # Run tests in watch mode
+npm run test:ui        # Open interactive test UI
+npm run test:coverage  # Generate coverage report
+```
+
+### Code Quality
+```bash
+npm run lint           # Lint with ESLint
+npm run typecheck      # Type-check without emitting
+```
+
+### API Client Generation
+```bash
+npm run openapi:fetch      # Fetch OpenAPI spec from running backend → openapi.json
+npm run generate:api       # Run Orval against local openapi.json snapshot
+npm run generate:api:live  # Both in sequence (fetch + generate)
+```
+
+## Project Structure
+
+```
+packages/frontend/
+├── src/
+│   ├── api/                # ⚠ Generated by Orval — do not edit manually
+│   │   ├── auth/           # Auth API hooks (useAuthControllerLogin, etc.)
+│   │   ├── users/          # Users API hooks
+│   │   ├── transactions/   # Transactions API hooks
+│   │   └── model/          # Generated DTO types (LoginDto, UserResponseDto, etc.)
+│   ├── components/         # Reusable UI components
+│   │   └── common/         # Shared components (buttons, inputs, modals, etc.)
+│   ├── config/             # Environment config and app constants
+│   ├── features/           # Feature modules (mirrors backend structure)
+│   │   └── auth/           # Auth feature
+│   │       ├── components/ # Auth-specific components (LoginForm, etc.)
+│   │       ├── context/    # AuthContext provider
+│   │       ├── hooks/      # useAuth hook
+│   │       ├── services/   # Auth-specific services
+│   │       └── types/      # Auth types (User, AuthContextType, etc.)
+│   ├── hooks/              # Shared hooks
+│   ├── pages/              # Route-level page components
+│   ├── routes/             # React Router configuration
+│   ├── services/           # Cross-cutting services
+│   │   ├── api/            # API client (axios instance, interceptors, mutator)
+│   │   └── storage/        # localStorage helpers (authStorage, etc.)
+│   ├── store/              # Zustand global state stores
+│   ├── styles/             # Global CSS and design tokens
+│   ├── types/              # Shared TypeScript types
+│   ├── utils/              # Utility functions
+│   ├── App.tsx             # Root component
+│   ├── App.css             # Root styles
+│   ├── main.tsx            # Entry point
+│   └── index.css           # CSS resets and variables
+├── scripts/
+│   └── fetch-openapi.ts    # Fetches OpenAPI spec from running backend
+├── docs/                   # Documentation
+│   ├── development-roadmap.md
+│   └── directory-structure.md
+├── public/                 # Static assets
+├── openapi.json            # OpenAPI spec snapshot (used by Orval)
+├── orval.config.ts         # Orval code generation configuration
+├── vite.config.ts          # Vite configuration with path aliases
+├── vitest.config.ts        # Vitest test configuration
+├── tsconfig.json           # Base TypeScript config
+├── tsconfig.app.json       # App TypeScript config with path aliases
+├── tsconfig.node.json      # Node TypeScript config (vite.config.ts)
+├── eslint.config.js        # ESLint configuration
+└── package.json            # Dependencies and scripts
+```
+
+## Path Aliases
+
+The project uses TypeScript path aliases for cleaner imports. No relative imports (`../`) allowed.
+
+```typescript
+import { Button } from '@components/common/Button.js';
+import { useAuth } from '@features/auth/hooks/useAuth.js';
+import { LoginPage } from '@pages/LoginPage.js';
+import { apiClient } from '@services/api/client.js';
+import { authStorage } from '@services/storage/authStorage.js';
+import { formatCurrency } from '@utils/currency.js';
+import { AppRoutes } from '@routes/index.js';
+import { env } from '@config/env.js';
+import { useTransactionStore } from '@store/transactionStore.js';
+import type { Transaction } from '@types/common.types.js';
+```
+
+**Important:** ESM requires `.js` extensions on all imports, even for `.ts` files.
+
+## Environment Variables
+
+Create a `.env` file in `packages/frontend/` if local overrides are needed:
+
+```env
+# API base URL (defaults to http://localhost:3001 if not set)
+VITE_API_URL=http://localhost:3001
+```
+
+All Vite env vars must be prefixed with `VITE_` to be exposed to the browser. Access them via `import.meta.env.VITE_*`.
+
+## API Client Generation (Orval)
+
+The `src/api/` directory is **fully generated** — never edit it manually.
+
+### Regenerate `openapi.json` + API client (standard workflow)
+
+Run this whenever backend DTOs, controllers, or routes change:
+
+```bash
+# 1. Start the backend (requires Docker/Postgres running)
+cd packages/backend
+npm run start:dev
+
+# 2. In a new terminal, from packages/frontend:
+npm run generate:api:live
+```
+
+`generate:api:live` runs two steps in sequence:
+- `openapi:fetch` — fetches `http://localhost:3001/api-json` and saves to `openapi.json`
+- `generate:api` — runs Orval to regenerate `src/api/` from the snapshot
+
+### Regenerate API client only (openapi.json already up to date)
+
+If you've manually patched `openapi.json` or only want to re-run Orval:
+
+```bash
+npm run generate:api
+```
+
+### Notes
+
+- `openapi.json` is committed to source control so generation works offline
+- The backend exposes its spec at `GET /api-json` when running (via `SwaggerModule.setup` in `main.ts`)
+- If a nullable string field generates as `{ [key: string]: unknown } | null`, add `type: String` to the backend `@ApiProperty` decorator and regenerate
+
+See [docs/directory-structure.md](./docs/directory-structure.md#api-client-generation-orval) for full details.
+
+## Testing Guidelines
+
+### Writing Tests
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { LoginForm } from '@features/auth/components/LoginForm.js';
+
+describe('LoginForm', () => {
+  it('renders email and password fields', () => {
+    // Arrange
+    render(<LoginForm />);
+
+    // Act & Assert
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+  });
+});
+```
+
+### Test Coverage
+
+```bash
+npm run test:coverage
+
+# Open coverage report
+open coverage/index.html   # macOS
+start coverage/index.html  # Windows
+```
+
+### Testing Guidelines
+- Use accessibility-first queries: `getByRole`, `getByLabelText`, `getByText`
+- Test user-facing behaviour, not implementation details
+- Follow Arrange-Act-Assert pattern
+
+## IDE Setup (VS Code)
+
+### Recommended Extensions
+- **ESLint** (dbaeumer.vscode-eslint)
+- **Prettier** (esbenp.prettier-vscode)
+- **EditorConfig** (editorconfig.editorconfig)
+
+Settings are pre-configured in project files.
+
+## Troubleshooting
+
+### Port 5173 Already in Use
+
+```bash
+# Find process on port
+netstat -ano | findstr :5173    # Windows
+lsof -i :5173                   # macOS/Linux
+
+# Or change port in vite.config.ts
+```
+
+### Module Not Found / Path Alias Errors
+
+Ensure imports use `.js` extensions:
+```typescript
+// ✅ Correct
+import { useAuth } from '@features/auth/hooks/useAuth.js';
+
+// ❌ Wrong
+import { useAuth } from '@features/auth/hooks/useAuth';
+import { useAuth } from '../auth/hooks/useAuth.js';
+```
+
+### API Calls Failing (CORS / Connection Refused)
+
+Ensure the backend is running at `http://localhost:3001`. See [backend README](../backend/README.md).
+
+### Generated Types Look Wrong
+
+If Orval generates `{ [key: string]: unknown } | null` for a string field, the backend `@ApiProperty` decorator is missing `type: String`. Fix in the backend DTO and run `npm run generate:api:live`.
+
+## Code Style
+
+- **TypeScript:** Strict mode with explicit types and return annotations
+- **Imports:** Path aliases with `.js` extensions — no relative imports
+- **Components:** Return type `React.JSX.Element`, PascalCase filenames
+- **Hooks:** `use` prefix, camelCase filenames
+- **Formatting:** Prettier with 4-space indentation
+- **Linting:** ESLint with TypeScript rules
+
+## Resources
+
+- [React Documentation](https://react.dev)
+- [Vite Documentation](https://vite.dev)
+- [TanStack Query Docs](https://tanstack.com/query/latest)
+- [Orval Documentation](https://orval.dev)
+- [Vitest Documentation](https://vitest.dev)
+- [Project Architecture](./docs/directory-structure.md)
+- [Development Roadmap](./docs/development-roadmap.md)
+
+## License
+
+UNLICENSED - Private project

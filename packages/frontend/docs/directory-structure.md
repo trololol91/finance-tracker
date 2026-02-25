@@ -728,7 +728,74 @@ dist/
 └── [public files]         # Static assets from public/
 ```
 
+## API Client Generation (Orval)
+
+The frontend uses **Orval** to auto-generate typed React Query hooks and DTO types from the backend's OpenAPI spec. The generated output lives in `src/api/` and should **never be edited manually**.
+
+### Generated Files
+
+```
+src/api/
+├── auth/
+│   └── auth.ts            # useAuthControllerLogin, useAuthControllerRegister, etc.
+├── users/
+│   └── users.ts           # useUsersControllerGetMe, useUsersControllerUpdate, etc.
+├── transactions/
+│   └── transactions.ts    # useTransactionsController* hooks
+└── model/
+    ├── loginDto.ts        # LoginDto interface
+    ├── createUserDto.ts   # CreateUserDto interface
+    ├── authResponseDto.ts # AuthResponseDto interface
+    ├── userResponseDto.ts # UserResponseDto interface
+    └── ...                # All other DTO types
+```
+
+### Scripts
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `openapi:fetch` | `npm run openapi:fetch` | Fetches `/api-json` from the running backend and saves to `openapi.json` |
+| `generate:api` | `npm run generate:api` | Runs Orval against the local `openapi.json` snapshot |
+| `generate:api:live` | `npm run generate:api:live` | Runs both in sequence (fetch then generate) |
+
+### Workflow: Regenerating the API Client
+
+Run this whenever backend DTOs, controllers, or routes change:
+
+1. **Start the backend** (requires Docker/Postgres to be running):
+   ```bash
+   cd packages/backend
+   npm run start:dev
+   ```
+
+2. **From `packages/frontend`**, fetch the latest spec and regenerate:
+   ```bash
+   npm run generate:api:live
+   ```
+
+   This runs:
+   - `openapi:fetch` — fetches `http://localhost:3001/api-json` → saves to `openapi.json`
+   - `generate:api` — runs Orval to regenerate `src/api/`
+
+3. **Alternatively**, if you only changed `openapi.json` manually (e.g. patching a broken schema), regenerate without fetching:
+   ```bash
+   npm run generate:api
+   ```
+
+### Configuration
+
+- **Orval config**: `orval.config.ts` — controls output paths, mode (`tags-split`), and the custom mutator
+- **Spec snapshot**: `openapi.json` — committed to source control so generation works offline
+- **Custom mutator**: `src/services/api/mutator.ts` — routes all generated requests through `apiClient` (handles auth token injection and 401 redirects)
+
+### Notes
+
+- The backend exposes its OpenAPI spec at `GET /api-json` when running (set up in `main.ts` via `SwaggerModule.setup`)
+- Orval uses `tags-split` mode: one file per OpenAPI tag (auth, users, transactions, etc.)
+- If a nullable string field generates as `{ [key: string]: unknown } | null` instead of `string | null`, the backend `@ApiProperty` decorator is missing `type: String` — add it and regenerate
+
 ## Related Documentation
+
 
 - **Backend Structure**: `packages/backend/docs/directory-structure.md`
 - **Copilot Instructions**: `.github/copilot-instructions.md`

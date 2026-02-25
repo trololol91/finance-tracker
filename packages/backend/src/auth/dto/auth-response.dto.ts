@@ -39,10 +39,10 @@ class AuthUserDto {
     @ApiProperty({description: 'User email address', example: 'user@example.com'})
     public email!: string;
 
-    @ApiProperty({description: 'User first name', example: 'John', nullable: true})
+    @ApiProperty({description: 'User first name', example: 'John', nullable: true, type: String})
     public firstName!: string | null;
 
-    @ApiProperty({description: 'User last name', example: 'Doe', nullable: true})
+    @ApiProperty({description: 'User last name', example: 'Doe', nullable: true, type: String})
     public lastName!: string | null;
 }
 

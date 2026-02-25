@@ -446,13 +446,13 @@
             "example": "user@example.com"
           },
           "firstName": {
-            "type": "object",
+            "type": "string",
             "description": "User first name",
             "example": "John",
             "nullable": true
           },
           "lastName": {
-            "type": "object",
+            "type": "string",
             "description": "User last name",
             "example": "Doe",
             "nullable": true
@@ -563,13 +563,13 @@
             "example": "user@example.com"
           },
           "firstName": {
-            "type": "object",
+            "type": "string",
             "description": "User first name",
             "example": "John",
             "nullable": true
           },
           "lastName": {
-            "type": "object",
+            "type": "string",
             "description": "User last name",
             "example": "Doe",
             "nullable": true

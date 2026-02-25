@@ -1,3 +1,16 @@
+import type {CreateUserDto} from '@/api/model/createUserDto.js';
+
+// Re-export for consumers that import registration type from this module
+export type {CreateUserDto};
+
+/**
+ * User shape stored in auth context and localStorage.
+ *
+ * NOTE: Could be replaced by Orval-generated `UserResponseDto` which has all fields.
+ * Difference: UserResponseDto.firstName/lastName are `string | null` (nullable),
+ * whereas local User has them as `string`. Replacing requires null-handling
+ * throughout AuthContext, authStorage, and test files.
+ */
 export interface User {
     id: string;
     email: string;
@@ -9,32 +22,13 @@ export interface User {
     createdAt: string;
 }
 
-export interface LoginRequest {
-    email: string;
-    password: string;
-}
-
-export interface RegisterRequest {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    timezone?: string;
-    currency?: string;
-}
-
-export interface AuthResponse {
-    token: string;
-    user: User;
-}
-
 export interface AuthContextType {
     user: User | null;
     token: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    register: (data: RegisterRequest) => Promise<void>;
+    register: (data: CreateUserDto) => Promise<void>;
     logout: () => void;
     updateUser: (user: User) => void;
 }
