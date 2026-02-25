@@ -8,6 +8,7 @@ import {lazy} from 'react';
 
 const HomePage = lazy(() => import('@pages/HomePage.tsx'));
 const LoginPage = lazy(() => import('@pages/LoginPage.tsx'));
+const RegisterPage = lazy(() => import('@pages/RegisterPage.tsx'));
 const DashboardPage = lazy(() => import('@pages/DashboardPage.tsx'));
 const TransactionsPage = lazy(() => import('@pages/TransactionsPage.tsx'));
 const CategoriesPage = lazy(() => import('@pages/CategoriesPage.tsx'));
@@ -27,6 +28,14 @@ export const router = createBrowserRouter([
         element: (
             <PublicRoute>
                 <LoginPage />
+            </PublicRoute>
+        )
+    },
+    {
+        path: APP_ROUTES.REGISTER,
+        element: (
+            <PublicRoute>
+                <RegisterPage />
             </PublicRoute>
         )
     },

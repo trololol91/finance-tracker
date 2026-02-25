@@ -1,0 +1,166 @@
+.register-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* API-level error banner */
+.register-form__api-error {
+    padding: 0.75rem 1rem;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 0.375rem;
+    color: #dc2626;
+    font-size: 0.875rem;
+}
+
+/* ── Name row (side by side) ─────────────── */
+
+.register-form__name-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+@media (max-width: 400px) {
+    .register-form__name-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Password fields ─────────────────────── */
+
+.register-form__password-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.register-form__password-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.register-form__password-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.register-form__password-row {
+    display: flex;
+    align-items: stretch;
+}
+
+.register-form__password-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-right: none;
+    border-radius: 0.375rem 0 0 0.375rem;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.register-form__password-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    z-index: 1;
+}
+
+.register-form__password-input:disabled {
+    background-color: #f9fafb;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.register-form__password-input--error {
+    border-color: #ef4444;
+}
+
+.register-form__password-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.75rem;
+    background: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-radius: 0 0.375rem 0.375rem 0;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #6b7280;
+    transition: background-color 0.2s;
+}
+
+.register-form__password-toggle:hover:not(:disabled) {
+    background-color: #f3f4f6;
+}
+
+.register-form__password-toggle:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.register-form__password-error {
+    font-size: 0.75rem;
+    color: #dc2626;
+    margin-top: 0.25rem;
+}
+
+/* ── Terms & Conditions ──────────────────── */
+
+.register-form__terms {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.register-form__terms-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+    cursor: pointer;
+}
+
+.register-form__terms-label input[type='checkbox'] {
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.register-form__terms-error {
+    font-size: 0.75rem;
+    color: #dc2626;
+}
+
+/* ── Submit button ───────────────────────── */
+
+.register-form__submit {
+    width: 100%;
+    margin-top: 0.25rem;
+}
+
+/* ── Footer ──────────────────────────────── */
+
+.register-form__login-prompt {
+    margin: 0;
+    text-align: center;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.register-form__link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.register-form__link:hover {
+    text-decoration: underline;
+    color: #2563eb;
+}

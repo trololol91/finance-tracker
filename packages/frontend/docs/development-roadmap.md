@@ -150,68 +150,82 @@ Contains `User` and `AuthContextType`. `LoginRequest`, `RegisterRequest`, and `A
 - ✅ 401 response handling (token expired)
 - ✅ Redirect to login on auth failure
 
-#### 1.3 Create Login Page
+#### 1.3 Create Login Page ✅ Complete
 
-**File:** `src/pages/LoginPage.tsx`
+**Files Created/Updated:**
+- ✅ `src/features/auth/components/LoginForm.tsx` — form component
+- ✅ `src/features/auth/components/LoginForm.css` — styles
+- ✅ `src/features/auth/components/__TEST__/LoginForm.test.tsx` — 18 tests
+- ✅ `src/pages/LoginPage.tsx` — page wrapper with branding
+- ✅ `src/pages/LoginPage.css` — centered card layout
 
-**Features:**
-- Email and password input fields
-- "Remember me" checkbox (optional)
-- "Forgot password?" link (placeholder)
-- "Sign up" link to registration
-- Form validation (email format, required fields)
-- Show loading state during login
-- Display error messages from API
-- Redirect to dashboard after successful login
+**Implementation summary:**
 
-**Form Layout:**
-```
-┌─────────────────────────────────────────┐
-│                                          │
-│          Finance Tracker                 │
-│                                          │
-│  ┌────────────────────────────────────┐ │
-│  │  Email                             │ │
-│  │  [________________________]        │ │
-│  │                                    │ │
-│  │  Password                          │ │
-│  │  [________________________]  👁    │ │
-│  │                                    │ │
-│  │  [ ] Remember me                   │ │
-│  │                                    │ │
-│  │  [      Sign In      ]             │ │
-│  │                                    │ │
-│  │  Forgot password?                  │ │
-│  │                                    │ │
-│  │  Don't have an account? Sign up    │ │
-│  └────────────────────────────────────┘ │
-│                                          │
-└─────────────────────────────────────────┘
-```
+**`LoginForm.tsx`:**
+- Email field (using shared `Input` component) with `type="email"` and autocomplete
+- Password field with inline visibility toggle (👁/🙈) — custom layout for precise control
+- "Remember me" checkbox (UI-only; persistent session is future work)
+- Submit via `login(email, password)` from `useAuth()`, navigates to `/dashboard` on success
+- "Forgot password?" button (placeholder — future work)
+- "Sign up" link to `/register`
 
-**Validation Rules:**
-- Email: required, valid email format
-- Password: required, min 8 characters
+**Validation:**
+- Email: required + valid format (`validators.email`)
+- Password: required + min 8 characters (`validators.minLength`)
+- Errors shown per-field; cleared as user types
 
-**Error Handling:**
-- Invalid credentials: "Email or password is incorrect"
-- Network error: "Unable to connect. Please check your connection."
-- Generic error: "Something went wrong. Please try again."
+**Error handling (`getApiErrorMessage`):**
+- 401 / "Unauthorized" → "Email or password is incorrect."
+- "Network Error" / "ECONNREFUSED" / "ERR_NETWORK" → "Unable to connect. Please check your connection."
+- Generic → "Something went wrong. Please try again."
+- Error banner shown with `role="alert"` above the form
 
-#### 1.4 Create Registration Page
+**Loading state:**
+- `isSubmitting` state disables all inputs and toggles Button to `isLoading` during API call
+- Form re-enables after success or failure
 
-**File:** `src/pages/RegisterPage.tsx`
+**`LoginPage.tsx`:**
+- Centred card (`max-width: 26rem`) on a grey background
+- Displays `APP_NAME` as heading and "Sign in to your account" subtitle
+- Wraps `LoginForm`
 
-**Features:**
-- Email, password, confirm password fields
-- First name, last name fields
-- Timezone selector (optional, defaults to browser timezone)
-- Currency selector (optional, defaults to USD)
-- Terms and conditions checkbox
-- Form validation
-- Show loading state during registration
-- Display error messages (email already exists, etc.)
-- Redirect to dashboard after successful registration
+#### 1.4 Create Registration Page ✅ Complete
+
+**Files Created:**
+- ✅ `src/features/auth/components/RegisterForm.tsx` — form component
+- ✅ `src/features/auth/components/RegisterForm.css` — styles
+- ✅ `src/features/auth/components/__TEST__/RegisterForm.test.tsx` — 29 tests
+- ✅ `src/pages/RegisterPage.tsx` — page wrapper with branding
+- ✅ `src/pages/RegisterPage.css` — centered card layout (max-width 30rem)
+
+**Implementation summary:**
+
+**`RegisterForm.tsx`:**
+- First Name + Last Name fields (optional, side by side via `grid-template-columns: 1fr 1fr`)
+- Email field (required)
+- Password field with inline visibility toggle — uses `validators.password()` for strength check (min 8, uppercase, lowercase, number)
+- Confirm Password field with independent visibility toggle
+- Terms & Conditions checkbox (required)
+- Submit via `register(CreateUserDto)` from `useAuth()`, navigates to `/dashboard` on success
+- Optional `firstName`/`lastName` only included in DTO when non-empty
+
+**Validation:**
+- Email: required + valid format
+- Password: required + full strength check (min 8, uppercase, lowercase, number)
+- Confirm Password: required + must match password
+- Terms: must be checked
+- Per-field errors cleared as user types
+
+**Error handling (`getApiErrorMessage`):**
+- 409 / "Conflict" → "An account with this email already exists."
+- "Network Error" / "ECONNREFUSED" / "ERR_NETWORK" → "Unable to connect..."
+- Generic → "Something went wrong. Please try again."
+
+**`RegisterPage.tsx`:**
+- Centred card (`max-width: 30rem`) matching LoginPage layout
+- Displays `APP_NAME` as heading and "Create your account" subtitle
+
+> _(Timezone and currency selectors deferred — optional fields, defaulting server-side)_
 
 **Form Layout:**
 ```
@@ -252,31 +266,23 @@ Contains `User` and `AuthContextType`. `LoginRequest`, `RegisterRequest`, and `A
 - Confirm password: must match password
 - Terms: must be checked
 
-#### 1.5 Update Route Protection
+#### 1.5 Update Route Protection ✅ Complete
 
-**Files to Update:**
-- `src/routes/PrivateRoute.tsx`
-- `src/routes/PublicRoute.tsx`
-- `src/routes/index.tsx`
+**Files Updated:**
+- ✅ `src/routes/PrivateRoute.tsx` — uses `useAuth()` with `isLoading` + `isAuthenticated`
+- ✅ `src/routes/PublicRoute.tsx` — uses `useAuth()` with `isLoading` + `isAuthenticated`
+- ✅ `src/routes/index.tsx` — added `RegisterPage` lazy import and `/register` route
+- ✅ `src/main.tsx` — wrapped `RouterProvider` with `AuthProvider`
 
-**PrivateRoute Component:**
-- Check if user is authenticated
-- Show loading spinner while checking auth
-- Redirect to /login if not authenticated
-- Render children if authenticated
+**Implementation summary:**
 
-**PublicRoute Component:**
-- Redirect to /dashboard if already authenticated
-- Render children (login/register) if not authenticated
+**`PrivateRoute.tsx`:** Reads `{isAuthenticated, isLoading}` from `useAuth()`. Shows `<Loading size="large" />` spinner during auth initialization; redirects to `/login` when unauthenticated; renders children when authenticated.
 
-**Route Configuration:**
-```typescript
-<Route path="/" element={<PublicRoute><HomePage /></PublicRoute>} />
-<Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-<Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
-<Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-// ... other protected routes
-```
+**`PublicRoute.tsx`:** Same `isLoading` spinner pattern. Redirects to `/dashboard` if already authenticated; renders children (login/register) when not.
+
+**`main.tsx`:** Added `<AuthProvider>` wrapping `<RouterProvider>` so `useAuth()` is accessible in all route guards and page components.
+
+**`routes/index.tsx`:** Added `/register` route pointing to `RegisterPage` inside `PublicRoute`.
 
 ### Phase 1 Checklist
 

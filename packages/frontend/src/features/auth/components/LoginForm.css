@@ -1,0 +1,167 @@
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* API-level error banner */
+.login-form__api-error {
+    padding: 0.75rem 1rem;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 0.375rem;
+    color: #dc2626;
+    font-size: 0.875rem;
+}
+
+/* ── Password field ──────────────────────── */
+
+.login-form__password-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-form__password-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.login-form__password-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.login-form__password-row {
+    display: flex;
+    align-items: stretch;
+}
+
+.login-form__password-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-right: none;
+    border-radius: 0.375rem 0 0 0.375rem;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.login-form__password-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    z-index: 1;
+}
+
+.login-form__password-input:disabled {
+    background-color: #f9fafb;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.login-form__password-input--error {
+    border-color: #ef4444;
+}
+
+.login-form__password-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.75rem;
+    background: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-radius: 0 0.375rem 0.375rem 0;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #6b7280;
+    transition: background-color 0.2s;
+    min-width: 2.5rem;
+}
+
+.login-form__password-toggle:hover:not(:disabled) {
+    background-color: #f3f4f6;
+}
+
+.login-form__password-toggle:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+}
+
+.login-form__password-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.login-form__password-error {
+    font-size: 0.875rem;
+    color: #ef4444;
+}
+
+/* ── Remember me ─────────────────────────── */
+
+.login-form__remember {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+    cursor: pointer;
+    user-select: none;
+}
+
+.login-form__remember input[type='checkbox'] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: #3b82f6;
+    cursor: pointer;
+}
+
+/* ── Submit button ───────────────────────── */
+
+.login-form__submit {
+    width: 100%;
+}
+
+/* ── Footer links ────────────────────────── */
+
+.login-form__links {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.login-form__link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #3b82f6;
+    font-size: 0.875rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.login-form__link-btn:hover {
+    color: #2563eb;
+}
+
+.login-form__link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.login-form__link:hover {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+.login-form__register-prompt {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+}

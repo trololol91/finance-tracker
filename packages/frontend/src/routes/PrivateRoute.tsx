@@ -1,6 +1,7 @@
 import {Navigate} from 'react-router-dom';
 import type {ReactNode} from 'react';
-import {authStorage} from '@services/storage/authStorage.js';
+import {useAuth} from '@features/auth/hooks/useAuth.js';
+import {Loading} from '@components/common/Loading/Loading.js';
 import {APP_ROUTES} from '@config/constants';
 
 interface PrivateRouteProps {
@@ -8,9 +9,13 @@ interface PrivateRouteProps {
 }
 
 export const PrivateRoute = ({children}: PrivateRouteProps): React.JSX.Element => {
-    const token = authStorage.getToken();
+    const {isAuthenticated, isLoading} = useAuth();
 
-    if (!token) {
+    if (isLoading) {
+        return <Loading size="large" />;
+    }
+
+    if (!isAuthenticated) {
         return <Navigate to={APP_ROUTES.LOGIN} replace />;
     }
 

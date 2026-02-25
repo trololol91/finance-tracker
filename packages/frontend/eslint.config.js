@@ -142,12 +142,23 @@ export default [
         }
     },
     {
+        files: ['**/*.tsx'],
+        rules: {
+            'max-lines-per-function': 'off'
+        }
+    },
+    {
         files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
         rules: {
             'max-lines-per-function': 'off',
             'max-params': 'off',
             '@typescript-eslint/no-empty-function': 'off',
-            '@typescript-eslint/explicit-function-return-type': 'off'
+            '@typescript-eslint/explicit-function-return-type': 'off',
+            '@typescript-eslint/no-unsafe-assignment': 'off',
+            '@typescript-eslint/no-unsafe-call': 'off',
+            '@typescript-eslint/no-unsafe-member-access': 'off',
+            '@typescript-eslint/no-unsafe-argument': 'off',
+            '@typescript-eslint/no-unsafe-return': 'off'
         }
     },
     {

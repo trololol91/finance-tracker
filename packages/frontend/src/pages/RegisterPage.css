@@ -1,0 +1,37 @@
+.register-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f3f4f6;
+    padding: 1.5rem;
+}
+
+.register-page__card {
+    width: 100%;
+    max-width: 30rem;
+    background: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.1),
+        0 1px 2px rgba(0, 0, 0, 0.06);
+    padding: 2rem;
+}
+
+.register-page__header {
+    text-align: center;
+    margin-bottom: 1.75rem;
+}
+
+.register-page__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 0.25rem;
+}
+
+.register-page__subtitle {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+}
