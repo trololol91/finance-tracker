@@ -116,23 +116,34 @@ Contains `User` and `AuthContextType`. `LoginRequest`, `RegisterRequest`, and `A
 - `getUser()` - retrieve user data
 - `clearAuth()` - clear all auth data
 
-#### 1.2 Implement Auth API Service
+#### 1.2 Implement Auth API Service ✅ Complete
 
-> ⚠️ **Orval note:** `authService.ts` and a manual `endpoints.ts` update are **not needed**. Orval generates fully typed API functions and React Query mutation hooks in `src/api/auth/auth.ts`:
-> - `authControllerLogin(loginDto)` / `useAuthControllerLogin()` — POST /auth/login
-> - `authControllerRegister(createUserDto)` / `useAuthControllerRegister()` — POST /auth/register
-> - `authControllerGetMe()` / `useAuthControllerGetMe()` — GET /auth/me
->
-> Use these generated functions directly in `AuthContext.tsx` to implement `login` and `register`. Re-run `npm run generate:api` after backend changes to regenerate.
+> The Orval-generated functions are wired directly into `AuthContext.tsx`. No separate `authService.ts` is needed.
 
-**Files to Update:**
-- `src/features/auth/context/AuthContext.tsx` — wire up Orval-generated functions
+**Files Updated:**
+- ✅ `src/features/auth/context/AuthContext.tsx` — `login`, `register`, and mount-time token validation implemented
 
-**`AuthContext.tsx` integration:**
-- Import `authControllerLogin`, `authControllerRegister` from `@/api/auth/auth.js`
-- Import types `LoginDto`, `CreateUserDto`, `AuthResponseDto` from `@/api/model`
-- Call generated functions inside the `login` and `register` methods
-- Store token/user via `authStorage` after successful response
+**Implementation summary:**
+
+**`AuthContext.tsx` — `login(email, password)`:**
+- Calls `authControllerLogin({email, password})` from `@/api/auth/auth.js`
+- Saves token to localStorage first (so the Bearer header is included in follow-up request)
+- Calls `authControllerGetProfile()` to fetch full `UserResponseDto`
+- Maps DTO to local `User` via `mapToUser()`, saves to storage, updates state
+
+**`AuthContext.tsx` — `register(data: CreateUserDto)`:**
+- Calls `authControllerRegister(data)` from `@/api/auth/auth.js`
+- Same token-save → getProfile → mapToUser flow as `login`
+
+**`AuthContext.tsx` — mount-time token validation (`initializeAuth`):**
+- Reads stored token via `authStorage.getToken()`
+- If token present, calls `authControllerGetProfile()` to validate and get fresh user data
+- On success: saves fresh user to storage, hydrates context state
+- On failure (token expired/invalid): calls `authStorage.clearAuth()`, state stays null
+
+**`mapToUser(dto: UserResponseDto): User`:**
+- Maps `UserResponseDto` (nullable `firstName`/`lastName`) to local `User` (non-nullable)
+- Provides `''` as default for null name fields
 
 **API Client (already complete in `services/api/client.ts`):**
 - ✅ Authorization header interceptor

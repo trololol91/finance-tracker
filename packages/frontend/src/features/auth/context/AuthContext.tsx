@@ -10,6 +10,12 @@ import type {
     User
 } from '@features/auth/types/auth.types.js';
 import type {CreateUserDto} from '@/api/model/createUserDto.js';
+import type {UserResponseDto} from '@/api/model/userResponseDto.js';
+import {
+    authControllerLogin,
+    authControllerRegister,
+    authControllerGetProfile
+} from '@/api/auth/auth.js';
 import {authStorage} from '@services/storage/authStorage.js';
 
 /**
@@ -25,83 +31,59 @@ interface AuthProviderProps {
 }
 
 /**
- * Initialize authentication state from localStorage
- * @returns Promise that resolves when initialization is complete
+ * Map an Orval-generated UserResponseDto to the local User type.
+ * Provides empty-string defaults for nullable firstName/lastName.
  */
-const loadStoredAuth = (): Promise<{
-    token: string | null;
-    user: User | null;
-}> => {
+const mapToUser = (dto: UserResponseDto): User => ({
+    id: dto.id,
+    email: dto.email,
+    firstName: dto.firstName ?? '',
+    lastName: dto.lastName ?? '',
+    timezone: dto.timezone,
+    currency: dto.currency,
+    isActive: dto.isActive,
+    createdAt: dto.createdAt
+});
+
+/**
+ * Validate a stored token by calling GET /auth/me.
+ * Returns the full user profile on success, or null if the token is
+ * invalid/expired (network errors are treated as invalid).
+ */
+const fetchCurrentUser = async (): Promise<User | null> => {
     try {
-        const storedToken = authStorage.getToken();
-        const storedUser = authStorage.getUser();
-
-        if (storedToken && storedUser) {
-            // TODO: Validate token with backend in Phase 1.2
-            // Add async/await when implementing:
-            // const isValid = await authService.validateToken();
-            // if (!isValid) {
-            //     authStorage.clearAuth();
-            //     return {token: null, user: null};
-            // }
-            return Promise.resolve({token: storedToken, user: storedUser});
-        }
-
-        return Promise.resolve({token: null, user: null});
-    } catch (error) {
-        console.error('Failed to load stored auth:', error);
-        authStorage.clearAuth();
-        return Promise.resolve({token: null, user: null});
+        const profile = await authControllerGetProfile();
+        return mapToUser(profile);
+    } catch {
+        return null;
     }
 };
 
 /**
- * Create authentication methods
+ * Validate the stored token against the backend and populate auth state.
+ * If the token is missing, does nothing.
+ * If the token is present but invalid, clears auth storage.
+ * Throws if localStorage itself is unavailable (propagates to caller).
  */
-const createAuthMethods = (
+const initializeAuth = async (
     setToken: React.Dispatch<React.SetStateAction<string | null>>,
     setUser: React.Dispatch<React.SetStateAction<User | null>>
-): Pick<AuthContextType, 'login' | 'register' | 'logout' | 'updateUser'> => {
-    const login = (_email: string, _password: string): Promise<void> => {
-        // TODO: Implement in Phase 1.2 with authService
-        // Make this async and add await when implementing:
-        // const response = await authService.login(email, password);
-        // const {token: authToken, user: authUser} = response;
-        // authStorage.saveToken(authToken);
-        // authStorage.saveUser(authUser);
-        // setToken(authToken);
-        // setUser(authUser);
-        return Promise.reject(
-            new Error('Auth service not yet implemented. Complete Phase 1.2')
-        );
-    };
+): Promise<void> => {
+    const storedToken = authStorage.getToken(); // may throw — propagates to caller
+    if (!storedToken) {
+        return;
+    }
 
-    const register = (_data: CreateUserDto): Promise<void> => {
-        // TODO: Implement in Phase 1.2 with authService
-        // Make this async and add await when implementing:
-        // const response = await authService.register(data);
-        // const {token: authToken, user: authUser} = response;
-        // authStorage.saveToken(authToken);
-        // authStorage.saveUser(authUser);
-        // setToken(authToken);
-        // setUser(authUser);
-        return Promise.reject(
-            new Error('Auth service not yet implemented. Complete Phase 1.2')
-        );
-    };
-
-    const logout = (): void => {
+    // Token exists — validate with backend to get fresh profile data
+    const user = await fetchCurrentUser();
+    if (user) {
+        authStorage.saveUser(user);
+        setToken(storedToken);
+        setUser(user);
+    } else {
+        // Token invalid or expired
         authStorage.clearAuth();
-        setToken(null);
-        setUser(null);
-    };
-
-    const updateUser = (updatedUser: User): void => {
-        authStorage.saveUser(updatedUser);
-        setUser(updatedUser);
-    };
-
-    return {login, register, logout, updateUser};
+    }
 };
 
 /**
@@ -114,11 +96,9 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const initializeAuth = async (): Promise<void> => {
+        const init = async (): Promise<void> => {
             try {
-                const {token: storedToken, user: storedUser} = await loadStoredAuth();
-                setToken(storedToken);
-                setUser(storedUser);
+                await initializeAuth(setToken, setUser);
             } catch (error) {
                 console.error('Failed to initialize auth:', error);
             } finally {
@@ -126,13 +106,45 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
             }
         };
 
-        void initializeAuth();
+        void init();
     }, []);
 
-    const authMethods = useCallback(
-        () => createAuthMethods(setToken, setUser),
-        [setToken, setUser]
-    );
+    const authMethods = useCallback(() => {
+        const login = async (email: string, password: string): Promise<void> => {
+            const response = await authControllerLogin({email, password});
+            // Save token before calling getProfile so the request interceptor
+            // includes the Authorization header.
+            authStorage.saveToken(response.accessToken);
+            const profile = await authControllerGetProfile();
+            const authUser = mapToUser(profile);
+            authStorage.saveUser(authUser);
+            setToken(response.accessToken);
+            setUser(authUser);
+        };
+
+        const register = async (data: CreateUserDto): Promise<void> => {
+            const response = await authControllerRegister(data);
+            authStorage.saveToken(response.accessToken);
+            const profile = await authControllerGetProfile();
+            const authUser = mapToUser(profile);
+            authStorage.saveUser(authUser);
+            setToken(response.accessToken);
+            setUser(authUser);
+        };
+
+        const logout = (): void => {
+            authStorage.clearAuth();
+            setToken(null);
+            setUser(null);
+        };
+
+        const updateUser = (updatedUser: User): void => {
+            authStorage.saveUser(updatedUser);
+            setUser(updatedUser);
+        };
+
+        return {login, register, logout, updateUser};
+    }, [setToken, setUser]);
 
     const {login, register, logout, updateUser} = authMethods();
     const isAuthenticated = Boolean(token && user);

@@ -15,7 +15,14 @@ import {
     AuthContext
 } from '@features/auth/context/AuthContext.js';
 import {authStorage} from '@services/storage/authStorage.js';
+import {
+    authControllerLogin,
+    authControllerRegister,
+    authControllerGetProfile
+} from '@/api/auth/auth.js';
 import type {User} from '@features/auth/types/auth.types.js';
+import type {UserResponseDto} from '@/api/model/userResponseDto.js';
+import {UserResponseDtoRole} from '@/api/model/userResponseDtoRole.js';
 import React from 'react';
 
 // Mock authStorage
@@ -29,6 +36,13 @@ vi.mock('@services/storage/authStorage.js', () => ({
         removeUser: vi.fn(),
         clearAuth: vi.fn()
     }
+}));
+
+// Mock Orval-generated auth API functions
+vi.mock('@/api/auth/auth.js', () => ({
+    authControllerLogin: vi.fn(),
+    authControllerRegister: vi.fn(),
+    authControllerGetProfile: vi.fn()
 }));
 
 describe('AuthProvider', () => {
@@ -45,9 +59,39 @@ describe('AuthProvider', () => {
 
     const mockToken = 'mock-jwt-token-12345';
 
+    /** Full UserResponseDto shape returned by GET /auth/me */
+    const mockProfileResponse: UserResponseDto = {
+        id: '1',
+        email: 'test@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        emailVerified: true,
+        isActive: true,
+        timezone: 'America/New_York',
+        currency: 'USD',
+        role: UserResponseDtoRole.USER,
+        createdAt: '2026-01-15T00:00:00.000Z',
+        updatedAt: '2026-01-15T00:00:00.000Z'
+    };
+
+    /** AuthResponseDto returned by POST /auth/login and POST /auth/register */
+    const mockAuthResponse = {
+        accessToken: mockToken,
+        user: {
+            id: '1',
+            email: 'test@example.com',
+            firstName: 'John',
+            lastName: 'Doe'
+        }
+    };
+
     beforeEach(() => {
         localStorage.clear();
         vi.clearAllMocks();
+        // Default: no stored session
+        vi.mocked(authStorage.getToken).mockReturnValue(null);
+        // Default: profile endpoint resolves (overridden per-test as needed)
+        vi.mocked(authControllerGetProfile).mockResolvedValue(mockProfileResponse);
     });
 
     describe('initialization', () => {
@@ -66,7 +110,7 @@ describe('AuthProvider', () => {
 
         it('loads auth state from storage on mount', async () => {
             vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
-            vi.mocked(authStorage.getUser).mockReturnValue(mockUser);
+            // authControllerGetProfile mock already set in beforeEach
 
             const TestComponent = (): React.JSX.Element => {
                 const context = React.useContext(AuthContext);
@@ -94,7 +138,7 @@ describe('AuthProvider', () => {
             // Initially loading
             expect(screen.getByTestId('loading')).toHaveTextContent('true');
 
-            // Wait for loading to finish
+            // Wait for token validation to finish
             await waitFor(() => {
                 expect(screen.getByTestId('loading')).toHaveTextContent('false');
             });
@@ -102,7 +146,8 @@ describe('AuthProvider', () => {
             expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
             expect(screen.getByTestId('email')).toHaveTextContent('test@example.com');
             expect(authStorage.getToken).toHaveBeenCalledOnce();
-            expect(authStorage.getUser).toHaveBeenCalledOnce();
+            expect(authControllerGetProfile).toHaveBeenCalledOnce();
+            expect(authStorage.saveUser).toHaveBeenCalledWith(mockUser);
         });
 
         it('initializes with null state when no stored auth', async () => {
@@ -163,29 +208,83 @@ describe('AuthProvider', () => {
             });
 
             expect(consoleErrorSpy).toHaveBeenCalled();
-            // Note: clearAuth is NOT called because the error happens
-            // in loadStoredAuth which catches and returns null values
-            // The clearAuth only happens inside the catch block which
-            // is inside loadStoredAuth's promise chain
+            // clearAuth is NOT called: the error is thrown by getToken() before
+            // the inner try-catch in initializeAuth, so it propagates directly
+            // to init()'s catch handler which only logs — it does not clear.
+            expect(authStorage.clearAuth).not.toHaveBeenCalled();
 
             consoleErrorSpy.mockRestore();
         });
     });
 
     describe('login method', () => {
-        it('rejects with error when auth service not implemented', async () => {
-            vi.mocked(authStorage.getToken).mockReturnValue(null);
-            vi.mocked(authStorage.getUser).mockReturnValue(null);
+        it('authenticates the user and stores token and user', async () => {
+            vi.mocked(authControllerLogin).mockResolvedValue(mockAuthResponse);
+            // authControllerGetProfile mock already set in beforeEach
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                const [done, setDone] = React.useState(false);
+
+                const handleLogin = (): void => {
+                    void context?.login('test@example.com', 'password123')
+                        .then(() => { setDone(true); });
+                };
+
+                return (
+                    <div>
+                        <button onClick={handleLogin}>Login</button>
+                        <span data-testid="authenticated">
+                            {context?.isAuthenticated.toString()}
+                        </span>
+                        <span data-testid="email">
+                            {context?.user?.email ?? 'no-user'}
+                        </span>
+                        {done && <span data-testid="done">done</span>}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            // Wait for mount initialization to settle
+            await waitFor(() => {
+                expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+            });
+
+            screen.getByRole('button').click();
+
+            await waitFor(() => {
+                expect(screen.getByTestId('done')).toBeInTheDocument();
+            });
+
+            expect(authControllerLogin).toHaveBeenCalledWith({
+                email: 'test@example.com',
+                password: 'password123'
+            });
+            expect(authStorage.saveToken).toHaveBeenCalledWith(mockToken);
+            expect(authControllerGetProfile).toHaveBeenCalled();
+            expect(authStorage.saveUser).toHaveBeenCalledWith(mockUser);
+            expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+            expect(screen.getByTestId('email')).toHaveTextContent('test@example.com');
+        });
+
+        it('propagates error when login API call fails', async () => {
+            vi.mocked(authControllerLogin).mockRejectedValue(
+                new Error('Invalid credentials')
+            );
 
             const TestComponent = (): React.JSX.Element => {
                 const context = React.useContext(AuthContext);
                 const [error, setError] = React.useState<string>('');
 
                 const handleLogin = (): void => {
-                    context?.login('test@example.com', 'password')
-                        .catch((err: Error) => {
-                            setError(err.message);
-                        });
+                    void context?.login('test@example.com', 'wrong')
+                        .catch((err: Error) => { setError(err.message); });
                 };
 
                 return (
@@ -209,31 +308,88 @@ describe('AuthProvider', () => {
             screen.getByRole('button').click();
 
             await waitFor(() => {
-                expect(screen.getByTestId('error')).toHaveTextContent(
-                    'Auth service not yet implemented'
-                );
+                expect(screen.getByTestId('error')).toHaveTextContent('Invalid credentials');
             });
+
+            expect(authStorage.saveToken).not.toHaveBeenCalled();
         });
     });
 
     describe('register method', () => {
-        it('rejects with error when auth service not implemented', async () => {
-            vi.mocked(authStorage.getToken).mockReturnValue(null);
-            vi.mocked(authStorage.getUser).mockReturnValue(null);
+        it('registers the user and stores token and user', async () => {
+            vi.mocked(authControllerRegister).mockResolvedValue(mockAuthResponse);
+            // authControllerGetProfile mock already set in beforeEach
+
+            const registerData = {
+                email: 'test@example.com',
+                password: 'password123',
+                firstName: 'John',
+                lastName: 'Doe'
+            };
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                const [done, setDone] = React.useState(false);
+
+                const handleRegister = (): void => {
+                    void context?.register(registerData)
+                        .then(() => { setDone(true); });
+                };
+
+                return (
+                    <div>
+                        <button onClick={handleRegister}>Register</button>
+                        <span data-testid="authenticated">
+                            {context?.isAuthenticated.toString()}
+                        </span>
+                        <span data-testid="email">
+                            {context?.user?.email ?? 'no-user'}
+                        </span>
+                        {done && <span data-testid="done">done</span>}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+            });
+
+            screen.getByRole('button').click();
+
+            await waitFor(() => {
+                expect(screen.getByTestId('done')).toBeInTheDocument();
+            });
+
+            expect(authControllerRegister).toHaveBeenCalledWith(registerData);
+            expect(authStorage.saveToken).toHaveBeenCalledWith(mockToken);
+            expect(authControllerGetProfile).toHaveBeenCalled();
+            expect(authStorage.saveUser).toHaveBeenCalledWith(mockUser);
+            expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+            expect(screen.getByTestId('email')).toHaveTextContent('test@example.com');
+        });
+
+        it('propagates error when registration API call fails', async () => {
+            vi.mocked(authControllerRegister).mockRejectedValue(
+                new Error('Email already registered')
+            );
 
             const TestComponent = (): React.JSX.Element => {
                 const context = React.useContext(AuthContext);
                 const [error, setError] = React.useState<string>('');
 
                 const handleRegister = (): void => {
-                    context?.register({
+                    void context?.register({
                         email: 'test@example.com',
-                        password: 'password',
+                        password: 'password123',
                         firstName: 'John',
                         lastName: 'Doe'
-                    }).catch((err: Error) => {
-                        setError(err.message);
-                    });
+                    }).catch((err: Error) => { setError(err.message); });
                 };
 
                 return (
@@ -257,10 +413,10 @@ describe('AuthProvider', () => {
             screen.getByRole('button').click();
 
             await waitFor(() => {
-                expect(screen.getByTestId('error')).toHaveTextContent(
-                    'Auth service not yet implemented'
-                );
+                expect(screen.getByTestId('error')).toHaveTextContent('Email already registered');
             });
+
+            expect(authStorage.saveToken).not.toHaveBeenCalled();
         });
     });
 
@@ -402,9 +558,12 @@ describe('AuthProvider', () => {
             });
         });
 
-        it('is false when user is missing', async () => {
+        it('is false when token validation fails', async () => {
             vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
-            vi.mocked(authStorage.getUser).mockReturnValue(null);
+            // Simulate expired / invalid token
+            vi.mocked(authControllerGetProfile).mockRejectedValue(
+                new Error('Unauthorized')
+            );
 
             const TestComponent = (): React.JSX.Element => {
                 const context = React.useContext(AuthContext);
@@ -424,6 +583,8 @@ describe('AuthProvider', () => {
             await waitFor(() => {
                 expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
             });
+
+            expect(authStorage.clearAuth).toHaveBeenCalledOnce();
         });
     });
 });
