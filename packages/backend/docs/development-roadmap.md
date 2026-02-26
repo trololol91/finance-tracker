@@ -243,7 +243,7 @@ This document outlines the implementation order for building the Finance Tracker
 **Priority:** HIGH - Core business logic
 
 **Tasks:**
-1. **Define Transaction Model in Prisma Schema** (`prisma/schema.prisma`)
+1. **~~Define Transaction Model in Prisma Schema~~** ✅ (`prisma/schema.prisma`)
    ```typescript
    - id: UUID (primary key)
    - user_id: UUID (foreign key to users, not null)
@@ -259,13 +259,20 @@ This document outlines the implementation order for building the Finance Tracker
    - created_at: timestamp
    - updated_at: timestamp
    ```
+   - ✅ `TransactionType` enum added (`income`, `expense`, `transfer`)
+   - ✅ `Transaction` model with all fields, proper column mapping
+   - ✅ Indexes on `(user_id)`, `(user_id, date)`, `(user_id, is_active)`
+   - ✅ Foreign key to `users` table
+   - ✅ `category_id` / `account_id` as nullable UUIDs (relations added in Phases 5/6)
+   - ✅ Migration `20260226054612_add_transactions_table` created and applied
+   - ✅ User model updated with `transactions` relation
 
-2. **Create Transaction DTOs** (`src/transactions/dto/`)
-   - `create-transaction.dto.ts` - amount, description, notes, category, account, type, date
-   - `update-transaction.dto.ts` - partial updates (amount, description, notes, category, account, date, is_active)
-   - `transaction-response.dto.ts` - with category/account details, includes date, original_date, is_active
-   - `transaction-filter.dto.ts` - date ranges, categories, amounts, type, is_active filter
-   - `transaction-totals-response.dto.ts` - total income, total expense, net total, date range
+2. **Create Transaction DTOs** (`src/transactions/dto/`) ✅
+   - ✅ `create-transaction.dto.ts` - amount, description, notes, category, account, type, date
+   - ✅ `update-transaction.dto.ts` - partial updates (amount, description, notes, category, account, date, is_active)
+   - ✅ `transaction-response.dto.ts` - with category/account details, includes date, original_date, is_active
+   - ✅ `transaction-filter.dto.ts` - date ranges, categories, amounts, type, is_active filter
+   - ✅ `transaction-totals-response.dto.ts` - total income, total expense, net total, date range
 
 3. **Implement Transactions Service** (`src/transactions/transactions.service.ts`)
    - All methods require `userId` parameter

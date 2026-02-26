@@ -5,31 +5,34 @@ import {
     IsNotEmpty,
     IsOptional,
     IsUUID,
-    IsEnum,
-    IsDateString
+    IsDateString,
+    IsBoolean
 } from 'class-validator';
 import {Type} from 'class-transformer';
 import {ApiProperty} from '@nestjs/swagger';
-import {TransactionType} from '#generated/prisma/client.js';
 
-export class CreateTransactionDto {
+export class UpdateTransactionDto {
     @ApiProperty({
         description: 'Transaction amount (positive number)',
         example: 42.50,
+        required: false,
         type: Number
     })
     @IsNumber({maxDecimalPlaces: 2})
     @IsPositive()
     @Type(() => Number)
-    amount!: number;
+    @IsOptional()
+    amount?: number;
 
     @ApiProperty({
         description: 'Transaction description',
-        example: 'Starbucks Coffee'
+        example: 'Starbucks Coffee',
+        required: false
     })
     @IsString()
     @IsNotEmpty()
-    description!: string;
+    @IsOptional()
+    description?: string;
 
     @ApiProperty({
         description: 'Optional additional notes',
@@ -65,17 +68,21 @@ export class CreateTransactionDto {
     accountId?: string;
 
     @ApiProperty({
-        description: 'Transaction type',
-        enum: TransactionType,
-        example: TransactionType.expense
-    })
-    @IsEnum(TransactionType)
-    transactionType!: TransactionType;
-
-    @ApiProperty({
         description: 'Transaction date (ISO 8601)',
-        example: '2026-02-25T10:30:00.000Z'
+        example: '2026-02-25T10:30:00.000Z',
+        required: false
     })
     @IsDateString()
-    date!: string;
+    @IsOptional()
+    date?: string;
+
+    @ApiProperty({
+        description: 'Whether the transaction is active',
+        example: true,
+        required: false
+    })
+    @IsBoolean()
+    @Type(() => Boolean)
+    @IsOptional()
+    isActive?: boolean;
 }
