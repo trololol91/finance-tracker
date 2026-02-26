@@ -590,6 +590,77 @@ describe('TransactionsService', () => {
             expect(calls[0][0].where).toMatchObject({date: expectedDate});
             expect(calls[1][0].where).toMatchObject({date: expectedDate});
         });
+
+        it('should handle decimal income and expense amounts', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(4567.89)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(2345.67)}} as never);
+
+            const result = await service.getTotals(userId, startDate, endDate);
+
+            expect(result.totalIncome).toBe(4567.89);
+            expect(result.totalExpense).toBe(2345.67);
+            expect(result.netTotal).toBeCloseTo(2222.22, 2);
+        });
+
+        it('should return negative net when expenses exceed income', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(500.25)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(1875.50)}} as never);
+
+            const result = await service.getTotals(userId, startDate, endDate);
+
+            expect(result.totalIncome).toBe(500.25);
+            expect(result.totalExpense).toBe(1875.50);
+            expect(result.netTotal).toBeCloseTo(-1375.25, 2);
+        });
+
+        it('should return zero net when income equals expense', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(1234.56)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(1234.56)}} as never);
+
+            const result = await service.getTotals(userId, startDate, endDate);
+
+            expect(result.totalIncome).toBe(1234.56);
+            expect(result.totalExpense).toBe(1234.56);
+            expect(result.netTotal).toBe(0);
+        });
+
+        it('should handle income only with no expenses', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(6000.00)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never);
+
+            const result = await service.getTotals(userId, startDate, endDate);
+
+            expect(result.totalIncome).toBe(6000.00);
+            expect(result.totalExpense).toBe(0);
+            expect(result.netTotal).toBe(6000.00);
+        });
+
+        it('should handle expenses only with no income', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(99.99)}} as never);
+
+            const result = await service.getTotals(userId, startDate, endDate);
+
+            expect(result.totalIncome).toBe(0);
+            expect(result.totalExpense).toBe(99.99);
+            expect(result.netTotal).toBeCloseTo(-99.99, 2);
+        });
+
+        it('should return startDate and endDate unchanged in the result', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never);
+
+            const result = await service.getTotals(userId, startDate, endDate);
+
+            expect(result.startDate).toBe(startDate);
+            expect(result.endDate).toBe(endDate);
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -633,7 +704,7 @@ describe('TransactionsService', () => {
             expect(end.getDate()).toBe(31);
         });
 
-        it('should return income/expense/net from getTotals', async () => {
+        it('should return income/expense/net from getTotals with whole numbers', async () => {
             vi.mocked(prisma.transaction.aggregate)
                 .mockResolvedValueOnce({_sum: {amount: mockDecimal(500)}} as never)
                 .mockResolvedValueOnce({_sum: {amount: mockDecimal(200)}} as never);
@@ -643,6 +714,78 @@ describe('TransactionsService', () => {
             expect(result.totalIncome).toBe(500);
             expect(result.totalExpense).toBe(200);
             expect(result.netTotal).toBe(300);
+        });
+
+        it('should handle decimal income and expense amounts', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(1234.56)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(789.99)}} as never);
+
+            const result = await service.getMonthlyTotals(userId, 2026, 1);
+
+            expect(result.totalIncome).toBe(1234.56);
+            expect(result.totalExpense).toBe(789.99);
+            expect(result.netTotal).toBeCloseTo(444.57, 2);
+        });
+
+        it('should return negative net when expenses exceed income', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(320.75)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(1050.25)}} as never);
+
+            const result = await service.getMonthlyTotals(userId, 2026, 1);
+
+            expect(result.totalIncome).toBe(320.75);
+            expect(result.totalExpense).toBe(1050.25);
+            expect(result.netTotal).toBeCloseTo(-729.50, 2);
+        });
+
+        it('should return zero net when income equals expense', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(999.99)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(999.99)}} as never);
+
+            const result = await service.getMonthlyTotals(userId, 2026, 1);
+
+            expect(result.totalIncome).toBe(999.99);
+            expect(result.totalExpense).toBe(999.99);
+            expect(result.netTotal).toBe(0);
+        });
+
+        it('should return 0 for all totals when no transactions exist', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never);
+
+            const result = await service.getMonthlyTotals(userId, 2026, 1);
+
+            expect(result.totalIncome).toBe(0);
+            expect(result.totalExpense).toBe(0);
+            expect(result.netTotal).toBe(0);
+        });
+
+        it('should handle income with no expenses', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(4500.00)}} as never)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never);
+
+            const result = await service.getMonthlyTotals(userId, 2026, 1);
+
+            expect(result.totalIncome).toBe(4500.00);
+            expect(result.totalExpense).toBe(0);
+            expect(result.netTotal).toBe(4500.00);
+        });
+
+        it('should handle expenses with no income', async () => {
+            vi.mocked(prisma.transaction.aggregate)
+                .mockResolvedValueOnce({_sum: {amount: null}} as never)
+                .mockResolvedValueOnce({_sum: {amount: mockDecimal(63.47)}} as never);
+
+            const result = await service.getMonthlyTotals(userId, 2026, 1);
+
+            expect(result.totalIncome).toBe(0);
+            expect(result.totalExpense).toBe(63.47);
+            expect(result.netTotal).toBeCloseTo(-63.47, 2);
         });
     });
 });
