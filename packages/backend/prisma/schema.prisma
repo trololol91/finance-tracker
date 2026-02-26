@@ -18,6 +18,12 @@ enum UserRole {
   ADMIN
 }
 
+enum TransactionType {
+  income
+  expense
+  transfer
+}
+
 model User {
   id             String    @id @default(uuid()) @db.Uuid
   email          String    @unique
@@ -41,5 +47,44 @@ model User {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
+  // Relations
+  transactions   Transaction[]
+
   @@map("users")
+}
+
+model Transaction {
+  id              String          @id @default(uuid()) @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+
+  // Financial fields
+  amount          Decimal         @db.Decimal(10, 2)
+  description     String
+  notes           String?
+
+  // Optional categorisation (foreign keys added when modules are built)
+  categoryId      String?         @map("category_id") @db.Uuid
+  accountId       String?         @map("account_id") @db.Uuid
+
+  // Classification
+  transactionType TransactionType @map("transaction_type")
+
+  // Dates
+  date            DateTime        @db.Timestamptz
+  originalDate    DateTime        @map("original_date") @db.Timestamptz
+
+  // State
+  isActive        Boolean         @default(true) @map("is_active")
+
+  // Timestamps
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user            User            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([userId, date])
+  @@index([userId, isActive])
+  @@map("transactions")
 }
