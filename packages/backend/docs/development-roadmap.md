@@ -297,17 +297,18 @@ This document outlines the implementation order for building the Finance Tracker
    - ✅ PATCH `/transactions/:id/toggle-active` - toggle is_active status
    - ✅ DELETE `/transactions/:id` - delete transaction permanently
 
-5. **Add Ownership Validation**
-   - Verify transaction belongs to current user
-   - Return 404 if transaction doesn't exist or belongs to another user
-   - Never expose other users' data
+5. **~~Add Ownership Validation~~** ✅
+   - ✅ Verify transaction belongs to current user — `findFirst({where: {id, userId}})` in service
+   - ✅ Return 404 if transaction doesn't exist or belongs to another user — `NotFoundException` thrown when `findFirst` returns null
+   - ✅ Never expose other users' data — all queries and aggregations scoped by `userId`
+   - ✅ `update`, `toggleActive`, and `remove` all call `findOne(userId, id)` before mutating
 
-**Phase 4 Checklist:** (Use Standard Checklist above)
-- [ ] **Core:** Transaction service, controller, DTOs implemented with user scoping
-- [ ] **Documentation:** Swagger decorators on all endpoints, test in Swagger UI with auth token
-- [ ] **Testing:** Unit tests for CRUD, filtering, ownership validation, aggregation queries
-- [ ] **Security:** All endpoints protected with JwtAuthGuard, userId scoping enforced
-- [ ] **Database:** Prisma schema updated, migration created with user_id foreign key
+**Phase 4 Checklist:** ✅ **COMPLETE**
+- [x] **Core:** Transaction service, controller, DTOs implemented with user scoping
+- [x] **Documentation:** Swagger decorators on all endpoints, test in Swagger UI with auth token
+- [x] **Testing:** Unit tests for CRUD, filtering, ownership validation, aggregation queries (52 service + 19 controller)
+- [x] **Security:** All endpoints protected with JwtAuthGuard, userId scoping enforced at service layer
+- [x] **Database:** Prisma schema updated, migration created with user_id foreign key
 
 **Validation:**
 - Create transaction as authenticated user with notes
