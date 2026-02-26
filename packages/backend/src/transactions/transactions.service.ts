@@ -1,8 +1,249 @@
-import {Injectable} from '@nestjs/common';
+import {
+    Injectable,
+    NotFoundException
+} from '@nestjs/common';
+import {PrismaService} from '#database/prisma.service.js';
+import type {
+    Transaction,
+    Prisma
+} from '#generated/prisma/client.js';
+import {TransactionType} from '#generated/prisma/client.js';
+import type {CreateTransactionDto} from './dto/create-transaction.dto.js';
+import type {UpdateTransactionDto} from './dto/update-transaction.dto.js';
+import type {TransactionFilterDto} from './dto/transaction-filter.dto.js';
+
+export interface PaginatedTransactions {
+    data: Transaction[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+export interface TransactionTotals {
+    totalIncome: number;
+    totalExpense: number;
+    netTotal: number;
+    startDate: string;
+    endDate: string;
+}
 
 @Injectable()
 export class TransactionsService {
-    public getAll(): string {
-        return 'List of all transactions';
+    constructor(private readonly prisma: PrismaService) {}
+
+    /**
+     * Create a transaction for the given user.
+     * originalDate is set from date on creation and never changes.
+     */
+    public async create(userId: string, createDto: CreateTransactionDto): Promise<Transaction> {
+        const date = new Date(createDto.date);
+
+        return this.prisma.transaction.create({
+            data: {
+                userId,
+                amount: createDto.amount,
+                description: createDto.description,
+                notes: createDto.notes ?? null,
+                categoryId: createDto.categoryId ?? null,
+                accountId: createDto.accountId ?? null,
+                transactionType: createDto.transactionType,
+                date,
+                originalDate: date,
+                isActive: true
+            }
+        });
+    }
+
+    /**
+     * List all transactions for the given user with optional filters and pagination.
+     * Defaults to active transactions only (isActive='true').
+     */
+    public async findAll(
+        userId: string,
+        filters: TransactionFilterDto
+    ): Promise<PaginatedTransactions> {
+        const page = filters.page ?? 1;
+        const limit = filters.limit ?? 50;
+        const skip = (page - 1) * limit;
+
+        const where = this.buildWhereClause(userId, filters);
+
+        const [data, total] = await Promise.all([
+            this.prisma.transaction.findMany({
+                where,
+                orderBy: {date: 'desc'},
+                skip,
+                take: limit
+            }),
+            this.prisma.transaction.count({where})
+        ]);
+
+        return {data, total, page, limit};
+    }
+
+    /**
+     * Get a single transaction belonging to the given user.
+     * Throws NotFoundException if not found or belongs to another user.
+     */
+    public async findOne(userId: string, transactionId: string): Promise<Transaction> {
+        const transaction = await this.prisma.transaction.findFirst({
+            where: {id: transactionId, userId}
+        });
+
+        if (!transaction) {
+            throw new NotFoundException(`Transaction with ID ${transactionId} not found`);
+        }
+
+        return transaction;
+    }
+
+    /**
+     * Update a transaction. originalDate is never modified.
+     * transactionType is not updatable.
+     */
+    public async update(
+        userId: string,
+        transactionId: string,
+        updateDto: UpdateTransactionDto
+    ): Promise<Transaction> {
+        await this.findOne(userId, transactionId);
+
+        return this.prisma.transaction.update({
+            where: {id: transactionId},
+            data: {
+                ...(updateDto.amount !== undefined && {amount: updateDto.amount}),
+                ...(updateDto.description !== undefined && {description: updateDto.description}),
+                ...(updateDto.notes !== undefined && {notes: updateDto.notes}),
+                ...(updateDto.categoryId !== undefined && {categoryId: updateDto.categoryId}),
+                ...(updateDto.accountId !== undefined && {accountId: updateDto.accountId}),
+                ...(updateDto.date !== undefined && {date: new Date(updateDto.date)}),
+                ...(updateDto.isActive !== undefined && {isActive: updateDto.isActive})
+            }
+        });
+    }
+
+    /**
+     * Toggle the isActive status of a transaction.
+     */
+    public async toggleActive(userId: string, transactionId: string): Promise<Transaction> {
+        const transaction = await this.findOne(userId, transactionId);
+
+        return this.prisma.transaction.update({
+            where: {id: transactionId},
+            data: {isActive: !transaction.isActive}
+        });
+    }
+
+    /**
+     * Permanently delete a transaction.
+     */
+    public async remove(userId: string, transactionId: string): Promise<void> {
+        await this.findOne(userId, transactionId);
+
+        await this.prisma.transaction.delete({
+            where: {id: transactionId}
+        });
+    }
+
+    /**
+     * Get income/expense totals for a date range (active transactions only).
+     * Transfers are excluded from both totals.
+     */
+    public async getTotals(
+        userId: string,
+        startDate: string,
+        endDate: string
+    ): Promise<TransactionTotals> {
+        const dateFilter = {
+            gte: new Date(startDate),
+            lte: new Date(endDate)
+        };
+
+        const baseWhere = {userId, isActive: true, date: dateFilter};
+
+        const [incomeResult, expenseResult] = await Promise.all([
+            this.prisma.transaction.aggregate({
+                where: {...baseWhere, transactionType: TransactionType.income},
+                _sum: {amount: true}
+            }),
+            this.prisma.transaction.aggregate({
+                where: {...baseWhere, transactionType: TransactionType.expense},
+                _sum: {amount: true}
+            })
+        ]);
+
+        const totalIncome = incomeResult._sum.amount?.toNumber() ?? 0;
+        const totalExpense = expenseResult._sum.amount?.toNumber() ?? 0;
+
+        return {
+            totalIncome,
+            totalExpense,
+            netTotal: totalIncome - totalExpense,
+            startDate,
+            endDate
+        };
+    }
+
+    /**
+     * Convenience method: get totals for a full calendar month.
+     * Month is 1-based (1 = January, 12 = December).
+     */
+    public async getMonthlyTotals(
+        userId: string,
+        year: number,
+        month: number
+    ): Promise<TransactionTotals> {
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0, 23, 59, 59, 999);
+
+        return this.getTotals(userId, start.toISOString(), end.toISOString());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Private helpers
+    // ---------------------------------------------------------------------------
+
+    private buildWhereClause(
+        userId: string,
+        filters: TransactionFilterDto
+    ): Prisma.TransactionWhereInput {
+        const where: Prisma.TransactionWhereInput = {userId};
+
+        // isActive filter — default 'true'
+        const isActiveParam = filters.isActive ?? 'true';
+        if (isActiveParam === 'true') {
+            where.isActive = true;
+        } else if (isActiveParam === 'false') {
+            where.isActive = false;
+        }
+        // 'all' → no isActive filter added
+
+        if (filters.startDate || filters.endDate) {
+            where.date = {};
+            if (filters.startDate) {
+                where.date.gte = new Date(filters.startDate);
+            }
+            if (filters.endDate) {
+                where.date.lte = new Date(filters.endDate);
+            }
+        }
+
+        if (filters.categoryId) {
+            where.categoryId = filters.categoryId;
+        }
+
+        if (filters.accountId) {
+            where.accountId = filters.accountId;
+        }
+
+        if (filters.transactionType) {
+            where.transactionType = filters.transactionType;
+        }
+
+        if (filters.search) {
+            where.description = {contains: filters.search, mode: 'insensitive'};
+        }
+
+        return where;
     }
 }
