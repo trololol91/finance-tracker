@@ -16,7 +16,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **2** | Authentication Module | Auth UI (Login / Register) | ✅ Complete |
 | **3** | Secure Users Module | User Profile Management | ✅ Complete |
 | **4** | Transactions Module | Transactions UI | ✅ Complete |
-| **5** | Categories Module | Categories UI | ⬜ Not Started |
+| **5** | Categories Module | Categories UI | 🔄 In Progress |
 | **6** | Accounts Module | Accounts UI | ⬜ Not Started |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | ⬜ Not Started |
 | **8** | Budgets Module *(optional)* | Dashboard & Analytics | ⬜ Not Started |
@@ -263,14 +263,20 @@ Each phase has two naturally sequential workstreams (BE → FE), but different *
 
 Phase 4 (Transactions) is complete — backend and frontend both shipped and QA-verified (9 bugs found, fixed, and re-tested; 420 frontend tests passing).
 
+Implementation plan saved to [`test-plan/categories/implementation-plan.md`](../test-plan/categories/implementation-plan.md).
+
 **Next actions:**
-1. Invoke `@planner` to plan Phase 5: Categories module (backend + frontend).
-2. Invoke `@backend-dev` to implement the Categories backend module.
-3. Invoke `@test-writer` for backend tests, then `@code-reviewer` before committing.
-4. Run `npm run generate:api` in `packages/frontend` once the backend Swagger is stable.
-5. Invoke `@frontend-dev` to implement the Categories UI.
-6. Invoke `@frontend-tester` to run the test plan against the new feature.
-7. Update this document: mark Phase 5 as ✅ and set Phase 6 as current focus.
+1. ✅ `@planner` — plan complete (`test-plan/categories/implementation-plan.md`).
+2. `@backend-dev` — implement Prisma schema + migration, then `CategoriesModule` (service → controller → DTOs → Swagger). Reference: `transactions/` module.
+3. `@test-writer` — write Vitest unit tests for `CategoriesService` + `CategoriesController` (target ≥ 40 tests).
+4. `@backend-tester` — validate all endpoints per section 8 of the plan; save to `test-plan/categories/backend-report.md`.
+5. `@code-reviewer` — review backend; focus on self-referential relation, depth-limit guard, and soft-vs-hard delete.
+6. `@backend-dev` — commit: schema/migration, then service+tests, then controller.
+7. Run `npm run generate:api` in `packages/frontend` once Swagger is stable.
+8. `@frontend-dev` — implement `CategoriesPage` and feature components per section 5 of the plan.
+9. `@test-writer` — Vitest + RTL component tests (target ≥ 30 tests).
+10. `@frontend-tester` — expand section 7 into Playwright plan; save to `test-plan/categories/frontend.md`.
+11. Update this document: mark Phase 5 as ✅ and set Phase 6 as current focus.
 
 ---
 
