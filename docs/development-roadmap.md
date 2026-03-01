@@ -16,7 +16,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **2** | Authentication Module | Auth UI (Login / Register) | ✅ Complete |
 | **3** | Secure Users Module | User Profile Management | ✅ Complete |
 | **4** | Transactions Module | Transactions UI | ✅ Complete |
-| **5** | Categories Module | Categories UI | 🔄 In Progress |
+| **5** | Categories Module | Categories UI | ✅ Complete |
 | **6** | Accounts Module | Accounts UI | ⬜ Not Started |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | ⬜ Not Started |
 | **8** | Budgets Module *(optional)* | Dashboard & Analytics | ⬜ Not Started |
@@ -182,6 +182,8 @@ Frontend checklist:
 - [ ] Zero TypeScript errors (`get_errors`)
 - [ ] Zero ESLint warnings (`npx eslint <file> --max-warnings 0`)
 
+> **Cross-feature integration rule:** If this feature requires changes to files belonging to a *previously completed feature* (e.g. adding a category selector to `TransactionForm`, linking accounts to transactions), each such integration point **must be listed as its own explicit numbered step** in the Current Focus section of this roadmap. Do not rely on "implement per section X of the plan" to surface these tasks — they will be overlooked at review time.
+
 ### Step 9 — Frontend unit tests
 
 Hand off to **`test-writer`**:
@@ -259,24 +261,31 @@ Each phase has two naturally sequential workstreams (BE → FE), but different *
 
 ---
 
-## Current Focus: Phase 5 — Categories
+## Current Focus: Phase 6 — Accounts Module
 
-Phase 4 (Transactions) is complete — backend and frontend both shipped and QA-verified (9 bugs found, fixed, and re-tested; 420 frontend tests passing).
+Phase 5 (Categories) is complete — backend and frontend both shipped and QA-verified (579 frontend tests passing, 0 type errors, 0 lint warnings; category selector wired into TransactionForm, TransactionList, and TransactionFilters).
 
-Implementation plan saved to [`test-plan/categories/implementation-plan.md`](../test-plan/categories/implementation-plan.md).
+Implementation plan to be created at [`test-plan/accounts/implementation-plan.md`](../test-plan/accounts/implementation-plan.md).
 
-**Next actions:**
+**Phase 5 progress (complete):**
+
+**Phase 5 progress:**
 1. ✅ `@planner` — plan complete (`test-plan/categories/implementation-plan.md`).
-2. `@backend-dev` — implement Prisma schema + migration, then `CategoriesModule` (service → controller → DTOs → Swagger). Reference: `transactions/` module.
-3. `@test-writer` — write Vitest unit tests for `CategoriesService` + `CategoriesController` (target ≥ 40 tests).
-4. `@backend-tester` — validate all endpoints per section 8 of the plan; save to `test-plan/categories/backend-report.md`.
-5. `@code-reviewer` — review backend; focus on self-referential relation, depth-limit guard, and soft-vs-hard delete.
-6. `@backend-dev` — commit: schema/migration, then service+tests, then controller.
-7. Run `npm run generate:api` in `packages/frontend` once Swagger is stable.
-8. `@frontend-dev` — implement `CategoriesPage` and feature components per section 5 of the plan.
-9. `@test-writer` — Vitest + RTL component tests (target ≥ 30 tests).
-10. `@frontend-tester` — expand section 7 into Playwright plan; save to `test-plan/categories/frontend.md`.
-11. Update this document: mark Phase 5 as ✅ and set Phase 6 as current focus.
+2. ✅ `@backend-dev` — Prisma schema + migration + `CategoriesModule` (service, controller, 5 DTOs, Swagger).
+3. ✅ `@test-writer` — 239 backend tests total; categories module at 100% statements/branches/functions/lines.
+4. ✅ `@backend-tester` — 58/58 API tests PASS (`test-plan/categories/backend-report.md`).
+5. ✅ `@code-reviewer` — backend reviewed; post-review fixes applied (HTTP 204, null-uniqueness guard, `@ValidateIf`).
+6. ✅ `@backend-dev` — committed: schema/migration, service+tests, controller.
+7. ✅ `npm run generate:api` — Orval client regenerated in `packages/frontend/src/api/categories/`.
+8. ✅ `@frontend-dev` — `CategoriesPage` + all feature components implemented; dark-theme and modal-centering bugs found and fixed.
+9. ✅ `@test-writer` — 568 frontend tests passing, 0 type errors, 0 lint warnings.
+10. ✅ `@frontend-tester` — Playwright exploratory testing complete (`test-plan/categories/frontend-report.md`); 17/18 PASS.
+11. ✅ `@frontend-dev` — Wired `categoryId` selector into `TransactionForm`, `TransactionList`, and `TransactionFilters`; 579 tests passing, 0 type errors, 0 lint warnings.
+12. ✅ Phase 5 marked complete in the table above; Phase 6 set as current focus.
+
+**Suggested next action:**
+
+- **Begin Phase 6:** `@planner` — Plan the Accounts module (backend + frontend): Prisma schema, API contract, DTOs, frontend components (`AccountsList`, `AccountForm`, `AccountsPage`), hooks, and test strategy. Research the transactions feature for patterns.
 
 ---
 
