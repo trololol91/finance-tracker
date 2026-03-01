@@ -5,7 +5,8 @@ import {
     IsUUID,
     MaxLength,
     Matches,
-    IsBoolean
+    IsBoolean,
+    ValidateIf
 } from 'class-validator';
 import {ApiProperty} from '@nestjs/swagger';
 
@@ -30,10 +31,11 @@ export class UpdateCategoryDto {
         type: String,
         maxLength: 255
     })
+    @ValidateIf((o: UpdateCategoryDto) => o.description !== null)
     @IsString()
     @MaxLength(255)
     @IsOptional()
-    description?: string;
+    description?: string | null;
 
     @ApiProperty({
         description: 'Hex colour code (e.g. #FF5733)',
@@ -42,12 +44,13 @@ export class UpdateCategoryDto {
         nullable: true,
         type: String
     })
+    @ValidateIf((o: UpdateCategoryDto) => o.color !== null)
     @IsString()
     @Matches(/^#[0-9A-Fa-f]{6}$/, {
         message: 'color must be a valid 6-digit hex colour (e.g. #4CAF50)'
     })
     @IsOptional()
-    color?: string;
+    color?: string | null;
 
     @ApiProperty({
         description: 'Icon (emoji or short name)',
@@ -57,10 +60,11 @@ export class UpdateCategoryDto {
         type: String,
         maxLength: 10
     })
+    @ValidateIf((o: UpdateCategoryDto) => o.icon !== null)
     @IsString()
     @MaxLength(10)
     @IsOptional()
-    icon?: string;
+    icon?: string | null;
 
     @ApiProperty({
         description: 'Parent category ID (UUID). Set to null to make top-level.',

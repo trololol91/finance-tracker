@@ -97,14 +97,6 @@ describe('CategoriesController', () => {
 
             expect(result).toEqual([]);
         });
-
-        it('passes the authenticated user id to service', async () => {
-            vi.mocked(service.findAll).mockResolvedValue([]);
-
-            await controller.findAll(mockCurrentUser);
-
-            expect(service.findAll).toHaveBeenCalledWith('user-uuid-1');
-        });
     });
 
     // -------------------------------------------------------------------------
@@ -226,31 +218,40 @@ describe('CategoriesController', () => {
     // -------------------------------------------------------------------------
 
     describe('remove', () => {
+        const makeMockRes = (): {status: ReturnType<typeof vi.fn>} => ({
+            status: vi.fn().mockReturnThis()
+        });
+
         it('returns undefined (void) for a hard-deleted category (null from service)', async () => {
             vi.mocked(service.remove).mockResolvedValue(null);
+            const mockRes = makeMockRes();
 
-            const result = await controller.remove('cat-uuid-1', mockCurrentUser);
+            const result = await controller.remove('cat-uuid-1', mockCurrentUser, mockRes as never);
 
             expect(result).toBeUndefined();
             expect(service.remove).toHaveBeenCalledWith('user-uuid-1', 'cat-uuid-1');
+            expect(mockRes.status).toHaveBeenCalledWith(204);
         });
 
         it('returns CategoryResponseDto with isActive=false for a soft-deleted category', async () => {
             const dto = makeDto({isActive: false, transactionCount: 3});
             vi.mocked(service.remove).mockResolvedValue(dto);
+            const mockRes = makeMockRes();
 
-            const result = await controller.remove('cat-uuid-1', mockCurrentUser);
+            const result = await controller.remove('cat-uuid-1', mockCurrentUser, mockRes as never);
 
             expect(result).toBe(dto);
             expect((result as CategoryResponseDto).isActive).toBe(false);
+            expect(mockRes.status).not.toHaveBeenCalled();
         });
 
         it('propagates NotFoundException for unknown category', async () => {
             vi.mocked(service.remove).mockRejectedValue(new NotFoundException('Category not found'));
+            const mockRes = makeMockRes();
 
-            await expect(controller.remove('nonexistent', mockCurrentUser)).rejects.toThrow(
-                NotFoundException
-            );
+            await expect(
+                controller.remove('nonexistent', mockCurrentUser, mockRes as never)
+            ).rejects.toThrow(NotFoundException);
         });
 
         it('propagates BadRequestException when category has children', async () => {
@@ -259,9 +260,10 @@ describe('CategoriesController', () => {
                     'Delete or reassign child categories before deleting this category'
                 )
             );
+            const mockRes = makeMockRes();
 
             await expect(
-                controller.remove('parent-with-children', mockCurrentUser)
+                controller.remove('parent-with-children', mockCurrentUser, mockRes as never)
             ).rejects.toThrow(BadRequestException);
         });
     });

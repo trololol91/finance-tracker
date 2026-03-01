@@ -66,11 +66,15 @@ export class CategoriesService {
      *   - must exist and belong to the same user
      *   - parent must itself be a top-level category (depth limit = 1)
      * Throws ConflictException on duplicate name within same parent.
+     * Note: the DB @@unique([userId, name, parentId]) does not cover top-level duplicates
+     * because PostgreSQL treats NULL != NULL in unique constraints. We guard this explicitly.
      */
     public async create(userId: string, dto: CreateCategoryDto): Promise<CategoryResponseDto> {
         if (dto.parentId) {
             await this.validateParent(userId, dto.parentId);
         }
+
+        await this.checkNameUnique(userId, dto.name, dto.parentId ?? null);
 
         try {
             const category = await this.prisma.category.create({
@@ -124,7 +128,17 @@ export class CategoriesService {
             dto.parentId !== null &&
             dto.parentId !== existing.parentId;
         if (parentChanging) {
+            // Non-null asserted: parentChanging guarantees dto.parentId is a non-null string
             await this.validateParent(userId, dto.parentId!);
+        }
+
+        // Check name uniqueness when either the name or parentId target changes.
+        // The DB @@unique does not protect top-level categories (NULL != NULL in PG).
+        if (dto.name !== undefined || dto.parentId !== undefined) {
+            const effectiveName = dto.name ?? existing.name;
+            const effectiveParentId =
+                dto.parentId !== undefined ? (dto.parentId ?? null) : existing.parentId;
+            await this.checkNameUnique(userId, effectiveName, effectiveParentId, id);
         }
 
         try {
@@ -205,6 +219,37 @@ export class CategoriesService {
     // ---------------------------------------------------------------------------
     // Private helpers
     // ---------------------------------------------------------------------------
+
+    /**
+     * Ensure there is no existing active or inactive category with the same
+     * (userId, name, parentId) combination. Called before create and update because
+     * the DB @@unique([userId, name, parentId]) constraint silently allows duplicate
+     * top-level category names when parentId IS NULL (PostgreSQL: NULL ≠ NULL).
+     * Only active categories are considered — soft-deleted names can be reused.
+     *
+     * @param excludeId - When updating, skip the row being updated itself.
+     */
+    private async checkNameUnique(
+        userId: string,
+        name: string,
+        parentId: string | null,
+        excludeId?: string
+    ): Promise<void> {
+        const conflict = await this.prisma.category.findFirst({
+            where: {
+                userId,
+                name,
+                parentId,
+                isActive: true,
+                ...(excludeId !== undefined && {id: {not: excludeId}})
+            }
+        });
+        if (conflict) {
+            throw new ConflictException(
+                'A category with this name already exists at this level'
+            );
+        }
+    }
 
     /**
      * Validate that a parentId:

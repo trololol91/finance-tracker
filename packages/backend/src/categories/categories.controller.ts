@@ -8,8 +8,10 @@ import {
     Param,
     HttpCode,
     HttpStatus,
-    UseGuards
+    UseGuards,
+    Res
 } from '@nestjs/common';
+import type {Response} from 'express';
 import {
     ApiTags,
     ApiOperation,
@@ -41,7 +43,7 @@ export class CategoriesController {
     @ApiOperation({
         summary: 'List categories',
         description:
-            'Get all categories for the authenticated user. Includes transactionCount for each category. Does not filter by isActive — the UI toggles visibility.'
+            'Get all categories for the authenticated user, ordered by (parentId nulls first, name). Includes transactionCount. The `children` field is always an empty array on this endpoint — the list is flat by design. Does not filter by isActive.'
     })
     @ApiResponse({status: 200, description: 'List of categories', type: [CategoryResponseDto]})
     @ApiResponse({status: 401, description: 'Unauthorized'})
@@ -144,11 +146,13 @@ export class CategoriesController {
     @ApiResponse({status: 404, description: 'Category not found'})
     public async remove(
         @Param('id') id: string,
-        @CurrentUser() currentUser: User
+        @CurrentUser() currentUser: User,
+        @Res({passthrough: true}) res: Response
     ): Promise<CategoryResponseDto | void> {
         const result = await this.categoriesService.remove(currentUser.id, id);
         if (result === null) {
-            // Hard-deleted — return 204 No Content
+            // Hard-deleted — send 204 No Content (NestJS defaults DELETE to 200)
+            res.status(HttpStatus.NO_CONTENT);
             return;
         }
         // Soft-deleted — return 200 with DTO
