@@ -56,4 +56,10 @@ packages/frontend/.vite/
 # Scripts
 exports/*
 accountactivity.csv
+
+# Playwright MCP state and cache
+.playwright-mcp/
+
+# Test screenshots — stored under test-plan/<feature>/screenshots/ not repo root
+*.png
 transaction.json
