@@ -21,10 +21,10 @@ import {
     ApiBody,
     ApiBearerAuth
 } from '@nestjs/swagger';
-import {AccountsService} from './accounts.service.js';
-import {CreateAccountDto} from './dto/create-account.dto.js';
-import {UpdateAccountDto} from './dto/update-account.dto.js';
-import {AccountResponseDto} from './dto/account-response.dto.js';
+import {AccountsService} from '#accounts/accounts.service.js';
+import {CreateAccountDto} from '#accounts/dto/create-account.dto.js';
+import {UpdateAccountDto} from '#accounts/dto/update-account.dto.js';
+import {AccountResponseDto} from '#accounts/dto/account-response.dto.js';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
@@ -63,8 +63,9 @@ export class AccountsController {
     })
     @ApiParam({name: 'id', description: 'Account UUID', type: String})
     @ApiResponse({status: 200, description: 'Account found', type: AccountResponseDto})
-    @ApiResponse({status: 404, description: 'Account not found'})
+    @ApiResponse({status: 400, description: 'Invalid UUID format'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
+    @ApiResponse({status: 404, description: 'Account not found'})
     public async findOne(
         @Param('id', new ParseUUIDPipe({version: '4'})) id: string,
         @CurrentUser() currentUser: User
@@ -108,7 +109,7 @@ export class AccountsController {
     @ApiParam({name: 'id', description: 'Account UUID', type: String})
     @ApiBody({type: UpdateAccountDto})
     @ApiResponse({status: 200, description: 'Account updated', type: AccountResponseDto})
-    @ApiResponse({status: 400, description: 'Validation error'})
+    @ApiResponse({status: 400, description: 'Invalid UUID format or body validation error'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     @ApiResponse({status: 404, description: 'Account not found'})
     @ApiResponse({status: 409, description: 'Duplicate account name'})
@@ -141,6 +142,7 @@ export class AccountsController {
         description: 'Account soft-deleted (has transactions) — isActive set to false',
         type: AccountResponseDto
     })
+    @ApiResponse({status: 400, description: 'Invalid UUID format'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     @ApiResponse({status: 404, description: 'Account not found'})
     public async remove(

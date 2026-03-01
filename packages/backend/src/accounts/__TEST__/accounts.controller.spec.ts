@@ -177,7 +177,11 @@ describe('AccountsController', () => {
         it('propagates NotFoundException from service', async () => {
             vi.mocked(service.update).mockRejectedValue(new NotFoundException());
 
-            await expect(controller.update('bad-id', updateDto, mockUser)).rejects.toThrow(NotFoundException);
+            // ParseUUIDPipe runs before the service in real HTTP flow; in unit tests
+            // we bypass the pipe and test the service error path directly.
+            await expect(
+                controller.update('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', updateDto, mockUser)
+            ).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -211,8 +215,10 @@ describe('AccountsController', () => {
             vi.mocked(service.remove).mockRejectedValue(new NotFoundException());
             const res = mockRes();
 
+            // ParseUUIDPipe runs before the service in real HTTP flow; in unit tests
+            // we bypass the pipe and test the service error path directly.
             await expect(
-                controller.remove('nonexistent', mockUser, res as unknown as Response)
+                controller.remove('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', mockUser, res as unknown as Response)
             ).rejects.toThrow(NotFoundException);
         });
     });

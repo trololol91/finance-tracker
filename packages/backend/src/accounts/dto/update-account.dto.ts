@@ -6,7 +6,6 @@ import {
     IsNumber,
     IsBoolean,
     MaxLength,
-    Length,
     Min,
     Max,
     Matches,
@@ -57,8 +56,7 @@ export class UpdateAccountDto {
         required: false
     })
     @IsString()
-    @Length(3, 3, {message: 'currency must be a 3-letter ISO 4217 code'})
-    @Matches(/^[A-Z]{3}$/, {message: 'currency must be an uppercase ISO 4217 code (e.g. CAD, USD)'})
+    @Matches(/^[A-Z]{3}$/, {message: 'currency must be a 3-letter uppercase ISO 4217 code (e.g. CAD, USD)'})
     @IsOptional()
     currency?: string;
 
