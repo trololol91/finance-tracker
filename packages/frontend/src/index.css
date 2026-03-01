@@ -72,6 +72,53 @@
     /* Layout */
     --max-width-content: 1280px;
     --z-sticky: 10;
+
+    /* Spacing scale */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-12: 3rem;
+
+    /*
+     * ── Semantic Color Aliases ────────────────────────────────────────────
+     * RESPONSIBILITY: This section bridges the raw dark-theme scale above
+     * (--color-gray-*, --color-white, etc.) to the semantic names used
+     * throughout component CSS files.
+     *
+     * RULE: Any CSS variable used in a component or feature CSS file MUST
+     * be defined here. Never rely on a hardcoded light-mode fallback value
+     * as the actual production colour — those are emergency fallbacks only.
+     *
+     * WHEN TO UPDATE: When adding a new component that needs a new semantic
+     * token (e.g. --color-info, --color-surface-raised), add it here first,
+     * mapped to the appropriate scale token. Do not define ad-hoc values
+     * directly in the component CSS.
+     *
+     * BUG HISTORY: Categories page rendered in light mode (March 2026)
+     * because these aliases were missing. The component CSS used semantic
+     * names whose undefined fallbacks were all light-mode hex values.
+     * ──────────────────────────────────────────────────────────────────── */
+    --color-background: var(--color-gray-100);        /* #0f172a  page bg */
+    --color-surface: var(--color-white);               /* #1e293b  cards / modals */
+    --color-surface-alt: var(--color-gray-50);         /* #162032  table header bg */
+    --color-surface-hover: var(--color-gray-50);       /* #162032  row hover */
+    --color-text-primary: var(--color-gray-900);       /* #f1f5f9  headings / strong text */
+    --color-text-secondary: var(--color-gray-500);     /* #94a3b8  muted labels */
+    --color-text-muted: var(--color-gray-400);         /* #64748b  very muted text */
+    --color-border: var(--color-gray-200);             /* #334155  dividers */
+    --color-border-strong: var(--color-gray-300);      /* #475569  input borders on hover */
+    --color-primary-dark: var(--color-primary-hover);  /* #93c5fd  primary button hover */
+    --color-primary-100: var(--color-primary-ring);    /* rgba(96,165,250,.2) focus ring */
+    --color-danger-light: var(--color-danger-border);  /* #7f1d1d  danger border */
+    --color-danger-50: var(--color-danger-bg);         /* #1c0707  danger row bg */
+    --color-danger-dark: var(--color-danger-hover);    /* #fca5a5  danger text hover */
+    --color-warning-100: rgba(251, 191, 36, 0.15);     /* warning tint bg */
+    --color-warning-700: var(--color-warning);         /* #fbbf24  warning text */
+    --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
 }
 
 /* ── Reset ───────────────────────────────── */
