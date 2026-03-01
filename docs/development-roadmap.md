@@ -15,7 +15,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **1** | DB Setup + Users Module | — | ✅ Complete |
 | **2** | Authentication Module | Auth UI (Login / Register) | ✅ Complete |
 | **3** | Secure Users Module | User Profile Management | ✅ Complete |
-| **4** | Transactions Module | Transactions UI | BE ✅ / FE 🔄 In Progress |
+| **4** | Transactions Module | Transactions UI | ✅ Complete |
 | **5** | Categories Module | Categories UI | ⬜ Not Started |
 | **6** | Accounts Module | Accounts UI | ⬜ Not Started |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | ⬜ Not Started |
@@ -229,16 +229,18 @@ Each phase has two naturally sequential workstreams (BE → FE), but different *
 
 ---
 
-## Current Focus: Phase 4 — Transactions UI
+## Current Focus: Phase 5 — Categories
 
-Backend is complete. Frontend implementation (`packages/frontend`) is in progress.
+Phase 4 (Transactions) is complete — backend and frontend both shipped and QA-verified (9 bugs found, fixed, and re-tested; 420 frontend tests passing).
 
 **Next actions:**
-1. Run `npm run generate:api` in `packages/frontend` to ensure the Orval client reflects the latest transactions endpoints.
-2. Invoke `@frontend-dev` to implement the remaining Phase 3 components per `packages/frontend/docs/development-roadmap.md#phase-3`.
-3. Invoke `@test-writer` when components are done.
-4. Invoke `@code-reviewer` before committing.
-5. Update this document: mark Phase 4 FE as ✅ and set Phase 5 as the current focus.
+1. Invoke `@planner` to plan Phase 5: Categories module (backend + frontend).
+2. Invoke `@backend-dev` to implement the Categories backend module.
+3. Invoke `@test-writer` for backend tests, then `@code-reviewer` before committing.
+4. Run `npm run generate:api` in `packages/frontend` once the backend Swagger is stable.
+5. Invoke `@frontend-dev` to implement the Categories UI.
+6. Invoke `@frontend-tester` to run the test plan against the new feature.
+7. Update this document: mark Phase 5 as ✅ and set Phase 6 as current focus.
 
 ---
 
