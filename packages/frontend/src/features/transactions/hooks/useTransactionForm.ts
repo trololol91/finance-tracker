@@ -39,6 +39,8 @@ const validateForm = (
     return Object.keys(newErrors).length === 0;
 };
 
+// categoryId and accountId are intentionally omitted from updates —
+// transaction type and account associations cannot be changed after creation.
 const buildUpdateDto = (values: TransactionFormValues): UpdateTransactionDto => ({
     amount: parseFloat(values.amount),
     description: values.description.trim(),

@@ -18,6 +18,7 @@ vi.mock('@/api/transactions/transactions.js', () => ({
     getTransactionsControllerFindAllQueryKey: vi.fn(() => ['/transactions'])
 }));
 
+// Imported after vi.mock — Vitest hoists the mock call above all imports at runtime
 import {
     useTransactionsControllerCreate,
     useTransactionsControllerUpdate
@@ -393,9 +394,16 @@ describe('useTransactionForm', () => {
             type MutateArgs = [unknown, {onSuccess: () => void}];
             const mockMutate = vi.fn((...[, {onSuccess: cb}]: MutateArgs) => { cb(); });
             mockCreate.mockReturnValue(makeCreate(mockMutate));
+
+            // Expose the QueryClient so we can spy on it
+            const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
+            const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+            const wrapper = ({children}: {children: React.ReactNode}): React.JSX.Element =>
+                React.createElement(QueryClientProvider, {client: qc}, children);
+
             const {result} = renderHook(
                 () => useTransactionForm({onSuccess, queryKey: ['custom-key']}),
-                {wrapper: createWrapper()}
+                {wrapper}
             );
             act(() => {
                 result.current.handleFieldChange('amount', '10');
@@ -403,6 +411,10 @@ describe('useTransactionForm', () => {
                 result.current.handleFieldChange('date', '2026-02-15');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(invalidateSpy).toHaveBeenCalledWith(
+                expect.objectContaining({queryKey: ['custom-key']})
+            );
             expect(onSuccess).toHaveBeenCalledOnce();
         });
-    });});
+    });
+});

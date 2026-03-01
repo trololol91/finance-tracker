@@ -26,7 +26,10 @@ const makeTx = (overrides: Partial<TransactionResponseDto> = {}): TransactionRes
 });
 
 /** <tr> must live inside a table/tbody to be valid HTML. */
-const renderItem = (tx: TransactionResponseDto, handlers = {}) =>
+const renderItem = (
+    tx: TransactionResponseDto,
+    handlers: Partial<React.ComponentProps<typeof TransactionListItem>> = {}
+) =>
     render(
         <table>
             <tbody>
