@@ -7,6 +7,9 @@
     max-height: 90vh;
     overflow-y: auto;
     background-color: var(--color-surface, #fff);
+    /* Restore UA margin: auto that global * { margin: 0 } reset removes.
+       Without this, the dialog sticks to the top-left instead of centering. */
+    margin: auto;
 }
 
 .modal::backdrop {
