@@ -1,0 +1,305 @@
+## API Test Report: Categories Module
+
+**Date**: 2026-03-01  
+**Environment**: http://localhost:3001  
+**Test Users**: cat-tester-a@example.com (User A), cat-tester-b@example.com (User B)  
+**Executed by**: backend-tester mode  
+**Backend commit**: 62008b0
+
+---
+
+### Summary
+
+| Total | Passed | Partial / Fail | Failed | Skipped |
+|-------|--------|----------------|--------|---------|
+| 58    | 58     | 0              | 0      | 0       |
+
+> **All 58 assertions passed.** No bugs found. No internal stack traces or Prisma errors leaked in any response.
+
+---
+
+### Bugs Found
+
+_None._
+
+---
+
+### Endpoint Inventory
+
+| Method | Route | Tests | Result |
+|--------|-------|-------|--------|
+| GET | `/categories` | TC-02, TC-30, TC-31, TC-32, TC-33 | ✅ |
+| GET | `/categories/:id` | TC-06, TC-25, TC-26, TC-27, TC-28 | ✅ |
+| POST | `/categories` | TC-03, TC-07–TC-24, TC-45 | ✅ |
+| PATCH | `/categories/:id` | TC-04, TC-34–TC-44 | ✅ |
+| DELETE | `/categories/:id` | TC-05, TC-46–TC-55 | ✅ |
+
+---
+
+### Results
+
+#### ✅ TC-01: GET /health returns 200 with status=ok
+- **Status**: 200 ✅
+- **Evidence**: `{"status":"ok","timestamp":"..."}`
+
+---
+
+#### ✅ TC-02: GET /categories → 401 without token
+#### ✅ TC-03: POST /categories → 401 without token
+#### ✅ TC-04: PATCH /categories/:id → 401 without token
+#### ✅ TC-05: DELETE /categories/:id → 401 without token
+#### ✅ TC-06: GET /categories/:id → 401 without token
+- **Evidence**: All five routes return `{"message":"Unauthorized","statusCode":401}` with no Bearer token
+
+---
+
+#### ✅ TC-07: POST /categories 400 — name missing
+- **Evidence**: `status=400`, message array includes `"name should not be empty"`, `"name must be a string"`
+
+#### ✅ TC-08: POST /categories 400 — name empty (`""`)
+- **Evidence**: `status=400`
+
+#### ✅ TC-09: POST /categories 400 — name > 100 chars
+- **Evidence**: `status=400`, message includes `"name must be shorter than or equal to 100 characters"`
+
+#### ✅ TC-10: POST /categories 400 — color not hex format
+- **Body**: `{"name":"T","color":"red"}`
+- **Evidence**: `status=400`, message includes hex colour validation error
+
+#### ✅ TC-11: POST /categories 400 — parentId not a valid UUID
+- **Body**: `{"name":"T","parentId":"not-a-uuid"}`
+- **Evidence**: `status=400`
+
+#### ✅ TC-12: Validation 400 body has array message field
+- **Evidence**: `message` is an array: `["name must be shorter than or equal to 100 characters","name should not be empty","name must be a string"]`
+
+---
+
+#### ✅ TC-13: POST /categories 201 — top-level with all optional fields
+- **Body**: `{"name":"Food","description":"Food expenses","color":"#FF5733","icon":"���"}`
+- **Evidence**: `status=201`, `id=c0af8902-594a-4cba-b88a-43623a9ebd52`
+
+#### ✅ TC-14: Response has all CategoryResponseDto fields
+- **Evidence**: All 12 expected fields present: `id, userId, name, description, color, icon, parentId, isActive, transactionCount, children, createdAt, updatedAt`
+
+#### ✅ TC-15: Created category has correct field values
+- **Evidence**: `name=Food, color=#FF5733, icon=���, parentId=null, isActive=true, transactionCount=0, children=[]`
+
+#### ✅ TC-16: POST /categories 201 — minimal (name only)
+- **Body**: `{"name":"Transport"}`
+- **Evidence**: `status=201`
+
+---
+
+#### ✅ TC-17: POST /categories 409 — duplicate top-level name
+- **Body**: `{"name":"Food"}` (already exists)
+- **Evidence**: `status=409`
+
+#### ✅ TC-18: Conflict 409 body no stack/Prisma leak
+- **Evidence**: `{"message":"A category with this name already exists at this level","error":"Conflict","statusCode":409}` — no `stack`, no `PrismaClient` text
+
+#### ✅ TC-19: POST /categories 404 — parent not found
+- **Body**: `{"name":"Sub","parentId":"00000000-0000-0000-0000-000000000000"}`
+- **Evidence**: `status=404`
+
+---
+
+#### ✅ TC-20: POST /categories 201 — create sub-category
+- **Body**: `{"name":"Groceries","color":"#4CAF50","icon":"���","parentId":"<foodId>"}`
+- **Evidence**: `status=201`, `id=b92cafbf-2b59-4722-bd00-749d0c5bbed5`
+
+#### ✅ TC-21: Sub-category parentId matches parent
+- **Evidence**: `parentId=c0af8902-594a-4cba-b88a-43623a9ebd52` (matches Food's ID)
+
+#### ✅ TC-22: POST /categories 400 — nesting exceeds 1 level
+- **Body**: `{"name":"Organic","parentId":"<groceriesId>"}` (Groceries is already a child)
+- **Evidence**: `status=400`
+
+#### ✅ TC-23: POST /categories 409 — duplicate sub-category name
+- **Body**: `{"name":"Groceries","parentId":"<foodId>"}` (already exists under Food)
+- **Evidence**: `status=409`
+
+#### ✅ TC-24: POST /categories 201 — same name allowed at different parent level
+- **Body**: `{"name":"Groceries"}` (top-level, no parentId)
+- **Evidence**: `status=201` — `Groceries` at top-level and `Groceries` under Food coexist
+
+---
+
+#### ✅ TC-25: GET /categories/:id 200 — found
+- **Evidence**: `status=200, id=c0af8902-594a-4cba-b88a-43623a9ebd52`
+
+#### ✅ TC-26: GET /categories/:id 404 — non-existent ID
+- **Evidence**: `status=404`
+
+#### ✅ TC-27: 404 body no stack/Prisma leak
+- **Evidence**: `{"message":"Category with ID 00000000-0000-0000-0000-000000000000 not found","error":"Not Found","statusCode":404}` — clean shape only
+
+#### ✅ TC-28: GET /categories/:id 404 — belongs to another user (data isolation)
+- **Evidence**: User B requesting User A's category ID → `status=404` (not 403, correctly hides existence)
+
+---
+
+#### ✅ TC-30: GET /categories 200 — authenticated list
+- **Evidence**: `status=200, count=4` (Food, Transport, Groceries-child, Groceries-top)
+
+#### ✅ TC-31: GET /categories — User B cannot see User A data
+- **Evidence**: `B list count=0, seesAData=false`
+
+#### ✅ TC-32: GET /categories list — children field is always `[]`
+- **Evidence**: `children=[]` on Food entry in the flat list (correct by design; children not pre-loaded in list endpoint)
+
+#### ✅ TC-33: GET /categories — inactive categories appear in list (no isActive filter)
+- **Evidence**: After deactivating Groceries-top, it still appears in the list with `isActive=false`
+
+---
+
+#### ✅ TC-34: PATCH /categories/:id 200 — rename
+- **Body**: `{"name":"Travel"}`
+- **Evidence**: `name=Travel` in response
+
+#### ✅ TC-35: PATCH /categories/:id 200 — update color and icon
+- **Body**: `{"color":"#2196F3","icon":"���"}`
+- **Evidence**: `color=#2196F3`
+
+#### ✅ TC-36: PATCH /categories/:id 200 — clear nullable fields with null
+- **Body**: `{"description":null,"color":null,"icon":null}`
+- **Evidence**: `status=200`
+
+#### ✅ TC-37: Cleared fields are null in response
+- **Evidence**: `color=null, icon=null, description=null`
+
+#### ✅ TC-38: PATCH /categories/:id 409 — rename conflicts with existing name
+- **Body**: `{"name":"Food"}` on Transport category
+- **Evidence**: `status=409`
+
+#### ✅ TC-39: PATCH /categories/:id 404 — not found
+- **Evidence**: `status=404`
+
+#### ✅ TC-40: PATCH /categories/:id 404 — belongs to another user
+- **Evidence**: `status=404` (User B cannot update User A's category)
+
+#### ✅ TC-41: PATCH /categories/:id 200 — toggle isActive false
+- **Evidence**: `isActive=false`
+
+#### ✅ TC-42: PATCH /categories/:id 200 — toggle isActive true
+- **Evidence**: `isActive=true`
+
+#### ✅ TC-43: PATCH /categories/:id 404 — reparent to non-existent parent
+- **Body**: `{"parentId":"00000000-0000-0000-0000-000000000000"}`
+- **Evidence**: `status=404`
+
+#### ✅ TC-44: PATCH /categories/:id 400 — reparent exceeds depth limit
+- **Body**: `{"parentId":"<groceriesId>"}` where Groceries is already 1 level deep
+- **Evidence**: `status=400` — correctly blocks depth > 1
+
+---
+
+#### ✅ TC-45: POST /categories 201 — soft-deleted name can be reused
+- **Precondition**: `Groceries` (top-level) deactivated via PATCH `isActive=false`
+- **Body**: `{"name":"Groceries"}` (new create at top-level)
+- **Evidence**: `status=201` — checkNameUnique `isActive:true` filter works correctly
+
+---
+
+#### ✅ TC-46: DELETE /categories/:id 404 — not found
+- **Evidence**: `status=404`
+
+#### ✅ TC-47: 404 delete body no internal leak
+- **Evidence**: `{"message":"Category with ID 00000000-0000-0000-0000-000000000000 not found","error":"Not Found","statusCode":404}` — clean
+
+#### ✅ TC-48: DELETE /categories/:id 404 — belongs to another user
+- **Evidence**: `status=404`
+
+#### ✅ TC-49: DELETE /categories/:id 400 — parent has active children
+- **Precondition**: Food has Groceries as child
+- **Evidence**: `status=400`
+
+#### ✅ TC-50: 400 body no stack/Prisma leak
+- **Evidence**: `{"message":"Delete or reassign child categories before deleting this category","error":"Bad Request","statusCode":400}`
+
+#### ✅ TC-51: DELETE /categories/:id 204 — hard-delete (no transactions, no children)
+- **Evidence**: `status=204`
+
+#### ✅ TC-52: Hard-delete body is empty
+- **Evidence**: `raw=""` — no body returned on 204 response
+
+#### ✅ TC-53: GET after hard-delete returns 404
+- **Evidence**: `status=404` — resource fully removed from database
+
+#### ✅ TC-54: DELETE /categories/:id 204 — sub-category hard-deleted
+- **Evidence**: `status=204`
+
+#### ✅ TC-55: DELETE /categories/:id 204 — parent hard-deleted after children removed
+- **Evidence**: `status=204` — Food successfully deleted after Groceries child removed
+
+---
+
+#### ✅ TC-56: 400 body shape: `{statusCode:400, message:array}`
+- **Evidence**: `{"message":["name must be shorter than or equal to 100 characters",...],"error":"Bad Request","statusCode":400}`
+
+#### ✅ TC-57: 404 body shape: `{statusCode:404, message:string}`
+- **Evidence**: `{"message":"Category with ID ... not found","error":"Not Found","statusCode":404}`
+
+#### ✅ TC-58: 409 body shape: `{statusCode:409, message:string}`
+- **Evidence**: `{"message":"A category with this name already exists at this level","error":"Conflict","statusCode":409}`
+
+#### ✅ TC-59: 401 body shape: `{statusCode:401, message:string}`
+- **Evidence**: `{"message":"Unauthorized","statusCode":401}`
+
+---
+
+### Test Data Created
+
+| Resource | ID | Description | Cleaned Up |
+|----------|----|-------------|------------|
+| Category (User A) | c0af8902-... | Food (top-level) | ✅ Hard-deleted |
+| Category (User A) | 7c5fc890-... | Transport (top-level) | ✅ Hard-deleted |
+| Category (User A) | b92cafbf-... | Groceries (child of Food) | ✅ Hard-deleted |
+| Category (User A) | 657e945c-... | Groceries (top-level) | ✅ Hard-deleted |
+| Category (User A) | ceea54ca-... | Groceries (reused-name top-level) | ✅ Hard-deleted |
+| User | c8adfc1b-... | cat-tester-a@example.com | ⚠️ Remains (no DELETE /users called) |
+| User | (unknown) | cat-tester-b@example.com | ⚠️ Remains (no DELETE /users called) |
+
+> Users were not deleted; they represent test accounts and do not affect other test runs.  
+> All category records created during the run were fully cleaned up by end of test.
+
+---
+
+### Coverage Assessment
+
+| Area | Coverage Level |
+|------|---------------|
+| Auth guards (all 5 endpoints) | Full |
+| POST validation (missing name, empty, too long, invalid color, invalid parentId) | Full |
+| POST happy path (all fields, minimal, response shape) | Full |
+| POST conflict (top-level, sub-level, same name at different level) | Full |
+| POST depth guard (grandchild blocked) | Full |
+| POST parent not found | Full |
+| GET /categories list (data isolation, inactive visibility, children=[]) | Full |
+| GET /categories/:id (found, not found, other-user isolation) | Full |
+| PATCH rename, display fields, null-clear, isActive toggle | Full |
+| PATCH conflict on rename | Full |
+| PATCH reparent not-found, depth violation | Full |
+| PATCH other-user isolation | Full |
+| DELETE 204 hard-delete | Full |
+| DELETE 400 parent-has-children guard | Full |
+| DELETE 404 not-found, other-user | Full |
+| DELETE body empty on 204 | Full |
+| GET after hard-delete → 404 | Full |
+| Soft-deleted name reuse (checkNameUnique isActive filter) | Full |
+| Error body shape (400/401/404/409) | Full |
+| No internal leak on any 4xx | Full |
+
+---
+
+### Testing Gaps — Retrospective
+
+1. **Soft-delete via DELETE** (returns 200 + `isActive=false`): Not tested because no transactions exist in the test database to trigger the soft-delete path. To cover this, a `POST /transactions` with a valid `categoryId` would be needed. The unit tests cover this path; the live test cannot without a seeded transaction.
+
+2. **`icon` max-length validation (> 10 chars)**: Not explicitly tested as a live call; covered only in unit tests.
+
+3. **`description` max-length validation (> 255 chars)**: Not explicitly tested as a live call; covered only in unit tests.
+
+4. **PATCH `color` hex validation**: Not tested as a PATCH-specific case (only on POST); the DTO validation applies to both and is implicitly covered.
+
+5. **Concurrent duplicate-create race condition**: Requires parallel requests; not feasible in a sequential curl test run. The app-level `checkNameUnique` guard plus the DB `@@unique` constraint provide defence-in-depth.
