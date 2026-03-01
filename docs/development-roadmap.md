@@ -61,7 +61,7 @@ Backend Phase 10 (MCP Server) ───────► Frontend Phase N (MCP App
 
 ## Agent Workflow
 
-Five agents are available under `.github/agents/`. Use them in this sequence for each phase.
+Seven agents are available under `.github/agents/`. Use them in this sequence for each phase.
 
 ### Step 1 — Plan (always first)
 
@@ -93,29 +93,42 @@ Backend checklist (from the package roadmap):
 - [ ] Unit tests passing (`npm test` in `packages/backend`)
 - [ ] Zero lint errors (`npm run lint`)
 
-### Step 3 — Backend tests
+### Step 3 — Backend unit tests
 
 Hand off to **`test-writer`** immediately after backend implementation:
 
 ```
-@test-writer Write comprehensive Vitest tests for the Categories backend module
+@test-writer Write comprehensive Vitest tests for the [feature] backend module
 just implemented. Cover all service methods (happy path + error paths) and
 controller endpoints.
 ```
 
-### Step 4 — Backend code review
+### Step 4 — Backend API testing
 
-Hand off to **`code-reviewer`** once backend tests pass:
+Hand off to **`backend-tester`** once unit tests pass to validate the live running API:
 
 ```
-@code-reviewer Review the backend changes for Phase 5 (Categories module in
-packages/backend). Check conventions, TypeScript quality, security, Prisma
+@backend-tester Run the backend API test plan from test-plan/[feature]/implementation-plan.md
+against the running server. Cover all endpoints, auth guards, validation errors,
+and edge cases. Save the plan to test-plan/[feature]/backend.md and the
+report to test-plan/[feature]/backend-report.md.
+```
+
+Apply any bugs found via `@backend-dev` → "Fix Failing Tests" handoff before proceeding.
+
+### Step 5 — Backend code review
+
+Hand off to **`code-reviewer`** once API tests pass:
+
+```
+@code-reviewer Review the backend changes for the [feature] module in
+packages/backend. Check conventions, TypeScript quality, security, Prisma
 query efficiency, and test coverage.
 ```
 
 Apply any critical fixes via `@backend-dev` → "Apply Fixes" handoff.
 
-### Step 5 — Backend commits
+### Step 6 — Backend commits
 
 **Commit per task/section**, not once at the end of the phase. Each task that produces a working, tested unit of code gets its own commit. Tests are included in the same commit as the code they cover.
 
@@ -139,7 +152,7 @@ Each commit message body follows the `copilot-instructions.md` format: what chan
 
 ---
 
-### Step 6 — Regenerate API client
+### Step 7 — Regenerate API client
 
 Once the backend commit is merged, regenerate the Orval client in the frontend:
 
@@ -149,14 +162,14 @@ cd packages/frontend && npm run generate:api
 
 This updates `src/api/` with typed React Query hooks and DTO types for the new endpoints.
 
-### Step 7 — Frontend implementation
+### Step 8 — Frontend implementation
 
 Hand off to **`frontend-dev`**:
 
 ```
-@frontend-dev Implement the Categories UI (Frontend Phase 5) based on the plan
-above. The backend is complete and the Orval client has been regenerated.
-Use generated hooks from src/api/categories/ — do not hand-write fetch calls.
+@frontend-dev Implement the [feature] UI based on the plan above.
+The backend is complete and the Orval client has been regenerated.
+Use generated hooks from src/api/[feature]/ — do not hand-write fetch calls.
 ```
 
 Frontend checklist:
@@ -169,29 +182,42 @@ Frontend checklist:
 - [ ] Zero TypeScript errors (`get_errors`)
 - [ ] Zero ESLint warnings (`npx eslint <file> --max-warnings 0`)
 
-### Step 8 — Frontend tests
+### Step 9 — Frontend unit tests
 
 Hand off to **`test-writer`**:
 
 ```
-@test-writer Write Vitest + React Testing Library tests for the Categories
+@test-writer Write Vitest + React Testing Library tests for the [feature]
 frontend components just implemented. Use accessibility-first queries and
 test all user interactions.
 ```
 
-### Step 9 — Frontend code review
+### Step 10 — Frontend code review
 
 Hand off to **`code-reviewer`**:
 
 ```
-@code-reviewer Review the frontend changes for Phase 5 (Categories UI in
-packages/frontend). Check conventions, TypeScript quality, accessibility,
+@code-reviewer Review the frontend changes for the [feature] UI in
+packages/frontend. Check conventions, TypeScript quality, accessibility,
 and test coverage.
 ```
 
 Apply any critical fixes via `@frontend-dev` → "Apply Frontend Fixes" handoff.
 
-### Step 10 — Frontend commits
+### Step 11 — Frontend E2E testing
+
+Hand off to **`frontend-tester`** once the frontend clears code review:
+
+```
+@frontend-tester Expand the frontend test scope in test-plan/[feature]/implementation-plan.md
+into a full Playwright test plan. Save it to test-plan/[feature]/frontend.md,
+execute it against the running app, and save the report to
+test-plan/[feature]/frontend-report.md.
+```
+
+Apply any bugs found via `@frontend-dev` → "Fix Failing Tests" handoff before committing.
+
+### Step 12 — Frontend commits
 
 **Commit per task/section**, same rule as the backend. Tests travel with the component they cover in the same commit.
 
@@ -213,6 +239,10 @@ feat(frontend): add CategoriesPage and /categories route
 ```
 
 Scope `(frontend)` in the summary keeps `git log packages/frontend/` clean.
+
+---
+
+> **Note**: Example prompts above use `[feature]` as a placeholder. Replace with the actual feature name (e.g. `categories`, `accounts`) when invoking each agent.
 
 ---
 

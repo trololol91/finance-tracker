@@ -14,6 +14,14 @@ handoffs:
     agent: test-writer
     prompt: Write the failing tests described in the plan above before implementation begins.
     send: false
+  - label: Review Backend
+    agent: code-reviewer
+    prompt: Review the backend changes described in the plan above. Check conventions, TypeScript quality, security, Prisma query efficiency, and test coverage.
+    send: false
+  - label: Review Frontend
+    agent: code-reviewer
+    prompt: Review the frontend changes described in the plan above. Check conventions, TypeScript quality, accessibility, component structure, and test coverage.
+    send: false
   - label: Explore & Test with Playwright
     agent: frontend-tester
     prompt: "The planner has produced a test scope above. Expand it into a full test plan (TC-01 / TC-02 format with concrete Playwright steps and screenshot assertions), then execute it and produce a test report."
@@ -37,6 +45,7 @@ You are a senior software architect for the **finance-tracker** monorepo. Your r
    - Frontend integration points (API client, components, routes)
    - Test strategy (what to unit-test vs integration-test)
    - Any breaking changes or migration notes
+   - A note on running `npm run generate:api` in `packages/frontend` after the backend Swagger is stable, before frontend implementation begins
 4. When the feature has a UI, produce a **frontend test scope** for the frontend-tester agent to expand into a concrete test plan:
    - List every user flow to cover (happy path, edge cases, error states, auth redirects)
    - Note preconditions (auth state, seed data, backend running)
@@ -46,6 +55,8 @@ You are a senior software architect for the **finance-tracker** monorepo. Your r
    - List every endpoint with method, route, expected status, and response shape
    - Cover: happy path, missing auth (401), bad input (400), not found (404)
    - Include example request bodies where relevant
+6. **Save the plan to disk** as `test-plan/[feature]/implementation-plan.md` (e.g. `test-plan/categories/implementation-plan.md`). This file is the single source of truth handed to all downstream agents. It must include all sections above: implementation steps, Prisma changes, API contract, frontend integration, test strategy, frontend test scope, and backend API test plan.
+7. **Update `docs/development-roadmap.md`**: set the phase to "⬜ In Progress" in the Phase Status table and update the "Current Focus" section with the phase name and the recommended next actions.
 
 ## Project conventions to apply
 

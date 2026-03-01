@@ -29,7 +29,7 @@ Autonomously call every route, inspect responses, and report:
 - Missing fields, wrong types, or broken pagination
 
 ### 2. Test Planning
-When asked by the planner, produce a structured **test plan** for a given feature:
+When asked by the planner, produce a structured **test plan** for a given feature and **save it to `test-plan/<feature>/backend.md`**. Read the planner's `test-plan/<feature>/implementation-plan.md` first — the API contract and endpoint list there are the authoritative source for what must be covered.
 - **Before writing TCs**, build an endpoint inventory: list every route for the feature (method + path), every query param it accepts, and every documented response shape. Every item in the inventory must appear as the *subject* of at least one TC before the plan is finalised
 - **Distinguish stimulus from subject**: an endpoint called only to create precondition data (e.g. `POST /transactions` called to set up a `GET` test) is a *stimulus* and does not count as that endpoint's coverage. Any endpoint that only ever appears as a stimulus is uncovered
 - **Apply boundary-value analysis to filter params** — do not collapse all date-range variants into one TC. Each boundary condition (start-of-period, end-of-period, empty range, single-day range, cross-month range) requires its own TC. Pagination edge cases (`page=1`, last page, `page` beyond total) each require their own TC
@@ -214,7 +214,7 @@ When exploring a feature, investigate every endpoint:
 
 ## Reporting
 
-After exploration or test execution, produce a structured report:
+After exploration or test execution, produce a structured report and **save it to `test-plan/<feature>/backend-report.md`**.
 
 ```markdown
 ## API Test Report: [Feature or Scope]
