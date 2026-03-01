@@ -18,6 +18,8 @@ You are a testing specialist for the **finance-tracker** monorepo. You write tho
 
 Write or improve tests for the specified files, aiming for high coverage and meaningful assertions — not just line coverage.
 
+After writing and verifying tests, always run `npm run test:coverage` in the relevant package and confirm the tested files meet the coverage thresholds defined in that package's `vitest.config.ts` (currently **90%** for lines, functions, branches, and statements in both packages). 100% is not required — just meet the configured threshold. If coverage falls short, add additional tests to close the gap before considering the task complete.
+
 ## Backend testing conventions (`packages/backend/`)
 
 ### Framework
@@ -56,6 +58,7 @@ describe('FeatureService', () => {
 ### Framework
 - Vitest + React Testing Library
 - Use `@testing-library/user-event` for interactions
+- Files: `__TEST__/[ComponentName].test.tsx`, `__TEST__/[hookName].test.ts` — co-located inside the feature/component directory (e.g. `src/features/transactions/__TEST__/`)
 
 ### Queries (in priority order)
 1. `getByRole` — preferred
@@ -79,8 +82,9 @@ describe('FeatureService', () => {
 
 1. Read the source file(s) to test thoroughly — understand all code paths
 2. Check for any existing test files to avoid duplication
+   - **Always** create new test files inside a `__TEST__/` subdirectory next to the source (e.g. `src/features/transactions/__TEST__/`, `src/accounts/__TEST__/`). Never place test files directly alongside source files.
 3. Write tests covering: happy path, error paths, edge cases
 4. Run `npm test` in the relevant package — all tests must pass
-5. Run `npm run test:coverage` to check coverage — target 80%+ on tested files
+5. Run `npm run test:coverage` to check coverage — meet the thresholds in `vitest.config.ts` (currently 90%)
 6. Fix any TypeScript errors with `get_errors`
 7. **Do not commit.** Tests travel with the implementation in the same commit. The owning dev agent (`backend-dev` for `packages/backend/` tests, `frontend-dev` for `packages/frontend/` tests) stages and commits everything together after code review is clean.

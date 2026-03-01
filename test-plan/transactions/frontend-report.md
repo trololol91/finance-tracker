@@ -58,6 +58,7 @@
 | BUG-06 | Low–Medium | **PARTIALLY RESOLVED** | **Modal ARIA attributes incomplete**: The modal now uses a native `<dialog>` element, which provides `role="dialog"` implicitly — screen readers will announce it as a dialog (improvement from prior run where no role was present at all). However: `aria-modal` is `null` (not set), `aria-labelledby` is `null` (not set), and focus can escape the dialog for one Tab step (Cancel → Add Transaction → page content → Close cycle). Severity for the `role` aspect downgraded to Low; missing `aria-modal` remains Medium. |
 | BUG-07 | High | **PERSISTS** | **Tab key skips all interactive controls**: Eight consecutive Tabs from the page body cycle only through per-row "Actions ⋮" buttons. Navigation links, "+ Add Transaction" button, filter controls, summary bar, and pagination are all unreachable via Tab. |
 | BUG-08 | Medium | **PERSISTS** | **Modal renders at top-left instead of centred (all viewports)**: Confirmed at desktop (1280×720), tablet (768×1024), and mobile (390×844). The `<dialog>` element anchors to the top-left corner of the viewport at all three breakpoints. At 390px mobile, the modal happens to fill the full width so content is accessible, but the designed "bottom-sheet" layout (expected at ≤480px breakpoint) is **not** being applied — the modal sits at the top instead of the bottom. Screenshots: `tc18-add-modal.png`, `tc25-edit-modal.png`, `rl02-tablet-768x1024-modal.png`, `rl04-mobile-390x844-modal.png`. |
+| BUG-09 | Medium | **RESOLVED** | **Context menu (⋮) clipped by table overflow container**: When the transaction table has 1–3 rows, opening the per-row ⋮ actions menu causes the table container to display a scrollbar and the menu items are partially or fully clipped. Root cause: `.tx-list { overflow: hidden }` established a clipping context that trapped the `position: absolute` dropdown. Fix: menu switched to `position: fixed` with coordinates computed from `getBoundingClientRect()` on the trigger button, escaping all overflow ancestors. Scroll and resize listeners sync the menu position while open. Confirmed via screenshot `context-menu-bug.png` (before) and `context-menu-fixed.png` (after). Discovered during exploratory post-fix session — not covered by the original test plan. |
 
 ---
 
@@ -287,6 +288,26 @@ Screenshot `rl04-mobile-390x844-modal.png`. At 390px, the modal fills the full v
    **e) Do a coverage diff against the UI inventory before finalising the plan.**
    After drafting all TCs, return to the UI inventory from step (a) and check each element off against the plan. Any element with no TC marked as its subject is a gap. This takes 5–10 minutes and mechanically catches omissions before the plan is executed.
 
+8. **Context menu overflow — why it was not caught by the original plan**
+
+   The ⋮ actions menu was tested (TC-28 through TC-31 cover Mark Inactive, Mark Active, Delete, Cancel delete) and all four TCs passed in the original run. The clipping bug was not detected because **the test data always contained enough rows to prevent the table container from running out of height**. With 52 transactions across two pages, the table container was always tall enough that the `overflow: hidden` boundary of `.tx-list` sat below the last ⋮ menu, so the menu painted inside the clipping rect and appeared correct.
+
+   The bug only manifests when the table has **1–3 visible rows** — specifically when the dropdown's painted area extends below the container's natural height. None of the existing TCs exercised this configuration:
+
+   - TC-28 (Mark Inactive) was run against a 52-row dataset. The Netflix row was row 12 of 50 on page 1 — far from the bottom of the container.
+   - No TC exercised the ⋮ menu on the **last row of a short list** (1–3 rows), which is the boundary condition that exposes the overflow.
+   - TC-04 (empty-state) was skipped due to data. Had it been executed, a 0-row view would have been tested, but an empty state shows no ⋮ buttons at all — so the gap would still not have been hit.
+
+   **Why did the plan miss this boundary?** The test plan treated the per-row ⋮ menu as *action coverage* (can you trigger Edit/Delete?) rather than *layout coverage* (does the menu paint correctly at the extreme positions of the table?). The layout perspective was simply absent from the TC design. Positional edge cases for dropdowns require a dedicated class of TC that most structured plans omit:
+
+   - Bottom-edge row: open ⋮ on the last row when the list is short (1–3 items) — assert menu visible above or below without clipping.
+   - Bottom-edge row on a full page: open ⋮ on row 50 of 50 — assert menu not clipped by the viewport or container bottom.
+   - Scroll position: scroll the table halfway down, open ⋮ — assert the menu tracks the trigger (relevant for fixed-position menus with scroll listeners).
+
+   **Fix for the test plan**: Add a TC (TC-35) titled "Actions menu not clipped when table has few rows". Precondition: apply a filter that returns 1–3 rows (e.g. search for a unique description). Steps: open ⋮ on the last visible row; assert all menu items are fully visible in the viewport; assert no scrollbar on the table container. This TC would have caught BUG-09 in the first run.
+
+   **Broader lesson**: Dropdown / popover menus are almost always `position: absolute`, and almost always sit inside a container with `overflow: hidden` for layout reasons. This combination is a systemic source of clipping bugs that only appear at the boundary of the container — when content is too short to push the container past the drop-down's paint area. Every TC that exercises a dropdown should include one variant where the dropdown is opened at the **bottom of a short list**, not just in the middle of a full one.
+
 ---
 
 ## Recommended Handoff
@@ -328,3 +349,105 @@ On modal open, call `.focus()` on the Amount `<input>` rather than the Close but
 ### BUG-04 (Medium) — Silent auth failure redirect
 **File**: `packages/frontend/src/features/auth/context/AuthContext.tsx`  
 When `/auth/me` fails due to network error (not 401), show a user-visible toast or banner before redirecting to `/login`.
+
+---
+
+## Re-test Report: Bug Fixes Verification
+
+**Date**: 2026-03-01  
+**Environment**: http://localhost:5173  
+**Backend**: http://localhost:3001  
+**Test User**: test@example.com (pre-authenticated)  
+**Context**: Re-test of TCs affected by BUG-01 through BUG-08 after frontend-dev fix session.  
+Scope: TC-06, TC-08, TC-18, TC-20, TC-25, TC-32, TC-33, RL-02, RL-04 + BUG-02/BUG-07/BUG-08 verification steps.
+
+### Re-test Summary
+
+| # | Bug | Previous Status | Re-test Verdict | Notes |
+|---|-----|----------------|-----------------|-------|
+| BUG-01 | Date timezone exclusion (frontend) | PERSISTS | ✅ **RESOLVED** | All preset URLs use `T00:00:00.000Z` UTC boundaries |
+| BUG-02 | "This Year" startDate not reset | PERSISTS | ✅ **RESOLVED** | Both `startDate` and `endDate` set atomically; URL contains `?startDate=2026-01-01T00:00:00.000Z&endDate=2026-12-31T23:59:59.999Z` |
+| BUG-03 | Summary totals stale after mutations | PERSISTS | ✅ **RESOLVED** | `GET /transactions/totals` fires after every create/delete; totals update without page reload |
+| BUG-04 | Silent auth failure redirect | NOT RE-TESTED | ⏭️ **NOT RE-TESTED** | Stopping backend out of scope; unchanged from previous run |
+| BUG-05 | Modal initial focus on Close button | PERSISTS | ✅ **RESOLVED** | Focus on Amount `<input type="number">` on open for both Add and Edit modals |
+| BUG-06 | Modal missing `aria-modal` / `aria-labelledby` | PARTIALLY RESOLVED | ✅ **RESOLVED** | `aria-modal="true"`, `aria-labelledby="tx-modal-title"`, `h2#tx-modal-title` all present; focus trap holds — all 9+ Tabs stay inside dialog |
+| BUG-07 | Tab skips all interactive controls | PERSISTS | ✅ **RESOLVED** | Full Tab sequence confirmed: "+ Add Transaction" → Today → This Week → This Month → This Year → Custom → Type → Status → Search → Clear → ⋮ actions |
+| BUG-08 | Modal renders at top-left (all viewports) | PERSISTS | ✅ **RESOLVED** | Desktop: centred (`transform: translate(-50%,-50%)`); Tablet 768×1024: centred; Mobile 390×844: bottom-sheet (`position:fixed; bottom:0; transform:none; width:375px`) |
+| BUG-09 | Context menu clipped by table overflow | NEW (found this session) | ✅ **RESOLVED** | Menu now renders via `position: fixed` + `getBoundingClientRect()`; no scrollbar, all items visible. Screenshots: `context-menu-bug.png`, `context-menu-fixed.png` |
+
+### Re-test Console Errors
+
+| Step | Message | Severity |
+|------|---------|----------|
+| — | None | — |
+
+*Zero console errors recorded at level `error` across the entire re-test run.*
+
+### Re-test Network Verification
+
+| TC | Endpoint | Method | Status | Result |
+|----|----------|--------|--------|--------|
+| BUG-03 create | `POST /transactions` | POST | 201 | ✅ |
+| BUG-03 totals after create | `GET /transactions/totals?startDate=...&endDate=...` | GET | 200 | ✅ fired immediately after POST |
+| BUG-03 delete | `DELETE /transactions/:id` | DELETE | 204 | ✅ |
+| BUG-03 totals after delete | `GET /transactions/totals?startDate=...&endDate=...` | GET | 200 | ✅ fired immediately after DELETE |
+
+*BUG-01 UTC fix also confirmed via network: all `GET /transactions` and `GET /transactions/totals` requests use `startDate=YYYY-MM-DDT00:00:00.000Z` (UTC midnight) not a local-time offset.*
+
+### Detailed Re-test Results
+
+#### ✅ TC-06 Re-test: Summary bar shows correct Income value
+Income shows **$1,000.00** (was $0.00 before fix). "This Month" filter (March 2026) correctly includes the Playwright test income transaction created on Mar 1 at UTC midnight. Structure: Income / Expenses / Net all render with correct values.
+
+#### ✅ TC-08 Re-test: "This Year" sets both startDate and endDate
+URL after clicking "This Year": `?startDate=2026-01-01T00:00:00.000Z&endDate=2026-12-31T23:59:59.999Z&page=1`. Both params present and UTC-correct. **BUG-02 resolved.**
+
+#### ✅ TC-08b (new): "Today" preset sends correct UTC boundaries
+URL after clicking "Today": `?startDate=2026-03-01T00:00:00.000Z&endDate=2026-03-01T23:59:59.999Z&page=1`. UTC midnight start (not local-time) confirmed. **BUG-01 frontend fully resolved.**
+
+#### ✅ TC-18 Re-test: Add modal centred and focused correctly
+Screenshot `retest-tc18-add-modal.png`: modal centred both horizontally and vertically at 1280×720. Initial focus on Amount `spinbutton` (not Close button). `aria-modal="true"`, `aria-labelledby="tx-modal-title"`. Backdrop visible. **BUG-05, BUG-06, BUG-08 all resolved.**
+
+#### ✅ TC-20 Re-test: Summary updates after create (no reload)
+Created "BUG-03 retest expense" ($50.00, Expense). Expenses immediately updated $25.50 → $75.50; Net immediately updated $974.50 → $924.50. `GET /transactions/totals` confirmed in network log. **BUG-03 resolved.**
+
+#### ✅ TC-25 Re-test: Edit modal centred, pre-populated, focused on Amount
+Screenshot `retest-tc25-edit-modal.png`: "Edit Transaction" modal centred at 1280×720. Amount pre-filled with 1000, focused (`spinbutton [active]`). Type disabled with helper text. **BUG-05, BUG-08 resolved in edit mode.**
+
+#### ✅ TC-32 Re-test: Full keyboard Tab navigation
+Tab from page body traverses full sequence without skipping: "+ Add Transaction" (1) → Today (2) → This Week (3) → This Month (4) → This Year (5) → Custom (6) → Type select (7) → Status select (8) → Search input (9) → Clear (10) → per-row ⋮ buttons. **BUG-07 resolved.**
+
+#### ✅ TC-33 Re-test: Modal ARIA attributes and focus trap
+`dialog.getAttribute('aria-modal')` → `"true"` ✅  
+`dialog.getAttribute('aria-labelledby')` → `"tx-modal-title"` ✅  
+`document.querySelector('dialog h2').id` → `"tx-modal-title"` ✅  
+9 consecutive Tab presses all remained `insideDialog: true` — focus trap holds completely. Escape closes modal ✅.  
+Initial focus on Amount input (not Close button) ✅. **BUG-06 fully resolved.**
+
+#### ✅ RL-02 Re-test: Modal centred at tablet 768×1024
+Screenshot `retest-rl02-tablet-modal.png`: modal horizontally centred, fully visible, not clipped. Backdrop visible. All form fields accessible. **BUG-08 resolved at tablet viewport.**
+
+#### ✅ RL-04 Re-test: Modal as bottom-sheet at mobile 390×844
+Screenshot `retest-rl04-mobile-modal.png`: modal anchored to bottom of viewport (bottom-sheet layout). CSS verified: `position: fixed; bottom: 0px; transform: none; width: 375px`. All form fields and buttons visible. Escape closes modal. **BUG-08 resolved at mobile viewport.**
+
+#### ✅ BUG-09 (new): Context menu no longer clipped when table has few rows
+Reproduced the bug: navigated to a filtered view with only 1–3 visible rows, clicked ⋮ on the bottom-most row. **Before fix**: table displayed a horizontal/vertical scrollbar; menu items were clipped and the bottom items were unreachable. Screenshot `context-menu-bug.png` captured as evidence.
+
+**Root cause**: `TransactionList.css` sets `overflow: hidden` on `.tx-list`. The `.tx-actions__menu` was `position: absolute`, which is still paint-clipped by an ancestor with `overflow: hidden` even though it escapes normal flow. When the menu extended beyond the container bounds, the container grew a scrollbar rather than allowing the menu to overflow visibly.
+
+**Fix applied** (`TransactionActions.tsx` + `TransactionActions.css`):
+- Added `triggerRef = useRef<HTMLButtonElement>()` to the ⋮ trigger button.
+- On toggle, compute `getBoundingClientRect()` of the trigger and store `{top: rect.bottom + 4, right: window.innerWidth - rect.right}` in a `menuPos` state variable.
+- Menu renders with `style={{position: 'fixed', top: menuPos.top, right: menuPos.right}}` — `fixed` is relative to the viewport and bypasses all overflow ancestors.
+- Capture-phase `scroll` listener and `resize` listener recompute `menuPos` while the menu is open, keeping it anchored to the trigger even if the page scrolls.
+- Removed `position: absolute; right: 0; top: calc(100% + 4px)` from `.tx-actions__menu` CSS; bumped `z-index` from 100 to 200.
+
+**After fix**: screenshot `context-menu-fixed.png` shows all three menu items (Edit / Mark Inactive / Delete) fully visible outside and below the table container, no scrollbar present. Click-outside closes the menu (`{"wasOpen":true,"closedAfterClickOutside":true}` confirmed via Playwright). Escape key also closes the menu. All 420 unit tests still pass.
+
+### Test Data Created During Re-test
+
+| Description | Type | Amount | Date | Status | Cleaned Up |
+|-------------|------|--------|------|--------|-----------|
+| BUG-03 retest expense | Expense | $50.00 | 2026-03-01 | Active | **Yes — deleted via UI** |
+
+*Remaining pre-existing test data from prior run: "Playwright test expense" ($25.50, Expense, Mar 1, Active) and "Playwright test income" ($1,000.00, Income, Mar 1, Active) — not cleaned up.*

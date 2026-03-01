@@ -5,7 +5,10 @@ import {
     beforeEach,
     vi
 } from 'vitest';
-import {NotFoundException} from '@nestjs/common';
+import {
+    NotFoundException,
+    BadRequestException
+} from '@nestjs/common';
 import {TransactionsService} from '#transactions/transactions.service.js';
 import type {PrismaService} from '#database/prisma.service.js';
 import type {Transaction} from '#generated/prisma/client.js';
@@ -50,7 +53,8 @@ describe('TransactionsService', () => {
 
     const userId = 'user-uuid-1';
     const txnId = 'txn-uuid-1';
-    const otherTxnId = 'txn-uuid-other';
+    /** A transaction ID that does not exist in the mock store — tests not-found paths. */
+    const nonExistentTxnId = 'txn-uuid-nonexistent';
 
     beforeEach(() => {
         prisma = {
@@ -272,6 +276,36 @@ describe('TransactionsService', () => {
             );
         });
 
+        it('should apply only startDate (no endDate) as gte filter', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {startDate: '2026-03-01T00:00:00.000Z'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        date: {gte: new Date('2026-03-01T00:00:00.000Z')}
+                    })
+                })
+            );
+        });
+
+        it('should apply only endDate (no startDate) as lte filter', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {endDate: '2026-03-31T23:59:59.999Z'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        date: {lte: new Date('2026-03-31T23:59:59.999Z')}
+                    })
+                })
+            );
+        });
+
         it('should apply case-insensitive search filter on description', async () => {
             vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
             vi.mocked(prisma.transaction.count).mockResolvedValue(0);
@@ -421,7 +455,7 @@ describe('TransactionsService', () => {
         it('should throw NotFoundException if transaction does not exist', async () => {
             vi.mocked(prisma.transaction.findFirst).mockResolvedValue(null);
 
-            await expect(service.update(userId, otherTxnId, {description: 'x'}))
+            await expect(service.update(userId, nonExistentTxnId, {description: 'x'}))
                 .rejects
                 .toThrow(NotFoundException);
         });
@@ -434,6 +468,60 @@ describe('TransactionsService', () => {
 
             const callData = vi.mocked(prisma.transaction.update).mock.calls[0][0].data;
             expect(Object.keys(callData)).toEqual(['amount']);
+        });
+
+        it('should include categoryId in update data when provided', async () => {
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(makeTransaction());
+            vi.mocked(prisma.transaction.update).mockResolvedValue(
+                makeTransaction({categoryId: 'cat-uuid'})
+            );
+
+            await service.update(userId, txnId, {categoryId: 'cat-uuid'});
+
+            const callData = vi.mocked(prisma.transaction.update).mock.calls[0][0].data;
+            expect(callData).toHaveProperty('categoryId', 'cat-uuid');
+        });
+
+        it('should include accountId in update data when provided', async () => {
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(makeTransaction());
+            vi.mocked(prisma.transaction.update).mockResolvedValue(
+                makeTransaction({accountId: 'acc-uuid'})
+            );
+
+            await service.update(userId, txnId, {accountId: 'acc-uuid'});
+
+            const callData = vi.mocked(prisma.transaction.update).mock.calls[0][0].data;
+            expect(callData).toHaveProperty('accountId', 'acc-uuid');
+        });
+
+        it('should include isActive when flipping to false via update', async () => {
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(makeTransaction());
+            vi.mocked(prisma.transaction.update).mockResolvedValue(
+                makeTransaction({isActive: false})
+            );
+
+            await service.update(userId, txnId, {isActive: false});
+
+            const callData = vi.mocked(prisma.transaction.update).mock.calls[0][0].data;
+            expect(callData).toHaveProperty('isActive', false);
+        });
+
+        it('should update multiple optional fields simultaneously', async () => {
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(makeTransaction());
+            vi.mocked(prisma.transaction.update).mockResolvedValue(makeTransaction());
+
+            await service.update(userId, txnId, {
+                categoryId: 'cat-uuid',
+                accountId: 'acc-uuid',
+                notes: 'updated notes'
+            });
+
+            const callData = vi.mocked(prisma.transaction.update).mock.calls[0][0].data;
+            expect(callData).toMatchObject({
+                categoryId: 'cat-uuid',
+                accountId: 'acc-uuid',
+                notes: 'updated notes'
+            });
         });
     });
 
@@ -661,6 +749,34 @@ describe('TransactionsService', () => {
             expect(result.startDate).toBe(startDate);
             expect(result.endDate).toBe(endDate);
         });
+
+        describe('input validation', () => {
+            it('should throw BadRequestException when startDate is not a valid date string', async () => {
+                await expect(service.getTotals(userId, 'not-a-date', endDate))
+                    .rejects
+                    .toThrow(BadRequestException);
+            });
+
+            it('should throw BadRequestException when endDate is not a valid date string', async () => {
+                await expect(service.getTotals(userId, startDate, 'not-a-date'))
+                    .rejects
+                    .toThrow(BadRequestException);
+            });
+
+            it('should not call Prisma when startDate is invalid', async () => {
+                await expect(service.getTotals(userId, 'bad', endDate))
+                    .rejects
+                    .toThrow(BadRequestException);
+                expect(prisma.transaction.aggregate).not.toHaveBeenCalled();
+            });
+
+            it('should not call Prisma when endDate is invalid', async () => {
+                await expect(service.getTotals(userId, startDate, 'bad'))
+                    .rejects
+                    .toThrow(BadRequestException);
+                expect(prisma.transaction.aggregate).not.toHaveBeenCalled();
+            });
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -680,14 +796,14 @@ describe('TransactionsService', () => {
             const start = new Date(dateFilter.gte!);
             const end = new Date(dateFilter.lte!);
 
-            expect(start.getFullYear()).toBe(2026);
-            expect(start.getMonth()).toBe(1); // 0-indexed February
-            expect(start.getDate()).toBe(1);
+            expect(start.getUTCFullYear()).toBe(2026);
+            expect(start.getUTCMonth()).toBe(1); // 0-indexed February
+            expect(start.getUTCDate()).toBe(1);
 
             // End of February 2026 (non-leap year)
-            expect(end.getFullYear()).toBe(2026);
-            expect(end.getMonth()).toBe(1);
-            expect(end.getDate()).toBe(28);
+            expect(end.getUTCFullYear()).toBe(2026);
+            expect(end.getUTCMonth()).toBe(1);
+            expect(end.getUTCDate()).toBe(28);
         });
 
         it('should handle December (month 12) correctly', async () => {
@@ -700,8 +816,47 @@ describe('TransactionsService', () => {
             const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
             const dateFilter = calls[0][0].where!.date as {gte?: Date, lte?: Date};
             const end = new Date(dateFilter.lte!);
-            expect(end.getMonth()).toBe(11); // December
-            expect(end.getDate()).toBe(31);
+            expect(end.getUTCMonth()).toBe(11); // December
+            expect(end.getUTCDate()).toBe(31);
+        });
+
+        describe('input validation', () => {
+            it('should throw BadRequestException when month is 0', async () => {
+                await expect(service.getMonthlyTotals(userId, 2026, 0))
+                    .rejects
+                    .toThrow(BadRequestException);
+            });
+
+            it('should throw BadRequestException when month is 13', async () => {
+                await expect(service.getMonthlyTotals(userId, 2026, 13))
+                    .rejects
+                    .toThrow(BadRequestException);
+            });
+
+            it('should throw BadRequestException when month is negative', async () => {
+                await expect(service.getMonthlyTotals(userId, 2026, -1))
+                    .rejects
+                    .toThrow(BadRequestException);
+            });
+
+            it('should throw BadRequestException when year is 0', async () => {
+                await expect(service.getMonthlyTotals(userId, 0, 6))
+                    .rejects
+                    .toThrow(BadRequestException);
+            });
+
+            it('should throw BadRequestException when year is 10000', async () => {
+                await expect(service.getMonthlyTotals(userId, 10000, 6))
+                    .rejects
+                    .toThrow(BadRequestException);
+            });
+
+            it('should not call Prisma when month is out of range', async () => {
+                await expect(service.getMonthlyTotals(userId, 2026, 13))
+                    .rejects
+                    .toThrow(BadRequestException);
+                expect(prisma.transaction.aggregate).not.toHaveBeenCalled();
+            });
         });
 
         it('should return income/expense/net from getTotals with whole numbers', async () => {
@@ -786,6 +941,105 @@ describe('TransactionsService', () => {
             expect(result.totalIncome).toBe(0);
             expect(result.totalExpense).toBe(63.47);
             expect(result.netTotal).toBeCloseTo(-63.47, 2);
+        });
+
+        // -------------------------------------------------------------------
+        // UTC boundary correctness (BUG-01)
+        // All date boundaries must use Date.UTC — not local-time constructors.
+        // On a UTC+ machine a local-time constructor produces a timestamp
+        // *earlier* than UTC midnight, which excludes midnight-UTC transactions.
+        // -------------------------------------------------------------------
+
+        describe('UTC boundary (BUG-01)', () => {
+            const getDateFilter = (callIndex = 0): {gte?: Date, lte?: Date} => {
+                const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
+                return calls[callIndex][0].where!.date as {gte?: Date, lte?: Date};
+            };
+
+            beforeEach(() => {
+                vi.mocked(prisma.transaction.aggregate).mockResolvedValue(
+                    {_sum: {amount: null}} as never
+                );
+            });
+
+            it('start boundary for Feb 2026 is exactly 2026-02-01T00:00:00.000Z', async () => {
+                await service.getMonthlyTotals(userId, 2026, 2);
+                const {gte} = getDateFilter();
+                expect(gte!.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+            });
+
+            it('end boundary for Feb 2026 is exactly 2026-02-28T23:59:59.999Z', async () => {
+                await service.getMonthlyTotals(userId, 2026, 2);
+                const {lte} = getDateFilter();
+                expect(lte!.toISOString()).toBe('2026-02-28T23:59:59.999Z');
+            });
+
+            it('start boundary for Jan 2026 is exactly 2026-01-01T00:00:00.000Z', async () => {
+                await service.getMonthlyTotals(userId, 2026, 1);
+                const {gte} = getDateFilter();
+                expect(gte!.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+            });
+
+            it('end boundary for Dec 2026 is exactly 2026-12-31T23:59:59.999Z', async () => {
+                await service.getMonthlyTotals(userId, 2026, 12);
+                const {lte} = getDateFilter();
+                expect(lte!.toISOString()).toBe('2026-12-31T23:59:59.999Z');
+            });
+
+            it('start boundary equals Date.UTC(year, month-1, 1) — not local midnight', async () => {
+                const year = 2026, month = 3; // March
+                await service.getMonthlyTotals(userId, year, month);
+                const {gte} = getDateFilter();
+                const expectedUtcMidnight = new Date(Date.UTC(year, month - 1, 1));
+                expect(gte!.getTime()).toBe(expectedUtcMidnight.getTime());
+            });
+
+            it('end boundary equals Date.UTC(year, month, 0, 23, 59, 59, 999) — not local end-of-day', async () => {
+                const year = 2026, month = 3; // March
+                await service.getMonthlyTotals(userId, year, month);
+                const {lte} = getDateFilter();
+                const expectedUtcEndOfDay = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+                expect(lte!.getTime()).toBe(expectedUtcEndOfDay.getTime());
+            });
+
+            it('the gte filter would include a transaction at exact UTC month-start midnight', async () => {
+                // A transaction at 2026-02-01T00:00:00.000Z must equal gte exactly.
+                // Prisma >= semantics: the boundary timestamp itself is included.
+                await service.getMonthlyTotals(userId, 2026, 2);
+                const {gte} = getDateFilter();
+                const txAtMidnightUtc = new Date(Date.UTC(2026, 1, 1, 0, 0, 0, 0));
+                expect(txAtMidnightUtc.getTime()).toBe(gte!.getTime());
+            });
+
+            it('the gte filter would exclude a transaction 1 ms before UTC month-start', async () => {
+                await service.getMonthlyTotals(userId, 2026, 2);
+                const {gte} = getDateFilter();
+                const txOneMillisBeforeStart = new Date(Date.UTC(2026, 1, 1, 0, 0, 0, 0) - 1);
+                expect(txOneMillisBeforeStart.getTime()).toBeLessThan(gte!.getTime());
+            });
+
+            it('the lte filter would include a transaction at exact UTC month-end', async () => {
+                // A transaction at 2026-02-28T23:59:59.999Z must equal lte exactly.
+                // Prisma <= semantics: the boundary timestamp itself is included.
+                await service.getMonthlyTotals(userId, 2026, 2);
+                const {lte} = getDateFilter();
+                const txAtMonthEnd = new Date(Date.UTC(2026, 1, 28, 23, 59, 59, 999));
+                expect(txAtMonthEnd.getTime()).toBe(lte!.getTime());
+            });
+
+            it('the lte filter would exclude a transaction 1 ms into the following month', async () => {
+                await service.getMonthlyTotals(userId, 2026, 2);
+                const {lte} = getDateFilter();
+                const txInNextMonth = new Date(Date.UTC(2026, 2, 1, 0, 0, 0, 0));
+                expect(txInNextMonth.getTime()).toBeGreaterThan(lte!.getTime());
+            });
+
+            it('handles a leap-year February: end boundary is 2024-02-29T23:59:59.999Z', async () => {
+                await service.getMonthlyTotals(userId, 2024, 2);
+                const {gte, lte} = getDateFilter();
+                expect(gte!.toISOString()).toBe('2024-02-01T00:00:00.000Z');
+                expect(lte!.toISOString()).toBe('2024-02-29T23:59:59.999Z');
+            });
         });
     });
 });

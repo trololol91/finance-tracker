@@ -5,7 +5,14 @@ import {
     beforeEach,
     vi
 } from 'vitest';
-import {TransactionsController} from '#transactions/transactions.controller.js';
+import {
+    NotFoundException,
+    BadRequestException
+} from '@nestjs/common';
+import {
+    TransactionsController,
+    PaginatedTransactionsResponseDto
+} from '#transactions/transactions.controller.js';
 import type {TransactionsService} from '#transactions/transactions.service.js';
 import type {
     PaginatedTransactions,
@@ -208,6 +215,16 @@ describe('TransactionsController', () => {
             expect(result.notes).toBe('team lunch');
             expect(result.amount).toBe(42.50);
         });
+
+        it('should propagate NotFoundException when transaction is not found', async () => {
+            vi.mocked(service.findOne).mockRejectedValue(
+                new NotFoundException('Transaction not found')
+            );
+
+            await expect(
+                controller.findOne('nonexistent-id', mockCurrentUser)
+            ).rejects.toThrow(NotFoundException);
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -232,6 +249,16 @@ describe('TransactionsController', () => {
 
             expect(result.description).toBe('New description');
         });
+
+        it('should propagate NotFoundException when transaction is not found', async () => {
+            vi.mocked(service.update).mockRejectedValue(
+                new NotFoundException('Transaction not found')
+            );
+
+            await expect(
+                controller.update('nonexistent-id', {description: 'x'}, mockCurrentUser)
+            ).rejects.toThrow(NotFoundException);
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -254,6 +281,16 @@ describe('TransactionsController', () => {
 
             expect(result.isActive).toBe(false);
         });
+
+        it('should propagate NotFoundException when transaction is not found', async () => {
+            vi.mocked(service.toggleActive).mockRejectedValue(
+                new NotFoundException('Transaction not found')
+            );
+
+            await expect(
+                controller.toggleActive('nonexistent-id', mockCurrentUser)
+            ).rejects.toThrow(NotFoundException);
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -273,6 +310,16 @@ describe('TransactionsController', () => {
             vi.mocked(service.remove).mockResolvedValue(undefined);
 
             await expect(controller.remove('txn-uuid-1', mockCurrentUser)).resolves.toBeUndefined();
+        });
+
+        it('should propagate NotFoundException when transaction is not found', async () => {
+            vi.mocked(service.remove).mockRejectedValue(
+                new NotFoundException('Transaction not found')
+            );
+
+            await expect(
+                controller.remove('nonexistent-id', mockCurrentUser)
+            ).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -309,6 +356,26 @@ describe('TransactionsController', () => {
             expect(result.startDate).toBe(startDate);
             expect(result.endDate).toBe(endDate);
         });
+
+        it('should propagate BadRequestException for an invalid startDate', async () => {
+            vi.mocked(service.getTotals).mockRejectedValue(
+                new BadRequestException('Invalid startDate: "not-a-date"')
+            );
+
+            await expect(
+                controller.getTotals('not-a-date', endDate, mockCurrentUser)
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should propagate BadRequestException for an invalid endDate', async () => {
+            vi.mocked(service.getTotals).mockRejectedValue(
+                new BadRequestException('Invalid endDate: "not-a-date"')
+            );
+
+            await expect(
+                controller.getTotals(startDate, 'not-a-date', mockCurrentUser)
+            ).rejects.toThrow(BadRequestException);
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -343,6 +410,44 @@ describe('TransactionsController', () => {
             expect(result.totalExpense).toBe(200);
             expect(result.netTotal).toBe(300);
         });
+
+        it('should propagate BadRequestException for an out-of-range month', async () => {
+            vi.mocked(service.getMonthlyTotals).mockRejectedValue(
+                new BadRequestException('Month must be between 1 and 12')
+            );
+
+            await expect(
+                controller.getMonthlyTotals(2026, 13, mockCurrentUser)
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should propagate BadRequestException for an out-of-range year', async () => {
+            vi.mocked(service.getMonthlyTotals).mockRejectedValue(
+                new BadRequestException('Year must be between 1 and 9999')
+            );
+
+            await expect(
+                controller.getMonthlyTotals(0, 6, mockCurrentUser)
+            ).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // PaginatedTransactionsResponseDto shape
+    // -------------------------------------------------------------------------
+
+    describe('PaginatedTransactionsResponseDto', () => {
+        it('can be constructed and assigned properties', () => {
+            const dto = new PaginatedTransactionsResponseDto();
+            dto.data = [];
+            dto.total = 0;
+            dto.page = 1;
+            dto.limit = 50;
+
+            expect(dto.data).toEqual([]);
+            expect(dto.total).toBe(0);
+            expect(dto.page).toBe(1);
+            expect(dto.limit).toBe(50);
+        });
     });
 });
-

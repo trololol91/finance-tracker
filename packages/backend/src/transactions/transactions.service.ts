@@ -1,6 +1,7 @@
 import {
     Injectable,
-    NotFoundException
+    NotFoundException,
+    BadRequestException
 } from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
 import type {
@@ -154,9 +155,18 @@ export class TransactionsService {
         startDate: string,
         endDate: string
     ): Promise<TransactionTotals> {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (isNaN(start.getTime())) {
+            throw new BadRequestException(`Invalid startDate: "${startDate}"`);
+        }
+        if (isNaN(end.getTime())) {
+            throw new BadRequestException(`Invalid endDate: "${endDate}"`);
+        }
+
         const dateFilter = {
-            gte: new Date(startDate),
-            lte: new Date(endDate)
+            gte: start,
+            lte: end
         };
 
         const baseWhere = {userId, isActive: true, date: dateFilter};
@@ -193,8 +203,15 @@ export class TransactionsService {
         year: number,
         month: number
     ): Promise<TransactionTotals> {
-        const start = new Date(year, month - 1, 1);
-        const end = new Date(year, month, 0, 23, 59, 59, 999);
+        if (month < 1 || month > 12) {
+            throw new BadRequestException('Month must be between 1 and 12');
+        }
+        if (year < 1 || year > 9999) {
+            throw new BadRequestException('Year must be between 1 and 9999');
+        }
+
+        const start = new Date(Date.UTC(year, month - 1, 1));
+        const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
         return this.getTotals(userId, start.toISOString(), end.toISOString());
     }

@@ -87,13 +87,48 @@
 
 #### TC-08: Date range preset "This Month" filters list
 - **Type**: Smoke
+- **Subject control**: "This Month" preset button
 - **Steps**:
   1. Navigate to `/transactions`
   2. In the DateRangePicker, select the "This Month" preset
 - **Expected result**: List updates to show only transactions within the current calendar month; pagination resets to page 1
 
+#### TC-08a: Date range preset "Today" — subject: Today button
+- **Type**: Regression
+- **Subject control**: "Today" preset button
+- **Steps**:
+  1. Navigate to `/transactions`
+  2. Click the "Today" preset button
+  3. Inspect the URL query string — note `startDate` and `endDate` values
+  4. Call `browser_network_requests` — verify `GET /transactions` was called
+- **Expected result**: `startDate` equals today's UTC midnight (`T00:00:00.000Z`); `endDate` equals today's UTC end-of-day (`T23:59:59.999Z`); "Today" button has `aria-pressed="true"`; list shows only today's transactions (or empty state if none exist for today); pagination resets to page 1
+- **Note**: If no transactions exist for today, an empty-state message must be shown — a zero-row table without an empty-state message is also a failure
+
+#### TC-08b: Date range preset "This Week" — subject: This Week button
+- **Type**: Regression
+- **Subject control**: "This Week" preset button
+- **Steps**:
+  1. Navigate to `/transactions`
+  2. Click the "This Week" preset button
+  3. Inspect the URL query string — note `startDate` and `endDate` values
+  4. Call `browser_network_requests` — verify `GET /transactions` was called
+- **Expected result**: `startDate` equals the UTC midnight of Monday for the current ISO week; `endDate` equals the UTC end-of-day of the following Sunday; "This Week" button has `aria-pressed="true"`; list shows only transactions in that ISO-week range; pagination resets to page 1
+
+#### TC-08c: Date range preset "This Year" — positive path — subject: This Year button
+- **Type**: Regression
+- **Subject control**: "This Year" preset button
+- **Known failing**: BUG-02 — `startDate` is not emitted; only `endDate` is set. This TC will PARTIAL/FAIL until BUG-02 is resolved
+- **Steps**:
+  1. Navigate to `/transactions` (default "This Month" preset active)
+  2. Click the "This Year" preset button
+  3. Inspect the URL query string — note both `startDate` and `endDate` values
+  4. Call `browser_network_requests` — verify `GET /transactions` was called
+- **Expected result**: `startDate` equals `YYYY-01-01T00:00:00.000Z` (Jan 1 of current year); `endDate` equals `YYYY-12-31T23:59:59.999Z` (Dec 31 of current year); "This Year" button has `aria-pressed="true"`; list includes transactions from earlier in the year (not just the current month); pagination resets to page 1
+- **Current behaviour (BUG-02)**: URL contains only `endDate`; `startDate` from the previous "This Month" preset is not reset. TC will be marked ⚠️ PARTIAL until fixed
+
 #### TC-09: Custom date range filters list
 - **Type**: Regression
+- **Subject control**: "Custom" preset / date range inputs
 - **Steps**:
   1. Navigate to `/transactions`
   2. Select "Custom" in the DateRangePicker
