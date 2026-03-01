@@ -1,0 +1,111 @@
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4, 1rem);
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1, 0.25rem);
+}
+
+.label {
+    font-size: var(--font-size-sm, 0.875rem);
+    font-weight: 600;
+    color: var(--color-text-primary, #111827);
+}
+
+.required {
+    color: var(--color-danger, #ef4444);
+    margin-left: 2px;
+}
+
+.input,
+.select {
+    padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: var(--radius-md, 0.375rem);
+    font-size: var(--font-size-base, 1rem);
+    color: var(--color-text-primary, #111827);
+    background-color: var(--color-surface, #fff);
+    transition: border-color 0.15s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.input:focus,
+.select:focus {
+    outline: none;
+    border-color: var(--color-primary, #6366f1);
+    box-shadow: 0 0 0 3px var(--color-primary-100, rgba(99, 102, 241, 0.15));
+}
+
+.inputError {
+    border-color: var(--color-danger, #ef4444);
+}
+
+.inputError:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+/* Color row */
+.colorRow {
+    display: flex;
+    gap: var(--space-2, 0.5rem);
+    align-items: center;
+}
+
+.colorPicker {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 2px;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: var(--radius-md, 0.375rem);
+    cursor: pointer;
+    background: none;
+    flex-shrink: 0;
+}
+
+.colorRow .input {
+    flex: 1;
+}
+
+.hint {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--color-text-secondary, #6b7280);
+}
+
+.error {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--color-danger, #ef4444);
+    font-weight: 500;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2, 0.5rem);
+    padding-top: var(--space-2, 0.5rem);
+}
+
+.submitBtn {
+    padding: var(--space-2, 0.5rem) var(--space-5, 1.25rem);
+    background-color: var(--color-primary, #6366f1);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md, 0.375rem);
+    font-size: var(--font-size-base, 1rem);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.submitBtn:hover:not(:disabled) {
+    background-color: var(--color-primary-dark, #4f46e5);
+}
+
+.submitBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

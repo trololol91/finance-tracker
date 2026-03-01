@@ -1,0 +1,130 @@
+.row {
+    transition: background-color 0.1s ease;
+}
+
+.row:hover {
+    background-color: var(--color-surface-hover, #f9fafb);
+}
+
+.rowInactive {
+    opacity: 0.55;
+}
+
+.cellColor {
+    width: 4rem;
+    padding: var(--space-3, 0.75rem) var(--space-3, 0.75rem) var(--space-3, 0.75rem) var(--space-4, 1rem);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.cellName {
+    padding: var(--space-3, 0.75rem);
+    vertical-align: middle;
+}
+
+.cellParent,
+.cellCount {
+    padding: var(--space-3, 0.75rem);
+    vertical-align: middle;
+    color: var(--color-text-secondary, #6b7280);
+    font-size: var(--font-size-sm, 0.875rem);
+}
+
+.cellActions {
+    padding: var(--space-2, 0.5rem) var(--space-4, 1rem) var(--space-2, 0.5rem) var(--space-2, 0.5rem);
+    white-space: nowrap;
+    vertical-align: middle;
+    text-align: right;
+}
+
+.colorSwatch {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 1px solid var(--color-border, #e5e7eb);
+    vertical-align: middle;
+    margin-right: var(--space-1, 0.25rem);
+}
+
+.colorSwatchEmpty {
+    background-color: var(--color-border, #e5e7eb);
+}
+
+.icon {
+    font-size: 1.1rem;
+    vertical-align: middle;
+}
+
+.name {
+    font-weight: 500;
+    color: var(--color-text-primary, #111827);
+    font-size: var(--font-size-sm, 0.875rem);
+}
+
+.inactiveBadge {
+    display: inline-block;
+    margin-left: var(--space-2, 0.5rem);
+    padding: 0 var(--space-2, 0.5rem);
+    font-size: var(--font-size-xs, 0.75rem);
+    background-color: var(--color-warning-100, #fef3c7);
+    color: var(--color-warning-700, #92400e);
+    border-radius: var(--radius-full, 9999px);
+    vertical-align: middle;
+    font-weight: 500;
+}
+
+.none {
+    color: var(--color-text-muted, #9ca3af);
+}
+
+/* Actions */
+.buttonGroup,
+.confirmRow {
+    display: inline-flex;
+    gap: var(--space-1, 0.25rem);
+    align-items: center;
+}
+
+.confirmLabel {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--color-text-secondary, #6b7280);
+    margin-right: var(--space-1, 0.25rem);
+}
+
+.actionBtn {
+    padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+    font-size: var(--font-size-xs, 0.75rem);
+    font-weight: 500;
+    border: 1px solid var(--color-border, #d1d5db);
+    border-radius: var(--radius-sm, 0.25rem);
+    background-color: var(--color-surface, #fff);
+    color: var(--color-text-secondary, #6b7280);
+    cursor: pointer;
+    transition: background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+    white-space: nowrap;
+}
+
+.actionBtn:hover {
+    background-color: var(--color-surface-hover, #f3f4f6);
+    color: var(--color-text-primary, #111827);
+    border-color: var(--color-border-strong, #9ca3af);
+}
+
+.actionBtnDanger {
+    color: var(--color-danger, #ef4444);
+    border-color: var(--color-danger-light, #fca5a5);
+}
+
+.actionBtnDanger:hover {
+    background-color: var(--color-danger-50, #fef2f2);
+    color: var(--color-danger-dark, #b91c1c);
+    border-color: var(--color-danger, #ef4444);
+}
+
+/* Hide lower-priority columns on mobile */
+@media (max-width: 767px) {
+    .hideOnMobile {
+        display: none;
+    }
+}
