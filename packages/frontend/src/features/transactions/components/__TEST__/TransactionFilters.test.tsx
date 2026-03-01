@@ -69,6 +69,26 @@ describe('TransactionFilters', () => {
         expect(screen.getByRole('option', {name: /all categories/i})).toBeInTheDocument();
     });
 
+    it('excludes inactive categories from the category dropdown', () => {
+        const categories = [
+            {
+                id: 'cat-1', name: 'Food', color: '#ff0000', icon: null,
+                userId: 'u-1', description: null, parentId: null,
+                isActive: true, transactionCount: 5, children: [],
+                createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z'
+            },
+            {
+                id: 'cat-2', name: 'Hidden', color: '#000000', icon: null,
+                userId: 'u-1', description: null, parentId: null,
+                isActive: false, transactionCount: 0, children: [],
+                createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z'
+            }
+        ];
+        render(<TransactionFilters {...defaultProps} categories={categories} />);
+        expect(screen.getByRole('option', {name: /food/i})).toBeInTheDocument();
+        expect(screen.queryByRole('option', {name: /hidden/i})).not.toBeInTheDocument();
+    });
+
     it('calls onFilterChange when typing in search', async () => {
         const onFilterChange = vi.fn();
         const user = userEvent.setup();

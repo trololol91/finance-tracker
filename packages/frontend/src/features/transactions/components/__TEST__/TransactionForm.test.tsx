@@ -96,6 +96,26 @@ describe('TransactionForm', () => {
             expect(screen.getByRole('option', {name: 'Food'})).toBeInTheDocument();
         });
 
+        it('excludes inactive categories from the category select', () => {
+            const categories = [
+                {
+                    id: 'cat-1', name: 'Food', color: '#ff0000', icon: null,
+                    userId: 'u-1', description: null, parentId: null,
+                    isActive: true, transactionCount: 0, children: [],
+                    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z'
+                },
+                {
+                    id: 'cat-2', name: 'Hidden', color: '#000000', icon: null,
+                    userId: 'u-1', description: null, parentId: null,
+                    isActive: false, transactionCount: 0, children: [],
+                    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z'
+                }
+            ];
+            render(<TransactionForm {...defaultProps} categories={categories} />);
+            expect(screen.getByRole('option', {name: 'Food'})).toBeInTheDocument();
+            expect(screen.queryByRole('option', {name: 'Hidden'})).not.toBeInTheDocument();
+        });
+
         it('shows "Add Transaction" on the submit button', () => {
             render(<TransactionForm {...defaultProps} />);
             expect(screen.getByRole('button', {name: /add transaction/i})).toBeInTheDocument();

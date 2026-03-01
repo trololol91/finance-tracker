@@ -31,7 +31,7 @@ export const TransactionModal = ({
     formValues,
     errors,
     isSubmitting,
-    categories,
+    categories = [],
     onFieldChange,
     onSubmit,
     onClose
