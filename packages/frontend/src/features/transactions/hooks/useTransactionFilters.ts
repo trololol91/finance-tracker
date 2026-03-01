@@ -52,6 +52,7 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
             searchParams.get('isActive') ?? TransactionsControllerFindAllIsActive.true
         ) as TransactionsControllerFindAllIsActive,
         search: searchParams.get('search') ?? '',
+        categoryId: searchParams.get('categoryId') ?? '',
         page: Number(searchParams.get('page') ?? '1'),
         limit: Number(searchParams.get('limit') ?? '50')
     };
@@ -64,6 +65,7 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
             : undefined,
         isActive: filters.isActive,
         search: filters.search || undefined,
+        categoryId: filters.categoryId || undefined,
         page: filters.page,
         limit: filters.limit
     };

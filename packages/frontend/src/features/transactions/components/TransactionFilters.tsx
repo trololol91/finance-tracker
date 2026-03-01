@@ -4,11 +4,13 @@ import {Input} from '@components/common/Input/Input.js';
 import {DateRangePicker} from '@components/common/DateRangePicker/DateRangePicker.js';
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 import {TransactionsControllerFindAllTransactionType} from '@/api/model/transactionsControllerFindAllTransactionType.js';
+import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {TransactionFilterState} from '@features/transactions/types/transaction.types.js';
 import '@features/transactions/components/TransactionFilters.css';
 
 interface TransactionFiltersProps {
     filters: TransactionFilterState;
+    categories?: CategoryResponseDto[];
     onFilterChange: (key: keyof TransactionFilterState, value: string | number) => void;
     onDateRangeChange: (startDate: string, endDate: string) => void;
     onClear: () => void;
@@ -16,6 +18,7 @@ interface TransactionFiltersProps {
 
 export const TransactionFilters = ({
     filters,
+    categories = [],
     onFilterChange,
     onDateRangeChange,
     onClear
@@ -23,6 +26,8 @@ export const TransactionFilters = ({
     const handleDateRange = (range: {startDate: string, endDate: string}): void => {
         onDateRangeChange(range.startDate, range.endDate);
     };
+
+    const activeCategories = categories.filter((c) => c.isActive);
 
     return (
         <div className="tx-filters" role="search" aria-label="Transaction filters">
@@ -54,6 +59,23 @@ export const TransactionFilters = ({
                         <option value={TransactionsControllerFindAllTransactionType.transfer}>
                             Transfer
                         </option>
+                    </select>
+                </div>
+
+                <div className="tx-filters__group">
+                    <label htmlFor="tx-filter-category" className="tx-filters__label">Category</label>
+                    <select
+                        id="tx-filter-category"
+                        className="tx-filters__select"
+                        value={filters.categoryId}
+                        onChange={(e) => { onFilterChange('categoryId', e.target.value); }}
+                    >
+                        <option value="">All Categories</option>
+                        {activeCategories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.icon ? `${c.icon} ` : ''}{c.name}
+                            </option>
+                        ))}
                     </select>
                 </div>
 

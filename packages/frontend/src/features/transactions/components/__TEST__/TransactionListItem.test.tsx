@@ -6,7 +6,24 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {TransactionListItem} from '@features/transactions/components/TransactionListItem.js';
+import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
+
+const makeCategory = (overrides: Partial<CategoryResponseDto> = {}): CategoryResponseDto => ({
+    id: 'cat-1',
+    userId: 'user-1',
+    name: 'Food',
+    description: null,
+    color: '#FF5733',
+    icon: '🍔',
+    parentId: null,
+    isActive: true,
+    transactionCount: 5,
+    children: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    ...overrides
+});
 
 const makeTx = (overrides: Partial<TransactionResponseDto> = {}): TransactionResponseDto => ({
     id: 'tx-1',
@@ -132,6 +149,44 @@ describe('TransactionListItem', () => {
             const {container} = renderItem(tx);
             const row = container.querySelector('tr');
             expect(row?.getAttribute('aria-label')).toMatch(/Salary/);
+        });
+    });
+
+    describe('category column', () => {
+        it('shows "—" when no categories are passed', () => {
+            renderItem(makeTx({categoryId: null}));
+            expect(screen.getByText('—')).toBeInTheDocument();
+        });
+
+        it('shows "—" when categoryId is null even with categories loaded', () => {
+            renderItem(makeTx({categoryId: null}), {categories: [makeCategory()]});
+            expect(screen.getByText('—')).toBeInTheDocument();
+        });
+
+        it('shows the category name when a matching category is provided', () => {
+            const tx = makeTx({categoryId: 'cat-1'});
+            renderItem(tx, {categories: [makeCategory({id: 'cat-1', name: 'Food', icon: null})]});
+            expect(screen.getByText('Food')).toBeInTheDocument();
+        });
+
+        it('shows icon prefix when category has an icon', () => {
+            const tx = makeTx({categoryId: 'cat-1'});
+            renderItem(tx, {categories: [makeCategory({id: 'cat-1', name: 'Food', icon: '🍔'})]});
+            expect(screen.getByText(/🍔/)).toBeInTheDocument();
+        });
+
+        it('renders a colour swatch when the category has a colour', () => {
+            const tx = makeTx({categoryId: 'cat-1'});
+            const {container} = renderItem(tx, {categories: [makeCategory({id: 'cat-1', color: '#FF5733'})]});
+            const swatch = container.querySelector('.tx-item__category-swatch');
+            expect(swatch).not.toBeNull();
+        });
+
+        it('does not render a swatch when the category colour is null', () => {
+            const tx = makeTx({categoryId: 'cat-1'});
+            const {container} = renderItem(tx, {categories: [makeCategory({id: 'cat-1', color: null})]});
+            const swatch = container.querySelector('.tx-item__category-swatch');
+            expect(swatch).toBeNull();
         });
     });
 

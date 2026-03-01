@@ -105,3 +105,34 @@
 .tx-item__actions {
     text-align: right;
 }
+
+.tx-item__category {
+    white-space: nowrap;
+}
+
+.tx-item__category-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--font-size-sm);
+    color: var(--color-gray-700);
+}
+
+.tx-item__category-swatch {
+    display: inline-block;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tx-item__category-none {
+    color: var(--color-gray-400);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 767px) {
+    .tx-item__hide-mobile {
+        display: none;
+    }
+}

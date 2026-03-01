@@ -50,6 +50,7 @@ const defaultProps = {
     errors: {},
     editTarget: null,
     isSubmitting: false,
+    categories: [],
     onFieldChange: vi.fn(),
     onSubmit: vi.fn(),
     onCancel: vi.fn()
@@ -69,7 +70,30 @@ describe('TransactionForm', () => {
 
         it('renders the type select', () => {
             render(<TransactionForm {...defaultProps} />);
-            expect(screen.getByRole('combobox')).toBeInTheDocument();
+            expect(screen.getByLabelText(/type \*/i)).toBeInTheDocument();
+        });
+
+        it('renders the category select', () => {
+            render(<TransactionForm {...defaultProps} />);
+            expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
+        });
+
+        it('category select shows "None" option by default', () => {
+            render(<TransactionForm {...defaultProps} />);
+            expect(screen.getByRole('option', {name: /none/i})).toBeInTheDocument();
+        });
+
+        it('category select shows active categories as options', () => {
+            const categories = [
+                {
+                    id: 'cat-1', name: 'Food', color: '#ff0000', icon: null,
+                    userId: 'u-1', description: null, parentId: null,
+                    isActive: true, transactionCount: 0, children: [],
+                    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z'
+                }
+            ];
+            render(<TransactionForm {...defaultProps} categories={categories} />);
+            expect(screen.getByRole('option', {name: 'Food'})).toBeInTheDocument();
         });
 
         it('shows "Add Transaction" on the submit button', () => {
@@ -79,7 +103,7 @@ describe('TransactionForm', () => {
 
         it('type select is enabled in create mode', () => {
             render(<TransactionForm {...defaultProps} />);
-            expect(screen.getByRole('combobox')).not.toBeDisabled();
+            expect(screen.getByLabelText(/type \*/i)).not.toBeDisabled();
         });
 
         it('does not show the type-locked hint in create mode', () => {
@@ -98,7 +122,7 @@ describe('TransactionForm', () => {
 
         it('type select is disabled in edit mode', () => {
             render(<TransactionForm {...editProps} />);
-            expect(screen.getByRole('combobox')).toBeDisabled();
+            expect(screen.getByLabelText(/type \*/i)).toBeDisabled();
         });
 
         it('shows the type-locked hint in edit mode', () => {
@@ -157,7 +181,7 @@ describe('TransactionForm', () => {
             const user = userEvent.setup();
             const p = {...defaultProps, formValues: emptyValues, onFieldChange};
             render(<TransactionForm {...p} />);
-            await user.selectOptions(screen.getByRole('combobox'), 'income');
+            await user.selectOptions(screen.getByLabelText(/type \*/i), 'income');
             expect(onFieldChange).toHaveBeenCalledWith('transactionType', 'income');
         });
 

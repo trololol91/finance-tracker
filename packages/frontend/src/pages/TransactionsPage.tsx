@@ -16,6 +16,7 @@ import {
     getTransactionsControllerFindAllQueryKey,
     getTransactionsControllerGetTotalsQueryKey
 } from '@/api/transactions/transactions.js';
+import {useCategoriesControllerFindAll} from '@/api/categories/categories.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@pages/TransactionsPage.css';
 
@@ -27,6 +28,10 @@ export const TransactionsPage = (): React.JSX.Element => {
         filters, apiParams, data, isLoading, isError,
         updateFilter, setDateRange, clearFilters, setPage, queryKey
     } = useTransactionFilters();
+
+    // Fetch categories for form select, list column, and filter dropdown.
+    const {data: categoriesData} = useCategoriesControllerFindAll();
+    const categories = categoriesData ?? [];
 
     const handleSuccess = useCallback((): void => {
         setIsModalOpen(false);
@@ -119,6 +124,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                 {/* Filters */}
                 <TransactionFilters
                     filters={filters}
+                    categories={categories}
                     onFilterChange={updateFilter}
                     onDateRangeChange={setDateRange}
                     onClear={clearFilters}
@@ -129,6 +135,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                     transactions={transactions}
                     isLoading={isLoading}
                     isError={isError}
+                    categories={categories}
                     onEdit={handleEdit}
                     onToggleActive={handleToggleActive}
                     onDelete={handleDelete}
@@ -152,6 +159,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                 formValues={formValues}
                 errors={errors}
                 isSubmitting={isSubmitting}
+                categories={categories}
                 onFieldChange={handleFieldChange}
                 onSubmit={handleSubmit}
                 onClose={handleCloseModal}

@@ -1,10 +1,12 @@
 import React from 'react';
 import {TransactionActions} from '@features/transactions/components/TransactionActions.js';
+import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionListItem.css';
 
 interface TransactionListItemProps {
     transaction: TransactionResponseDto;
+    categories?: CategoryResponseDto[];
     onEdit: (transaction: TransactionResponseDto) => void;
     onToggleActive: (id: string) => void;
     onDelete: (id: string) => void;
@@ -24,12 +26,14 @@ const formatAmount = (amount: number, type: string): string => {
 
 export const TransactionListItem = ({
     transaction,
+    categories = [],
     onEdit,
     onToggleActive,
     onDelete,
     isMutating = false
 }: TransactionListItemProps): React.JSX.Element => {
     const amountClass = `tx-item__amount tx-item__amount--${transaction.transactionType}`;
+    const category = categories.find((c) => c.id === transaction.categoryId) ?? null;
 
     return (
         <tr
@@ -48,12 +52,28 @@ export const TransactionListItem = ({
             <td className={amountClass}>
                 {formatAmount(transaction.amount, transaction.transactionType)}
             </td>
-            <td className="tx-item__type">
+            <td className="tx-item__type tx-item__hide-mobile">
                 <span className={`tx-item__badge tx-item__badge--${transaction.transactionType}`}>
                     {transaction.transactionType}
                 </span>
             </td>
-            <td className="tx-item__status">
+            <td className="tx-item__category tx-item__hide-mobile">
+                {category !== null ? (
+                    <span className="tx-item__category-label">
+                        {category.color !== null && (
+                            <span
+                                className="tx-item__category-swatch"
+                                style={{backgroundColor: category.color}}
+                                aria-hidden="true"
+                            />
+                        )}
+                        {category.icon ? `${category.icon} ` : ''}{category.name}
+                    </span>
+                ) : (
+                    <span className="tx-item__category-none">—</span>
+                )}
+            </td>
+            <td className="tx-item__status tx-item__hide-mobile">
                 {!transaction.isActive && (
                     <span className="tx-item__inactive-badge">Inactive</span>
                 )}

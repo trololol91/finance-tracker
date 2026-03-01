@@ -39,6 +39,12 @@
     text-align: right;
 }
 
+@media (max-width: 767px) {
+    .tx-list__th--hide-mobile {
+        display: none;
+    }
+}
+
 .tx-list__error {
     color: var(--color-danger);
     font-size: var(--font-size-sm);

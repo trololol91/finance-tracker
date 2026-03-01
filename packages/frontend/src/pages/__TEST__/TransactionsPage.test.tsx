@@ -132,7 +132,8 @@ const defaultFilterState: UseTransactionFiltersReturn = {
         page: 1,
         limit: 50,
         search: '',
-        transactionType: ''
+        transactionType: '',
+        categoryId: ''
     },
     apiParams: {
         startDate: '2026-02-01T00:00:00.000Z',
@@ -204,6 +205,10 @@ vi.mock('@/api/transactions/transactions.js', () => ({
     getTransactionsControllerGetTotalsQueryKey: vi.fn(
         () => ['/transactions/totals']
     )
+}));
+
+vi.mock('@/api/categories/categories.js', () => ({
+    useCategoriesControllerFindAll: vi.fn(() => ({data: [], isLoading: false, isError: false}))
 }));
 
 import {

@@ -18,6 +18,8 @@ export interface TransactionFilterState {
     transactionType: TransactionType | '';
     isActive: TransactionsControllerFindAllIsActive;
     search: string;
+    /** UUID of the selected category filter, or empty string for 'all categories'. */
+    categoryId: string;
     page: number;
     limit: number;
 }

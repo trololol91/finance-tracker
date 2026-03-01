@@ -1,6 +1,7 @@
 import React from 'react';
 import {TransactionListItem} from '@features/transactions/components/TransactionListItem.js';
 import {Loading} from '@components/common/Loading/Loading.js';
+import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionList.css';
 
@@ -8,6 +9,7 @@ interface TransactionListProps {
     transactions: TransactionResponseDto[];
     isLoading: boolean;
     isError: boolean;
+    categories?: CategoryResponseDto[];
     onEdit: (transaction: TransactionResponseDto) => void;
     onToggleActive: (id: string) => void;
     onDelete: (id: string) => void;
@@ -17,6 +19,7 @@ export const TransactionList = ({
     transactions,
     isLoading,
     isError,
+    categories = [],
     onEdit,
     onToggleActive,
     onDelete
@@ -54,8 +57,9 @@ export const TransactionList = ({
                             <th scope="col" className="tx-list__th">Date</th>
                             <th scope="col" className="tx-list__th">Description</th>
                             <th scope="col" className="tx-list__th tx-list__th--right">Amount</th>
-                            <th scope="col" className="tx-list__th">Type</th>
-                            <th scope="col" className="tx-list__th">Status</th>
+                            <th scope="col" className="tx-list__th tx-list__th--hide-mobile">Type</th>
+                            <th scope="col" className="tx-list__th tx-list__th--hide-mobile">Category</th>
+                            <th scope="col" className="tx-list__th tx-list__th--hide-mobile">Status</th>
                             <th scope="col" className="tx-list__th tx-list__th--right">
                                 <span className="sr-only">Actions</span>
                             </th>
@@ -66,6 +70,7 @@ export const TransactionList = ({
                             <TransactionListItem
                                 key={tx.id}
                                 transaction={tx}
+                                categories={categories}
                                 onEdit={onEdit}
                                 onToggleActive={onToggleActive}
                                 onDelete={onDelete}

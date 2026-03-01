@@ -15,12 +15,14 @@ const defaultFilters: TransactionFilterState = {
     transactionType: '',
     isActive: TransactionsControllerFindAllIsActive.true,
     search: '',
+    categoryId: '',
     page: 1,
     limit: 50
 };
 
 const defaultProps = {
     filters: defaultFilters,
+    categories: [],
     onFilterChange: vi.fn(),
     onDateRangeChange: vi.fn(),
     onClear: vi.fn()
@@ -36,6 +38,35 @@ describe('TransactionFilters', () => {
         expect(screen.getByLabelText(/search transactions/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/type/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/status/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
+    });
+
+    it('calls onFilterChange with categoryId when a category is selected', async () => {
+        const onFilterChange = vi.fn();
+        const user = userEvent.setup();
+        const categories = [
+            {
+                id: 'cat-1', name: 'Food', color: '#ff0000', icon: '🍔',
+                userId: 'u-1', description: null, parentId: null,
+                isActive: true, transactionCount: 5, children: [],
+                createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z'
+            }
+        ];
+        render(
+            <TransactionFilters
+                {...defaultProps}
+                categories={categories}
+                onFilterChange={onFilterChange}
+            />
+        );
+
+        await user.selectOptions(screen.getByLabelText(/category/i), 'cat-1');
+        expect(onFilterChange).toHaveBeenCalledWith('categoryId', 'cat-1');
+    });
+
+    it('shows "All Categories" option when no category is selected', () => {
+        render(<TransactionFilters {...defaultProps} />);
+        expect(screen.getByRole('option', {name: /all categories/i})).toBeInTheDocument();
     });
 
     it('calls onFilterChange when typing in search', async () => {

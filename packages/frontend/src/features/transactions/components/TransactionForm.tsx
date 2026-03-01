@@ -2,6 +2,7 @@ import React from 'react';
 import {Button} from '@components/common/Button/Button.js';
 import {Input} from '@components/common/Input/Input.js';
 import {CreateTransactionDtoTransactionType} from '@/api/model/createTransactionDtoTransactionType.js';
+import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {TransactionFormValues} from '@features/transactions/types/transaction.types.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionForm.css';
@@ -13,6 +14,7 @@ interface TransactionFormProps {
     errors: FormErrors;
     editTarget: TransactionResponseDto | null;
     isSubmitting: boolean;
+    categories?: CategoryResponseDto[];
     amountRef?: React.RefObject<HTMLInputElement | null>;
     onFieldChange: (field: keyof TransactionFormValues, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
@@ -30,12 +32,14 @@ export const TransactionForm = ({
     errors,
     editTarget,
     isSubmitting,
+    categories = [],
     amountRef,
     onFieldChange,
     onSubmit,
     onCancel
 }: TransactionFormProps): React.JSX.Element => {
     const isEditing = editTarget !== null;
+    const activeCategories = categories.filter((c) => c.isActive);
 
     return (
         <form id="transaction-form" className="tx-form" onSubmit={onSubmit} noValidate>
@@ -82,6 +86,23 @@ export const TransactionForm = ({
                     error={errors.date}
                     required
                 />
+            </div>
+
+            <div className="tx-form__field">
+                <label htmlFor="tx-form-category" className="tx-form__label">Category</label>
+                <select
+                    id="tx-form-category"
+                    className="tx-form__select"
+                    value={formValues.categoryId}
+                    onChange={(e) => { onFieldChange('categoryId', e.target.value); }}
+                >
+                    <option value="">None</option>
+                    {activeCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                            {c.icon ? `${c.icon} ` : ''}{c.name}
+                        </option>
+                    ))}
+                </select>
             </div>
 
             <Input

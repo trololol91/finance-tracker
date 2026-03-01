@@ -40,13 +40,13 @@ const validateForm = (
     return Object.keys(newErrors).length === 0;
 };
 
-// categoryId and accountId are intentionally omitted from updates —
-// transaction type and account associations cannot be changed after creation.
+// accountId cannot be changed after creation; categoryId can always be updated.
 const buildUpdateDto = (values: TransactionFormValues): UpdateTransactionDto => ({
     amount: parseFloat(values.amount),
     description: values.description.trim(),
     notes: values.notes.trim() !== '' ? values.notes.trim() : null,
-    date: new Date(values.date + 'T12:00:00').toISOString()
+    date: new Date(values.date + 'T12:00:00').toISOString(),
+    categoryId: values.categoryId !== '' ? values.categoryId : null
 });
 
 const buildCreateDto = (values: TransactionFormValues): CreateTransactionDto => ({
