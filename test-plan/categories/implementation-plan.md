@@ -544,15 +544,18 @@ Use `vi.mock('@/api/categories/categories.js')` to mock Orval hooks. All queries
 - [x] **Backend API tested live — 58/58 PASS** (see `test-plan/categories/backend-report.md`)
 
 ### Frontend (after `npm run generate:api`)
-- [ ] Orval-generated hooks available in `src/api/categories/`
-- [ ] `category.types.ts` created (frontend-only types only)
-- [ ] `CategoryList`, `CategoryListItem`, `CategoryForm`, `DeleteCategoryModal` components built
-- [ ] `CategoriesPage` stub replaced with full implementation
-- [ ] `/categories` route already wired — verify page loads without blank screen
-- [ ] `TransactionForm` updated to use `categoryId` select from categories API
-- [ ] All component tests passing (≥ 30 tests)
-- [ ] Zero TypeScript errors (`get_errors`)
-- [ ] Zero ESLint warnings (`npx eslint src/features/categories/ src/pages/CategoriesPage.tsx --max-warnings 0`)
+- [x] Orval-generated hooks available in `src/api/categories/`
+- [x] `category.types.ts` created (frontend-only types only)
+- [x] `CategoryList`, `CategoryListItem`, `CategoryForm`, `CategoryModal` components built
+- [x] `CategoriesPage` stub replaced with full implementation
+- [x] `/categories` route verified — page loads, dark theme correct, modal centred
+- [ ] `TransactionForm` updated to use `categoryId` select from categories API (**OUTSTANDING — last item before Phase 5 closes**)
+- [x] All component tests passing (568 total, all categories components covered)
+- [x] Zero TypeScript errors (`tsc -p tsconfig.app.json --noEmit`)
+- [x] Zero ESLint warnings (`npx eslint src/features/categories/ src/pages/CategoriesPage.tsx --max-warnings 0`)
+- [x] **Frontend E2E tested — 17/18 PASS** (see `test-plan/categories/frontend-report.md`)
+  - BUG-01 (modal top-left): fixed — `margin: auto` added to `.modal`
+  - BUG-02 (light mode): fixed — semantic token aliases added to `src/index.css`
 
 ---
 

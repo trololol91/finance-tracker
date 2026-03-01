@@ -62,6 +62,14 @@
   2. Navigate to `/transactions` (token already in localStorage)
 - **Expected result**: An error message is displayed; no blank screen or unhandled exception
 
+#### TC-35: Category column visible in table on page load
+- **Type**: Smoke
+- **Steps**:
+  1. Log in and navigate to `/transactions`
+  2. Call `browser_network_requests` — verify `GET /categories` returned 200
+  3. Take screenshot — verify CATEGORY column header is visible in the table; at least one row shows a colour swatch and category name in its CATEGORY cell
+- **Expected result**: CATEGORY column header present; cells show swatch + name for transactions with a category assigned, "—" for unassigned; `GET /categories` fires once on page load
+
 ---
 
 ### Summary Bar
@@ -168,6 +176,28 @@
   2. Click the "Clear Filters" button
 - **Expected result**: Type → "All Types", Status → "Active", Search → empty, date range → default; list refreshes
 
+#### TC-36: Category filter — select existing category filters the list
+- **Type**: Smoke
+- **Steps**:
+  1. Navigate to `/transactions`
+  2. Select a known category (e.g. "Food") in the Category dropdown
+  3. Inspect the URL query string — verify `categoryId=<uuid>` is present
+  4. Call `browser_network_requests` — verify `GET /transactions?…&categoryId=<uuid>` was called
+- **Expected result**: List updates to show only transactions assigned to that category; URL contains `categoryId` param; `page` resets to 1
+
+#### TC-37: Category filter — no matching transactions shows empty state
+- **Type**: Regression
+- **Steps**:
+  1. Select a category that has no transactions assigned (e.g. "Produce" if unused)
+- **Expected result**: "No transactions found for the selected filters." message displayed; empty state occupies the correct region (not full viewport, not zero-height)
+
+#### TC-38: Clear Filters resets Category dropdown to "All Categories"
+- **Type**: Regression
+- **Steps**:
+  1. Select any category in the Category dropdown
+  2. Click "Clear Filters"
+- **Expected result**: Category dropdown resets to "All Categories"; `categoryId` param removed from URL; full transaction list restores
+
 ---
 
 ### Pagination
@@ -263,6 +293,24 @@
   4. Click "Cancel"
 - **Expected result**: Modal closes; "do not save" transaction does not appear in the list
 
+#### TC-39: Add modal — Category select present and defaults to "None"
+- **Type**: Smoke
+- **Steps**:
+  1. Click "+ Add Transaction"
+  2. Take screenshot — verify modal is centred, not clipped, backdrop visible
+  3. Inspect the Category field — note its position (between the Amount/Type/Date row and the Description field) and default value
+- **Expected result**: Category `<select>` is visible; default option is "None"; options include all active categories; inactive categories are absent
+
+#### TC-40: Create transaction with a category — category appears in list
+- **Type**: Smoke
+- **Steps**:
+  1. Open the Add modal
+  2. Fill Amount, Type, Date, Description; select a category (e.g. "Produce")
+  3. Click "Save"
+  4. Call `browser_network_requests` — verify `POST /transactions` returned 201 and `GET /transactions/totals` fired after
+  5. Call `browser_console_messages(level: 'error')` — confirm no JS errors
+- **Expected result**: Modal closes; new row visible in list with the selected category in the CATEGORY cell; summary totals update without page reload
+
 ---
 
 ### Edit Transaction
@@ -294,6 +342,33 @@
   2. Take screenshot — verify modal is centred, not clipped, backdrop visible
   3. Inspect the Type dropdown
 - **Expected result**: Type select is `disabled`; hint text "Transaction type cannot be changed after creation." is visible
+
+#### TC-41: Edit modal — Category pre-populated from saved value
+- **Type**: Smoke
+- **Steps**:
+  1. Click ⋮ on a transaction that has a category assigned
+  2. Click "Edit"
+  3. Take screenshot — verify modal is centred, not clipped, backdrop visible
+  4. Inspect the Category select
+- **Expected result**: Category `<select>` shows the transaction's current category pre-selected
+
+#### TC-42: Edit — change category → list cell updates immediately
+- **Type**: Regression
+- **Steps**:
+  1. Open the edit modal for a transaction with a category assigned
+  2. Change the Category to a different active category
+  3. Click "Save"
+  4. Call `browser_network_requests` — verify `PATCH /transactions/:id` returned 200 with `categoryId` UUID in the request body
+- **Expected result**: CATEGORY cell in the list immediately reflects the new category (swatch + name); no page reload required
+
+#### TC-43: Edit — clear category to None sends `null` to API
+- **Type**: Regression
+- **Steps**:
+  1. Open the edit modal for a transaction with a category assigned
+  2. Change Category to "None"
+  3. Click "Save"
+  4. Call `browser_network_requests` — verify `PATCH /transactions/:id` returned 200; inspect request body — `categoryId` must be `null` (not `""` or omitted)
+- **Expected result**: CATEGORY cell shows "—"; regression-tests the `buildUpdateDto` fix that converts empty string to `null`
 
 ---
 
@@ -429,3 +504,13 @@
   5. Tab through all form fields — verify all fields are reachable and not obscured by the bottom of the screen
   6. Press Escape — verify modal closes
 - **Expected result**: Modal uses the `@media (max-width: 480px)` bottom-sheet style; all form fields are accessible; modal does not overflow off the bottom of the screen
+
+#### TC-44: Category column hidden at mobile 390×844, no body overflow
+- **Type**: Regression
+- **Steps**:
+  1. Resize viewport to 390×844
+  2. Navigate to `/transactions`
+  3. Take screenshot — verify CATEGORY column header and data cells are not visible
+  4. Evaluate `document.body.scrollWidth > document.body.clientWidth` — assert `false`
+  5. Resize back to 1280×720 — verify CATEGORY column reappears
+- **Expected result**: At ≤767px, `.tx-list__th--hide-mobile` and `.tx-item__hide-mobile` hide the CATEGORY column; no body-level horizontal overflow; column is restored at desktop width

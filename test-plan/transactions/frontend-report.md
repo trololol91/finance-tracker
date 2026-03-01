@@ -451,3 +451,99 @@ Reproduced the bug: navigated to a filtered view with only 1–3 visible rows, c
 | BUG-03 retest expense | Expense | $50.00 | 2026-03-01 | Active | **Yes — deleted via UI** |
 
 *Remaining pre-existing test data from prior run: "Playwright test expense" ($25.50, Expense, Mar 1, Active) and "Playwright test income" ($1,000.00, Income, Mar 1, Active) — not cleaned up.*
+
+---
+
+## Re-test Report: Category Wiring (Phase 5 Step 11)
+
+**Date**: 2026-03-01
+**Environment**: http://localhost:5173
+**Backend**: http://localhost:3001
+**Context**: Verification of `categoryId` selector wired into `TransactionForm`, `TransactionList` (new Category column), and `TransactionFilters` (new Category dropdown). Also confirms previously-resolved bugs remain resolved under the new controls.
+
+### New TCs (TC-35 – TC-44)
+
+| TC | Description | Result |
+|----|-------------|--------|
+| TC-35 | Category column visible in table on page load with swatch + name | ✅ PASS |
+| TC-36 | Category filter — select existing category → list filtered + correct API params | ✅ PASS |
+| TC-37 | Category filter — no matching transactions → empty state | ✅ PASS |
+| TC-38 | Clear button resets Category filter to "All Categories" | ✅ PASS |
+| TC-39 | Add modal — Category select present between grid row and Description, default "None" | ✅ PASS |
+| TC-40 | Create transaction with category → category shown in list, totals update | ✅ PASS |
+| TC-41 | Edit modal — Category pre-populated from saved value | ✅ PASS |
+| TC-42 | Edit — change category → PATCH 200, Category cell updates immediately | ✅ PASS |
+| TC-43 | Edit — clear category to None → PATCH sends `null`, cell shows "—" | ✅ PASS |
+| TC-44 | Category column (th + td) hidden at mobile 390×844, no body overflow | ✅ PASS |
+
+**10 new TCs, all pass. Running total: 48 TCs.**
+
+### Bug Status Confirmation
+
+Three previously-resolved bugs confirmed still resolved under the new category controls:
+
+| Bug | Previous Status | Confirmed |
+|-----|----------------|-----------|
+| BUG-03 — totals stale after mutation | RESOLVED | ✅ `GET /transactions/totals` fires after POST and each PATCH (TC-40, TC-42, TC-43) |
+| BUG-05 — modal focus on Close button | RESOLVED | ✅ Amount field has `[active]` focus when both Add and Edit modals open |
+| BUG-08 — modal anchored top-left | RESOLVED | ✅ Modal centred at 1280×720; bottom-sheet at 390×844 |
+
+### Re-test Console Errors
+
+None.
+
+### Network Verification
+
+| TC | Endpoint | Method | Status | Result |
+|----|----------|--------|--------|--------|
+| Page load | `GET /categories` | GET | 200 | ✅ fires once; populates filter, form, and list lookup |
+| TC-36 | `GET /transactions?…&categoryId=<uuid>` | GET | 200 | ✅ `categoryId` param sent immediately on dropdown change |
+| TC-40 | `POST /transactions` | POST | 201 | ✅ |
+| TC-40 | `GET /transactions/totals` | GET | 200 | ✅ fires after POST (BUG-03 confirmed resolved) |
+| TC-42 | `PATCH /transactions/:id` | PATCH | 200 | ✅ `categoryId` UUID in body |
+| TC-43 | `PATCH /transactions/:id` | PATCH | 200 | ✅ `categoryId: null` in body (buildUpdateDto fix confirmed) |
+| Cleanup | `DELETE /transactions/:id` | DELETE | 204 | ✅ |
+
+### Detailed TC Results
+
+#### ✅ TC-35: Category column visible on page load
+Table headers: DATE / DESCRIPTION / AMOUNT / TYPE / CATEGORY / STATUS / ACTIONS. "Salary Deposit" row shows blue colour swatch + "Food" in the CATEGORY cell. `GET /categories` called on load supplies options to all three controls. Screenshot: `screenshots/cat-tc01-page-load.png`.
+
+#### ✅ TC-36: Category filter "Food" → list filtered, URL updated
+Selecting "Food" updates URL to `?categoryId=<uuid>&page=1` immediately. `GET /transactions?…&categoryId=…` fires. Only the "Salary Deposit" row (assigned to Food) remains visible. Screenshot: `screenshots/cat-tc02-category-filter-food.png`.
+
+#### ✅ TC-37: Category filter "Produce" → empty state
+"No transactions found for the selected filters." message renders in the correct region (not full-viewport, not zero-height). Screenshot: `screenshots/cat-tc03-category-filter-produce-empty.png`.
+
+#### ✅ TC-38: Clear resets Category filter
+Clicking Clear resets Category select to "All Categories". URL reverts to default params (no `categoryId`). Full transaction list restores.
+
+#### ✅ TC-39: Add modal — Category select present, "None" default
+Modal centred, not clipped, backdrop visible. Category `<select>` positioned between the Amount/Type/Date grid row and the Description field. Options: "None" \[selected], "Food", "Produce". Initial focus on Amount field. Screenshot: `screenshots/cat-tc04-add-modal-open.png`.
+
+#### ✅ TC-40: Create transaction with category (Expense $15.50, Produce)
+`POST /transactions` → 201. `GET /transactions/totals` fires immediately after (BUG-03 remains resolved — Expenses updates from $0 to $15.50 without reload). New row shows "Produce" with no swatch (Produce has `color: null` — correct, expected). Screenshot: `screenshots/cat-tc06-after-create-with-category.png`.
+
+#### ✅ TC-41: Edit modal — Category pre-populated
+Edit modal for the new row shows Category pre-selected to "Produce". Type `<select>` disabled with hint text. Initial focus on Amount. Modal centred. Screenshot: `screenshots/cat-tc08-edit-modal-prefilled.png`.
+
+#### ✅ TC-42: Edit — change category Produce → Food
+Selected "Food" → Save Changes. `PATCH /transactions/:id` → 200. CATEGORY cell immediately updates to blue swatch + "Food" without reload. Screenshot: `screenshots/cat-tc09-after-edit-category-changed.png`.
+
+#### ✅ TC-43: Edit — clear category to None (sends null)
+Selected "None" → Save Changes. `PATCH /transactions/:id` → 200. CATEGORY cell now displays "—". Regression-tests the `buildUpdateDto` fix (empty string → `null`). Screenshot: `screenshots/cat-tc10-category-cleared-to-none.png`.
+
+#### ✅ TC-44: Category column hidden at mobile 390×844
+At 390×844, TYPE, CATEGORY, and STATUS column headers (`tx-list__th--hide-mobile`) and data cells (`tx-item__hide-mobile`) are all hidden. DATE, DESCRIPTION, AMOUNT remain. `document.body.scrollWidth > document.body.clientWidth` → `false`. Category filter and Category select in Add modal both remain fully accessible on mobile. Screenshot: `screenshots/cat-tc12-mobile-390.png`.
+
+### Observations
+
+- "Produce" has no `color` in the database — no swatch renders, and this is correct behaviour, not a bug.
+- Only **active** categories appear in the filter and form select dropdowns (`isActive` filtering confirmed by unit tests). A live test with an inactive category was not run (no inactive category in the current dataset) — noted as a testing gap if inactive categories are added in future.
+- TC-36 confirms `categoryId` is mirrored to the URL correctly, consistent with all other filter parameters in `useTransactionFilters`.
+
+### Test Data Created During This Re-test
+
+| Description | Type | Amount | Date | Category | Cleaned Up |
+|-------------|------|--------|------|----------|------------|
+| Playwright test expense | Expense | $15.50 | 2026-03-01 | (none at end — cleared to None in TC-43) | ✅ Deleted |

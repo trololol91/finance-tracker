@@ -57,6 +57,7 @@ You are a senior software architect for the **finance-tracker** monorepo. Your r
    - Include example request bodies where relevant
 6. **Save the plan to disk** as `test-plan/[feature]/implementation-plan.md` (e.g. `test-plan/categories/implementation-plan.md`). This file is the single source of truth handed to all downstream agents. It must include all sections above: implementation steps, Prisma changes, API contract, frontend integration, test strategy, frontend test scope, and backend API test plan.
 7. **Update `docs/development-roadmap.md`**: set the phase to "⬜ In Progress" in the Phase Status table and update the "Current Focus" section with the phase name and the recommended next actions.
+   - **Cross-feature integration rule:** If the feature requires changes to files belonging to a *previously completed feature* (e.g. adding a category selector to `TransactionForm`, linking accounts to another entity), each such integration point **must appear as its own explicit numbered step** in the Current Focus section. Do not delegate these tasks to a generic "implement per section X" bullet — they will be missed at review time.
 
 ## Project conventions to apply
 

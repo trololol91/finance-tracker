@@ -51,6 +51,7 @@ This is a finance tracker monorepo with:
 - Follow Arrange-Act-Assert pattern
 - Use accessibility-first queries (getByRole, getByLabelText)
 - Test user-facing behavior, not implementation details
+- **Cross-feature tests**: When a feature change adds UI or behaviour to an existing feature's route (e.g. wiring a `categoryId` selector into the Transactions page), add the new test cases to the **existing feature's test plan and report** (`test-plan/<feature>/frontend.md` and `frontend-report.md`) under a clearly labelled section — do **not** create a separate file. A separate file is only justified for a genuinely new, standalone feature that has no existing plan document.
 
 ## Git Workflow
 
