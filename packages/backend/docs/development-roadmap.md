@@ -396,9 +396,401 @@ This document outlines the implementation order for building the Finance Tracker
 
 ---
 
-### Phase 7: Budgets Module
+### Phase 7: Transaction Import & Automated Sync
 
-**Priority:** LOW - Premium feature
+**Priority:** MEDIUM - Load real transaction data from file uploads or fully automated scheduled sync
+
+**Tasks:**
+1. **Define Import + Sync Schedule Models in Prisma Schema** (`prisma/schema.prisma`)
+   ```typescript
+   // TransactionImport — tracks each import run
+   - id: UUID
+   - user_id: UUID (foreign key)
+   - source: enum ('csv', 'ofx', 'scraper', 'api')
+   - filename: string (original filename, file imports only)
+   - account_id: UUID (optional — which account this import is for)
+   - row_count: int
+   - imported_count: int
+   - skipped_count: int (duplicates / validation failures)
+   - status: enum ('pending', 'processing', 'complete', 'failed')
+   - error: string (optional)
+   - created_at: timestamp
+
+   // SyncSchedule — per-user, per-account automation config
+   - id: UUID
+   - user_id: UUID (foreign key)
+   - account_id: UUID (foreign key)
+   - bank_id: string (e.g. 'cibc', 'td', 'rbc' — matches BankScraper.bankId, no enum so new banks need no migration)
+   - cron: string (e.g. '0 8 * * *' = daily at 8am)
+   - enabled: boolean (default true)
+   - last_run_at: timestamp (optional)
+   - last_run_status: enum ('success', 'failed', 'mfa_required') (optional)
+   - created_at: timestamp
+   - updated_at: timestamp
+   ```
+   - Add `fitid` field to `Transaction` model — bank-assigned unique ID from OFX (preferred dedup key over date+amount+description)
+
+2. **Implement File Import (manual upload)**
+   - Accept CSV upload (`multipart/form-data`)
+   - Accept OFX/QFX upload — single parser handles both CIBC and TD
+   - Map CSV columns → `CreateTransactionDto` (CIBC and TD formats, see `tools/export/`)
+   - Map OFX fields → `CreateTransactionDto` (TRNTYPE, DTPOSTED, TRNAMT, FITID, NAME, MEMO)
+   - Dedup: prefer `fitid` match when present; fall back to date + amount + description
+   - Return import summary (imported, skipped, errors)
+   - `npm install ofx` for OFX parsing
+
+3. **Implement Pluggable Bank Scraper Architecture** (`src/scraper/`)
+   - `npm install playwright playwright-extra playwright-extra-plugin-stealth`
+
+   **Scraper interface** — every bank scraper implements this contract:
+   ```typescript
+   // src/scraper/interfaces/bank-scraper.interface.ts
+   export interface BankScraper {
+     readonly bankId: string;                   // e.g. 'cibc', 'td', 'rbc'
+     readonly displayName: string;              // e.g. 'CIBC', 'TD Bank'
+     readonly supportedFormats: ('ofx' | 'csv')[];
+     readonly requiresMfaOnEveryRun: boolean;   // true = no session persistence (e.g. CIBC); false = save storageState and skip MFA on subsequent runs
+     login(page: Page, credentials: BankCredentials): Promise<void>;
+     downloadTransactions(page: Page, options: DownloadOptions): Promise<Buffer>;
+   }
+   ```
+
+   **Scraper registry** — scrapers self-register; `ScraperService` discovers them at startup:
+   ```typescript
+   // src/scraper/scraper.registry.ts
+   export const BANK_SCRAPER = 'BANK_SCRAPER';  // injection token
+
+   // Decorator to mark a class as a scraper
+   export const RegisterScraper = (): ClassDecorator => SetMetadata(BANK_SCRAPER, true);
+   ```
+
+   **Adding a new bank = one file, no other changes needed:**
+   ```typescript
+   // src/scraper/banks/rbc.scraper.ts
+   @RegisterScraper()
+   @Injectable()
+   export class RbcScraper implements BankScraper {
+     readonly bankId = 'rbc';
+     readonly displayName = 'RBC Royal Bank';
+     readonly supportedFormats = ['ofx'] as const;
+     // implement login() and downloadTransactions()
+   }
+   // Then add RbcScraper to ScraperModule providers — that's it
+   ```
+
+   **Module structure:**
+   ```
+   src/scraper/
+   ├── scraper.module.ts              # imports all bank scrapers, exports ScraperService
+   ├── scraper.service.ts             # looks up scraper by bankId, spawns worker per run
+   ├── scraper.worker.ts              # worker_thread entry point — runs plugin code in isolation
+   ├── scraper.scheduler.ts           # cron job runner
+   ├── interfaces/
+   │   └── bank-scraper.interface.ts  # BankScraper, BankCredentials, DownloadOptions, ScraperWorkerInput
+   ├── scraper.registry.ts            # BANK_SCRAPER token + @RegisterScraper decorator
+   └── banks/
+       ├── cibc.scraper.ts            # @RegisterScraper() CibcScraper
+       └── td.scraper.ts              # @RegisterScraper() TdScraper
+   ```
+
+   **`ScraperService.sync()`** resolves the correct scraper at runtime:
+   ```typescript
+   async sync(bankId: string, credentials: BankCredentials, options: DownloadOptions) {
+     const scraper = this.registry.get(bankId);  // throws if unknown bankId
+     if (!scraper) throw new BadRequestException(`No scraper registered for bank: ${bankId}`);
+     // launch browser, call scraper.login() + scraper.downloadTransactions()
+     // pipe result to import service
+   }
+   ```
+
+   - `SyncSchedule.bank` column changes from `enum ('cibc', 'td')` to `bank_id: string` — no migration needed when adding a new bank
+   - `GET /scrapers` endpoint returns list of registered banks (bankId + displayName + supportedFormats) — frontend uses this to populate the "Add account sync" dropdown dynamically
+   - Session persistence: if `requiresMfaOnEveryRun === false`, save Playwright `storageState` per `bankId` to encrypted file and restore on next run to skip MFA — sessions can last weeks
+   - **CIBC sets `requiresMfaOnEveryRun = true`** — sessions expire within minutes of inactivity; every sync run requires a full login + MFA completion; session persistence is not effective
+   - MFA handling: when scraper detects an MFA challenge page, it signals `mfa_required` to the parent process; the sync job pauses and waits for the user to submit the code (see Task 7)
+   - Credentials stored in user-scoped encrypted DB fields or env vars — never plaintext
+
+4. **Implement Scheduler** (`src/scraper/scraper.scheduler.ts`)
+   - `npm install @nestjs/schedule` + register `ScheduleModule.forRoot()` in `AppModule`
+   - On startup: load all enabled `SyncSchedule` records and register dynamic cron jobs with `@Scheduler` / `schedulerRegistry`
+   - Each cron job: calls `ScraperService.syncAccount(userId, accountId, bank)` → downloads OFX → calls import service
+   - When user creates/updates/deletes a `SyncSchedule`, add/replace/remove the corresponding cron job at runtime (no restart needed)
+   - Persist `last_run_at` and `last_run_status` after each run
+
+5. **Plugin Loader — Install Scrapers Without Rebuilding** (`src/scraper/scraper.plugin-loader.ts`)
+
+   Built-in scrapers (CIBC, TD) are compiled into the app. Additional scrapers can be dropped in at runtime via a mounted `plugins/` directory — same model as Suwayomi/Overseerr extensions.
+
+   **Each external scraper is a standalone npm package** that exports a default class implementing `BankScraper`. Plugins are installed via `npm install --prefix`, which creates a standard npm layout under the `plugins/` volume:
+   ```
+   plugins/
+   ├── package.json          ← tracks installed plugins as dependencies
+   ├── package-lock.json
+   └── node_modules/
+       ├── @finance-tracker/
+       │   └── scraper-rbc/
+       │       ├── package.json
+       │       └── index.js  ← export default class RbcScraper implements BankScraper
+       └── scraper-bmo/      ← unscoped packages also supported
+           ├── package.json
+           └── index.js
+   ```
+
+   **Peer dependencies** — heavy shared packages like `playwright` (~100 MB) should not be bundled per plugin. Plugins declare them as `peerDependencies` and use the app's already-installed copy:
+   ```json
+   // plugin's package.json
+   {
+     "peerDependencies": { "playwright": ">=1.40.0" },
+     "dependencies": { "some-bank-specific-lib": "^2.1.0" }
+   }
+   ```
+   The plugin loader warns at load time if a declared peer dep is missing rather than crashing silently.
+
+   **Plugin loader** reads `plugins/package.json` to enumerate installed plugins — only explicitly installed packages load, not leftover junk folders:
+   ```typescript
+   // src/scraper/scraper.plugin-loader.ts
+   async loadPlugins(): Promise<void> {
+     const dir = process.env.SCRAPER_PLUGIN_DIR ?? './plugins';
+     const pkgPath = join(dir, 'package.json');
+     if (!fs.existsSync(pkgPath)) return;  // no plugins installed yet
+
+     const { dependencies = {} } = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+     for (const pkgName of Object.keys(dependencies)) {
+       // require.resolve with paths: [dir] finds plugins/node_modules/ correctly
+       // including scoped packages like @finance-tracker/scraper-rbc
+       const entryPath = require.resolve(`${pkgName}/index.js`, { paths: [dir] });
+       const mod = await import(entryPath);
+       const scraper: BankScraper = new mod.default();
+       this.registry.register(scraper);
+     }
+   }
+   ```
+
+   - `SCRAPER_PLUGIN_DIR` env var — defaults to `./plugins`; set to mounted volume path in production
+   - Built-in scrapers always load first; plugins can override by `bankId` if needed
+   - `docker-compose.yml`: mount `./plugins:/app/plugins` volume so plugins survive redeployments
+
+   **Process Isolation — Scrapers Run in a Worker Thread** (`src/scraper/scraper.worker.ts`)
+
+   Plugin code runs in the same Node.js process by default, which means a malicious or buggy plugin has full access to `process.env` (including `DATABASE_URL`, `JWT_SECRET`), the module cache, and all open handles. To prevent this, each scraper execution runs inside a `worker_thread` with a controlled environment:
+
+   ```typescript
+   // src/scraper/scraper.worker.ts  — entry point loaded by Worker
+   import { workerData, parentPort } from 'node:worker_threads';
+   import { join } from 'node:path';
+
+   const { pluginPath, credentials, options } = workerData as ScraperWorkerInput;
+   const mod = await import(join(pluginPath, 'index.js'));
+   const scraper: BankScraper = new mod.default();
+
+   // Helper passed into the plugin so it can signal MFA and await the code
+   // without ever knowing about HTTP, SSE, or the database
+   async function requestMfaCode(prompt: string): Promise<string> {
+     parentPort!.postMessage({ type: 'mfa_required', prompt });
+     return new Promise((resolve) => {
+       parentPort!.once('message', (msg) => {
+         if (msg.type === 'mfa_code') resolve(msg.code);
+       });
+     });
+   }
+
+   const result: Buffer = await scraper.downloadTransactions(credentials, options, { requestMfaCode });
+   parentPort!.postMessage({ type: 'complete', data: result });
+   ```
+
+   ```typescript
+   // src/scraper/scraper.service.ts — spawns worker, bridges MFA to SSE + notifications
+   import { Worker } from 'node:worker_threads';
+
+   async runInWorker(
+     sessionId: string,
+     pluginPath: string,
+     credentials: BankCredentials,
+     options: DownloadOptions,
+   ): Promise<Buffer> {
+     return new Promise((resolve, reject) => {
+       const worker = new Worker('./dist/scraper/scraper.worker.js', {
+         workerData: { pluginPath, credentials, options },
+         env: {
+           // Only pass what the scraper actually needs — no DB or JWT secrets
+           PLAYWRIGHT_HEADLESS: process.env.PLAYWRIGHT_HEADLESS ?? 'true',
+           SCRAPER_SESSION_DIR: process.env.SCRAPER_SESSION_DIR ?? './.scraper-session',
+         },
+       });
+
+       worker.on('message', (msg) => {
+         if (msg.type === 'complete') return resolve(msg.data);
+         if (msg.type === 'mfa_required') {
+           // 1. Push mfa_required event to the SSE stream for this session
+           this.syncSessionStore.emit(sessionId, { event: 'mfa_required', prompt: msg.prompt });
+           // 2. Send push notification + email (if user not watching SSE)
+           this.notificationService.sendMfaAlert(sessionId);
+           // 3. Register a one-time callback; POST /mfa-response calls this with the code
+           this.syncSessionStore.setPendingMfa(sessionId, (code: string) => {
+             worker.postMessage({ type: 'mfa_code', code });
+           });
+         }
+       });
+
+       worker.on('error', reject);
+     });
+   }
+   ```
+
+   **What the worker can and cannot access:**
+
+   | | Main process | Worker (plugin code) |
+   |---|---|---|
+   | `DATABASE_URL` | ✅ | ❌ not inherited |
+   | `JWT_SECRET` | ✅ | ❌ not inherited |
+   | Prisma client | ✅ | ❌ separate module scope |
+   | Playwright browser | spawns subprocess | ✅ runs here |
+   | MFA challenge → main | — | `parentPort.postMessage({ type: 'mfa_required' })` |
+   | MFA code ← main | `worker.postMessage({ type: 'mfa_code', code })` | `parentPort.once('message')` |
+   | Result → main | via `resolve(buffer)` | `parentPort.postMessage({ type: 'complete', data })` |
+
+   - Worker receives only `pluginPath`, `credentials`, and `options` via `workerData` — nothing else
+   - Credentials are decrypted in the main process just before being passed to the worker, so the decryption key never leaves the main process
+   - Worker output is only a `Buffer` (OFX/CSV bytes) — the main process calls the import service with that buffer; the plugin never touches the database directly
+   - The `requestMfaCode` helper is the **only** communication channel the plugin uses for MFA — the plugin has no knowledge of SSE, HTTP, push notifications, or the database
+   - Worker has a configurable timeout; if it exceeds (e.g. 10 minutes), the worker is `worker.terminate()`d and the sync run is marked `failed`
+   - Add `src/scraper/scraper.worker.ts` and `src/scraper/sync-session.store.ts` to the module structure above
+
+   **Deploying a new scraper to a live server (no restart needed):**
+   ```bash
+   # Install plugin into the mounted plugins/ volume (preferred)
+   docker exec finance-tracker-backend npm install @finance-tracker/scraper-rbc \
+     --prefix /app/plugins
+
+   # Or use POST /admin/scrapers/install which runs npm install as a child process
+   # (ADMIN role only — see Task 6)
+
+   # Then trigger hot reload:
+   curl -X POST https://your-server/admin/scrapers/reload \
+     -H "Authorization: Bearer <admin-jwt>"
+   ```
+
+6. **Schedule Management & Admin API**
+   - `GET /scrapers` — list all registered banks (built-in + plugins); used by frontend to populate bank picker dynamically
+   - `GET /sync-schedules` — list user's schedules
+   - `POST /sync-schedules` — create schedule (validate cron string; validate bankId exists in registry)
+   - `PATCH /sync-schedules/:id` — update cron or enable/disable
+   - `DELETE /sync-schedules/:id` — remove schedule + unregister cron job
+   - `POST /sync-schedules/:id/run-now` — trigger immediate sync outside schedule; returns `{ sessionId }` immediately, sync runs async
+   - `GET /sync-schedules/:id/stream` — SSE stream for live sync status (`logging_in` → `mfa_required` → `importing` → `complete`/`failed`); frontend subscribes when "Sync Now" is clicked
+   - `POST /sync-schedules/:id/mfa-response` — submit MFA code to a paused worker (`{ sessionId, code }`); single-use, expires after worker timeout
+   - `POST /push/subscribe` — store user's Web Push subscription (`PushSubscription` object) in DB
+   - `DELETE /push/subscribe` — unregister push subscription
+   - `POST /admin/scrapers/reload` — re-scan plugin directory and register any new scrapers (admin only, no restart needed)
+   - `POST /admin/scrapers/install` *(optional)* — run `npm install <package>` into plugin dir then reload (admin only)
+
+7. **MFA Notification & Callback**
+
+   When a sync run reaches an MFA challenge (always for CIBC; occasionally for others on session expiry), the worker signals the parent process and the user is notified via **Web Push** and/or **email**. Two UX paths exist:
+
+   **Full communication chain:**
+   ```
+   Plugin (worker_thread)
+      ↓  parentPort.postMessage({ type: 'mfa_required', prompt })
+   ScraperService (main process)
+      ↓  syncSessionStore.emit(sessionId, { event: 'mfa_required' })
+      ↓  notificationService.sendMfaAlert()  →  Web Push + Email fire simultaneously
+   SyncSessionStore (RxJS Subject, keyed by sessionId)
+      ↓  SSE controller subscribes to Subject as Observable
+   Browser (frontend) ← SSE event fires → code input modal appears
+      OR
+   Push notification → tap → /mfa?session=<token>  (user not in app)
+      OR
+   Email link → click → /mfa?session=<token>  (universal fallback)
+
+   User submits code
+      ↓  POST /sync-schedules/:id/mfa-response  { code }
+   syncSessionStore.getPendingMfa(sessionId)(code)
+      ↓  worker.postMessage({ type: 'mfa_code', code })
+   Plugin (worker_thread) — parentPort.once('message') resolves
+      ↓  types code into browser → continues download
+   parentPort.postMessage({ type: 'complete', data: buffer })
+      ↓  main process → ImportService → DB write
+   syncSessionStore.emit(sessionId, { event: 'complete', imported: N })
+      ↓  SSE → frontend shows success banner
+   ```
+
+   **`SyncSessionStore`** (`src/scraper/sync-session.store.ts`) — bridges worker events to SSE and MFA callbacks:
+   ```typescript
+   // In-memory store; keyed by sessionId (UUID generated at run-now time)
+   private streams = new Map<string, Subject<MessageEvent>>();
+   private pendingMfa = new Map<string, (code: string) => void>();
+
+   getStream(sessionId: string): Observable<MessageEvent> { ... }
+   emit(sessionId: string, event: SyncEvent): void { ... }
+   setPendingMfa(sessionId: string, resolve: (code: string) => void): void { ... }
+   getPendingMfa(sessionId: string): (code: string) => void { ... }
+   ```
+
+   **Path A — User has the frontend open (SSE modal)**
+   The `GET /sync-schedules/:id/stream` SSE connection is already subscribed. When the `mfa_required` event fires, the frontend automatically shows a code input modal. User enters the code → `POST .../mfa-response` → worker unpauses. Push and email still fire (idempotent — harmless if ignored).
+
+   **Path B — User is not in the frontend (out-of-band notification)**
+   Push notification and/or email reaches the user. They tap/click → opens `/mfa?session=<token>` — a minimal standalone page (just a code input and Submit). No navigation through the full app needed. On submission, same `POST .../mfa-response` endpoint — identical handler regardless of which path delivered the code.
+
+   **Web Push implementation** (`npm install web-push`):
+   - Generate VAPID key pair once (`web-push generate-vapid-keys`) — store in env vars
+   - Frontend: register service worker (`/sw.js`), call `Notification.requestPermission()` on login, subscribe via `pushManager.subscribe({ applicationServerKey: VAPID_PUBLIC })` → POST subscription to `/push/subscribe`
+   - Service worker handles `push` event → `self.registration.showNotification('Finance Tracker', { body: 'CIBC sync needs your MFA code', data: { url: '/mfa?session=xyz' } })`
+   - `notificationclick` event → `clients.openWindow(event.notification.data.url)`
+   - Backend: on MFA challenge, look up user's stored `PushSubscription`, call `webPush.sendNotification(subscription, payload)`
+
+   **iOS requirement:** Web Push only works if the PWA is added to the Home Screen (iOS 16.4+). Add a first-login prompt: *"Add this app to your Home Screen to receive sync notifications."*
+
+   | Platform | Web Push | Notes |
+   |---|---|---|
+   | Chrome / Android | ✅ | Works in browser tab or background |
+   | Firefox / Android | ✅ | Works in browser tab or background |
+   | Safari / iOS 16.4+ | ✅ | **Must be added to Home Screen first** |
+   | Safari / iOS < 16.4 | ❌ | Fall back to email only |
+
+   **Email notification** (`npm install nodemailer`):
+   - On MFA challenge, send email to the user's registered address: *"Your CIBC sync is waiting for MFA. [Enter Code →](https://your-server/mfa?session=xyz)"*
+   - The link opens the same minimal `/mfa?session=<token>` page as the push notification
+   - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` in env vars — supports any SMTP provider (Gmail, Resend, Mailgun, etc.)
+   - Email is the universal fallback — works on any device regardless of browser or OS version
+
+   **MFA session token:**
+   - Short-lived, single-use token tied to `sessionId` from `run-now` response
+   - Worker holds a `Promise` that resolves when the token is redeemed via `POST .../mfa-response`
+   - Token and pending promise stored in-memory (Map) — no DB write needed
+   - Expires after worker timeout (default 10 minutes); if not redeemed → sync marked `failed`, token deleted
+
+   **Notification preferences** (stored per user in DB):
+   ```typescript
+   - notify_push: boolean  (default true if subscription exists)
+   - notify_email: boolean (default true)
+   ```
+   Both can be enabled simultaneously — push for speed, email as fallback.
+
+**Phase 7 Checklist:** Apply Standard Checklist (Core, Documentation, Testing, Security, Database)
+
+**Notes:**
+- Playwright runs headless in production; use `PLAYWRIGHT_HEADLESS=false` locally for debugging login flows
+- Session storage files (`.scraper-session/`) must be in `.gitignore` — they contain auth cookies
+- Adding a bank at build time: create `src/scraper/banks/<bank>.scraper.ts`, implement `BankScraper`, add `@RegisterScraper()`, add to `ScraperModule` providers
+- Adding a bank at runtime: drop a built npm package into `plugins/`, call `POST /admin/scrapers/reload` — no rebuild, no restart
+- `POST /admin/scrapers/install` executes `npm install` as a child process — restrict to ADMIN role only to prevent arbitrary code execution by regular users
+- **Process isolation:** all scraper executions (built-in and plugin) run in a `worker_thread` via `scraper.worker.ts`. The worker receives `workerData` only — `DATABASE_URL`, `JWT_SECRET`, and all other env vars are explicitly excluded from the worker's env. Plugin code can never access the database or decrypt credentials; it only returns a raw file buffer back to the main process.
+- Worker timeout: terminate the worker and mark the sync run `failed` if it exceeds a configurable limit (default 5 minutes) — prevents a stuck browser from hanging the app
+- **CIBC requires MFA on every run** — `requiresMfaOnEveryRun = true`; scheduling still fires the browser and fills credentials automatically, but MFA completion always requires user interaction via push/email → `/mfa` page
+- **TD and other banks** with durable sessions: `requiresMfaOnEveryRun = false`; session persistence means MFA is only needed when the session expires (weeks to months)
+- Push notifications require the PWA to be added to the iOS Home Screen on iOS 16.4+; email is the universal fallback for all devices
+- MFA response tokens are in-memory only — they do not persist across server restarts; a restart during a pending MFA challenge will fail that sync run
+- Scraper is personal-use only; bank ToS prohibit automated access. Not suitable for multi-tenant SaaS.
+
+**Estimated Time:** 6-9 days
+
+---
+
+### Phase 8: Budgets Module *(Optional)*
+
+**Priority:** LOW - Premium feature, skip if not needed
 
 **Tasks:**
 1. **Define Budgets Model in Prisma Schema** (`prisma/schema.prisma`)
@@ -425,9 +817,9 @@ This document outlines the implementation order for building the Finance Tracker
 
 ---
 
-### Phase 8: Reports Module
+### Phase 9: Reports Module *(Optional)*
 
-**Priority:** LOW - Analytics and insights
+**Priority:** LOW - Analytics and insights, skip if not needed
 
 **Tasks:**
 1. **Implement Report Endpoints**
@@ -521,11 +913,62 @@ npm run test:watch
 
 ---
 
+## Phase 10: MCP Server
+
+**Goal:** Expose finance-tracker data and actions to AI assistants (Claude Desktop, Cursor, VS Code Copilot, claude.ai web, Claude iOS) via the Model Context Protocol.
+
+### Core Implementation
+- [ ] Install `@modelcontextprotocol/sdk` and `zod`
+- [ ] Add `#mcp/*` path alias to `tsconfig.json` and `package.json`
+- [ ] Create `src/mcp/mcp.module.ts` — feature module importing all domain modules
+- [ ] Create `src/mcp/mcp.service.ts` — `McpServer` bootstrap, tool/resource registration
+- [ ] Create `src/mcp/mcp.controller.ts` — `POST /mcp`, `GET /mcp`, `DELETE /mcp` endpoints with `JwtAuthGuard`
+- [ ] Create `src/mcp/tools/transactions.tools.ts` — list, create, update, delete
+- [ ] Create `src/mcp/tools/accounts.tools.ts` — list, balances
+- [ ] Create `src/mcp/tools/budgets.tools.ts` — list, progress, remaining
+- [ ] Create `src/mcp/tools/reports.tools.ts` — spending by category, monthly summary
+- [ ] Add `--mcp-stdio` flag handling in `main.ts` for local client support
+- [ ] Register `McpModule` in `app.module.ts`
+
+### MCP App Resources
+- [ ] Create `src/mcp/apps/` directory (receives Vite build output from frontend)
+- [ ] Load app HTML files from disk on module init (`fs.readFileSync`)
+- [ ] Register `ui://spending-chart` resource (paired with `get-spending-by-category` tool)
+- [ ] Register `ui://transaction-list` resource (paired with transaction listing tool)
+- [ ] Register `ui://budget-overview` resource (paired with budget tools)
+- [ ] Graceful fallback when app HTML files are not present
+
+### Documentation
+- [ ] [Setting Up MCP Server](./mcp-setup.md) *(created)*
+- [ ] [Setting Up MCP Apps](./mcp-apps-setup.md) *(created)*
+- [ ] Add `.vscode/mcp.json` to workspace root for VS Code Copilot integration
+- [ ] Add Claude Desktop config example to README
+
+### Testing
+- [ ] `src/mcp/__TEST__/mcp.service.spec.ts` — tool registration, tool call delegation to services
+- [ ] `src/mcp/__TEST__/mcp.controller.spec.ts` — HTTP endpoints, guard behavior
+- [ ] `src/mcp/__TEST__/mcp.resources.spec.ts` — resource read, fallback when HTML missing
+- [ ] Manual test with MCP Inspector (`npx @modelcontextprotocol/inspector`)
+- [ ] Manual test in Claude Desktop (stdio)
+- [ ] Manual test via HTTP transport with curl
+
+### Security & Validation
+- [ ] All HTTP MCP endpoints behind `JwtAuthGuard`
+- [ ] All tool handlers scope queries to authenticated user ID
+- [ ] `stdio` mode: confirm process is spawned locally before enabling
+
+### Future (post-MVP)
+- [ ] OAuth 2.0 with dynamic client registration for official claude.ai Connectors
+- [ ] Per-tool rate limiting
+- [ ] MCP App for AI-powered transaction categorization suggestions
+- [ ] Subscription-based notifications via MCP streaming
+
+---
+
 ## Future Enhancements
 
 - [ ] Forgot password / password reset flow (`POST /auth/forgot-password` — send reset email with time-limited token; `POST /auth/reset-password` — validate token and set new password)
 - [ ] Recurring transactions
-- [ ] Transaction import (CSV, bank APIs)
 - [ ] Multi-currency support
 - [ ] Shared accounts (household mode)
 - [ ] Mobile app support

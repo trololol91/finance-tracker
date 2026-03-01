@@ -779,6 +779,261 @@ export interface TransactionTotals {
 
 ---
 
+## Phase 7: Transaction Import & Automated Sync UI
+
+**Priority:** MEDIUM
+**Backend Dependency:** Backend Phase 7 (Transaction Import & Automated Sync)
+**Timeline:** 3-5 days
+
+### Goals
+- File upload UI for manual CSV/OFX imports
+- Sync schedule management (create, enable/disable, run now)
+- Live sync status via SSE stream
+- MFA challenge modal (Path A — user is in the app)
+- Standalone `/mfa` page (Path B — user arrives from push notification or email link)
+- Web Push subscription + iOS Home Screen prompt
+- Service worker for background push notifications
+
+---
+
+### Task 1: File Import UI
+
+**Files:**
+```
+src/features/import/
+├── components/
+│   ├── FileImportDropzone.tsx    # drag-and-drop + click-to-browse; CSV and OFX/QFX only
+│   ├── ImportSummary.tsx         # imported N, skipped N, errors list
+│   └── index.ts
+├── hooks/
+│   └── useFileImport.ts          # wraps Orval mutation, handles multipart upload
+└── types/
+    └── (none — use Orval-generated types from src/api/model/)
+src/pages/ImportPage.tsx          # route: /import
+```
+
+**Behaviour:**
+- Accept `.csv`, `.ofx`, `.qfx` via drag-and-drop or file picker
+- Show file name + size preview before upload; allow cancel
+- On submit → `POST /transactions/import` (multipart/form-data)
+- Display `ImportSummary` when complete: imported count, skipped count, error list
+- Link "View transactions" to `/transactions` on success
+
+**Phase 7 Task 1 Checklist:**
+- [ ] `FileImportDropzone` with drag-over highlight and file type validation
+- [ ] Upload progress indicator
+- [ ] `ImportSummary` component displays all three counts
+- [ ] Error rows listed with line number + reason
+- [ ] Accessible (keyboard triggerable, ARIA live region for summary)
+- [ ] Unit tests for dropzone validation, summary rendering
+
+---
+
+### Task 2: Sync Schedule Management UI
+
+**Files:**
+```
+src/features/sync/
+├── components/
+│   ├── SyncScheduleList.tsx      # table/card list of user's schedules
+│   ├── SyncScheduleForm.tsx      # create/edit: bank picker (GET /scrapers), cron input, account picker
+│   ├── CronInput.tsx             # human-readable cron builder (daily, weekly, custom)
+│   └── index.ts
+├── hooks/
+│   └── useSyncSchedules.ts       # wraps Orval queries/mutations
+└── types/
+    └── (none — use Orval-generated types)
+src/pages/SyncPage.tsx            # route: /sync
+```
+
+**Behaviour:**
+- `GET /scrapers` populates bank picker — frontend never hardcodes bank names
+- Cron builder shows presets (Daily 8am, Weekly Monday 8am) + "Custom" free-text
+- Validate cron string client-side before submit (basic regex; server validates definitively)
+- Enable/disable toggle calls `PATCH /sync-schedules/:id`
+- "Run Now" button → `POST /sync-schedules/:id/run-now` → opens live sync status panel (Task 3)
+- Delete with confirmation dialog
+
+**Phase 7 Task 2 Checklist:**
+- [ ] Bank picker populated dynamically from `GET /scrapers`
+- [ ] Cron presets + custom input
+- [ ] Enable/disable toggle with optimistic update
+- [ ] Delete confirmation dialog
+- [ ] "Run Now" triggers sync and opens status panel
+- [ ] Unit tests for form validation, cron presets, bank picker
+
+---
+
+### Task 3: Live Sync Status & MFA Modal (SSE — Path A)
+
+This covers the experience when the user is actively in the app when a sync runs.
+
+**Files:**
+```
+src/features/sync/components/
+├── SyncStatusPanel.tsx           # floating panel or inline; shows current sync state
+├── SyncStatusStep.tsx            # individual step row (icon + label + spinner/check/error)
+└── MfaModal.tsx                  # modal with code input; shown on mfa_required SSE event
+src/hooks/
+└── useSyncStream.ts              # opens EventSource to GET /sync-schedules/:id/stream,
+                                  # maps SSE events → state machine
+```
+
+**SSE event → UI state machine:**
+```
+logging_in  →  "Logging in to [Bank]…"           (spinner)
+mfa_required → MfaModal opens automatically      (code input)
+importing   →  "Importing transactions…"          (spinner)
+complete    →  "Done — imported N transactions"   (✅, auto-close after 3s)
+failed      →  "Sync failed: <reason>"            (❌, dismiss button)
+```
+
+**`useSyncStream` hook:**
+```typescript
+// Opens an EventSource; returns { status, mfaPrompt, submitMfa, error }
+// On mfa_required: sets status='mfa_required', captures prompt string
+// submitMfa(code) → POST /sync-schedules/:id/mfa-response { code }
+// Closes EventSource on complete/failed
+```
+
+**`MfaModal` behaviour:**
+- Opens automatically when `status === 'mfa_required'`
+- Shows the `mfaPrompt` string from the SSE event (e.g. "Enter your card reader code")
+- Code input (numeric, max 8 chars) + Submit button
+- Disabled while submitting; shows spinner on submit
+- Does **not** have a Cancel — closing it would stall the worker
+- On submit → `POST .../mfa-response { code }` → modal closes, status returns to spinner
+
+**Phase 7 Task 3 Checklist:**
+- [ ] `useSyncStream` opens/closes EventSource correctly; handles reconnect on network drop
+- [ ] All five SSE states render correctly in `SyncStatusPanel`
+- [ ] `MfaModal` opens automatically on `mfa_required`; cannot be dismissed
+- [ ] Code submission disables input + shows spinner
+- [ ] `complete` state auto-closes panel and invalidates the transactions React Query cache
+- [ ] Unit tests for state machine transitions
+- [ ] Accessibility: focus moves into modal when it opens; focus trap; ARIA live region for status updates
+
+---
+
+### Task 4: Standalone MFA Page (Path B — push notification / email)
+
+When the user is **not** in the app, the push notification or email link opens `/mfa?session=<token>` — a minimal page that does not require full app navigation.
+
+**Files:**
+```
+src/pages/MfaPage.tsx             # route: /mfa  (public — no auth guard needed, token is the credential)
+src/features/sync/components/
+└── MfaCodeForm.tsx               # shared between MfaModal (Task 3) and MfaPage (Task 4)
+```
+
+**Behaviour:**
+- Reads `?session=<token>` from the URL
+- Shows bank name + prompt if available (can be embedded in the token or fetched via `GET /sync-session/:token`)
+- Same `MfaCodeForm` component as the modal — code input + Submit
+- On submit → `POST /sync-schedules/:id/mfa-response { sessionId: token, code }`
+- Success state: "Code submitted — your sync will continue automatically. You can close this page."
+- Expired/invalid token state: "This link has expired or already been used."
+- No navigation links — this page is intentionally minimal
+
+**Phase 7 Task 4 Checklist:**
+- [ ] Reads `session` query param; shows error for missing/invalid token
+- [ ] Submits to mfa-response endpoint; shows success/error result
+- [ ] `MfaCodeForm` is the same component used in `MfaModal` (no duplication)
+- [ ] Page is accessible without being logged in (no `ProtectedRoute` wrapper)
+- [ ] Unit tests for token parsing, success state, expired state
+
+---
+
+### Task 5: Web Push Subscription & Service Worker
+
+**Files:**
+```
+public/sw.js                      # service worker (plain JS — not bundled by Vite)
+src/features/notifications/
+├── components/
+│   └── PushPermissionBanner.tsx  # "Enable notifications" prompt shown after first login
+├── hooks/
+│   └── usePushNotifications.ts   # permission request → subscribe → POST /push/subscribe
+└── index.ts
+```
+
+**`public/sw.js`** — handles push events in the background:
+```javascript
+self.addEventListener('push', (event) => {
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification('Finance Tracker', {
+      body: data.body,               // e.g. "CIBC sync needs your MFA code"
+      icon: '/icons/icon-192.png',
+      data: { url: data.url },       // e.g. "/mfa?session=xyz"
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data.url));
+});
+```
+
+**`usePushNotifications` hook:**
+```typescript
+// 1. navigator.serviceWorker.register('/sw.js')
+// 2. Notification.requestPermission()
+// 3. pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY })
+// 4. POST /push/subscribe with the PushSubscription object
+// 5. On logout → DELETE /push/subscribe
+```
+
+**`PushPermissionBanner`:**
+- Shown once after first login if `Notification.permission === 'default'`
+- On iOS: also shows "Add to Home Screen" instruction (detected via `navigator.standalone === false && /iPhone|iPad/.test(navigator.userAgent)`)
+- Dismissible; preference stored in localStorage so it doesn't reappear
+- iOS < 16.4 (push not supported): banner text changes to "Add to Home Screen to receive sync notifications via push"
+
+**Phase 7 Task 5 Checklist:**
+- [ ] Service worker registered on app load
+- [ ] `PushPermissionBanner` shown once after login (not on every page load)
+- [ ] Permission granted → subscribe → `POST /push/subscribe`
+- [ ] iOS Home Screen instruction shown on compatible Safari
+- [ ] Banner correctly hidden on iOS < 16.4 when push is not supported
+- [ ] On logout → `DELETE /push/subscribe` and unsubscribe from `pushManager`
+- [ ] `VITE_VAPID_PUBLIC_KEY` env var consumed by the hook
+- [ ] Unit tests for banner display conditions; mock `Notification` API
+
+---
+
+### Phase 7 Checklist
+
+Apply Standard Checklist (Core Implementation, API Integration, State Management, Testing, Accessibility, Documentation) plus:
+
+- [ ] **Service Worker:** `public/sw.js` handles push events and notification click
+- [ ] **SSE:** `useSyncStream` opens `EventSource`, maps all 5 event types to UI state
+- [ ] **MFA Modal:** auto-opens on `mfa_required`; focus trap; cannot dismiss mid-sync
+- [ ] **Standalone MFA Page:** `/mfa?session=<token>` works without auth; handles expired token
+- [ ] **Push Banner:** shown once after login; iOS detection correct
+- [ ] **`MfaCodeForm`:** single component shared between modal and standalone page
+- [ ] Route `/mfa` added to router (public, no auth guard)
+- [ ] Route `/sync` added to router (protected)
+- [ ] Route `/import` added to router (protected)
+- [ ] `VITE_VAPID_PUBLIC_KEY` documented in `.env.example`
+
+### Validation Criteria
+
+- File import: can upload CSV and OFX; summary shows correct counts; errors listed
+- Sync schedule: bank picker populated from API; can create/edit/delete/enable-disable
+- Live sync: "Run Now" shows real-time steps; MFA modal opens automatically when required
+- MFA modal: code submission unpauses sync; modal closes on success
+- Standalone MFA page: opening `/mfa?session=<token>` from email/push works without logging in
+- Push notification: permission banner appears after login; granting permission subscribes correctly
+- Service worker: push notification received in background opens `/mfa` page on tap
+- iOS 16.4+ PWA: push notification works when app is added to Home Screen
+- iOS < 16.4: banner shows Home Screen instruction instead of push prompt
+
+**Estimated Time:** 3-5 days
+
+---
+
 ## Development Best Practices
 
 ### Component Architecture
@@ -876,6 +1131,49 @@ npm run preview
 
 ---
 
+## Phase N: MCP App UIs
+
+**Goal:** Build interactive mini-application UIs that run inside AI chat interfaces (Claude, VS Code Copilot, ChatGPT) as sandboxed iframes, served over MCP by the backend.
+
+**Depends on:** Backend Phase 9 (MCP Server)
+
+### Core Implementation
+- [ ] Install `@modelcontextprotocol/ext-apps` — official MCP Apps React SDK
+- [ ] Create `vite.mcp-apps.config.ts` — dedicated Vite config that outputs self-contained HTML to `packages/backend/src/mcp/apps/`
+- [ ] Add `build:mcp-apps` script to `package.json`
+- [ ] Create `src/mcp-apps/spending-chart/` — spending breakdown by category (bar/pie chart)
+- [ ] Create `src/mcp-apps/transaction-list/` — transaction list with inline filtering
+- [ ] Create `src/mcp-apps/budget-overview/` — budget vs. actuals progress bars
+- [ ] Integrate `useApp`, `useHostStyles`, `applyHostStyleVariables` in each app
+- [ ] Ensure all assets (JS, CSS, fonts) are inlined — no external CDN references
+
+### API Integration
+- [ ] Each app receives data via MCP `tool-result` `postMessage` events (not HTTP)
+- [ ] Use `registerAppTool` to bind tool call results to component state
+- [ ] Handle loading / empty / error states for all tool-result shapes
+
+### State Management
+- [ ] Apps are stateless at startup — all data arrives via `postMessage` from host
+- [ ] Local UI state only (React `useState`) — no Redux, no TanStack Query
+
+### Testing
+- [ ] Vitest unit tests for each app component (mock `useApp` hook)
+- [ ] Test that `applyHostStyleVariables` is called with host styles
+- [ ] Test all data display cases: loaded, empty, error
+- [ ] Build test: confirm `npm run build:mcp-apps` produces valid HTML files
+- [ ] Manual test in VS Code Copilot with MCP server running
+
+### Accessibility
+- [ ] Semantic HTML in charts (table fallback for screen readers)
+- [ ] Aria labels on interactive controls
+- [ ] Host colour variables used via CSS custom properties (no hardcoded colours)
+
+### Documentation
+- [ ] [MCP Apps Setup — full guide](../../backend/docs/mcp-apps-setup.md)
+- [ ] Update component README with build instructions
+
+---
+
 ## Milestones
 
 - **Milestone 1:** Authentication UI complete (login, register, protected routes)
@@ -883,6 +1181,7 @@ npm run preview
 - **Milestone 3:** Transaction CRUD and filtering complete (MVP)
 - **Milestone 4:** Dashboard and analytics
 - **Milestone 5:** Categories and accounts management
+- **Milestone 6:** Import & sync UI complete (file upload, sync schedules, SSE live status, MFA modal + standalone page, Web Push)
 
 **Total Estimated Time (Phases 1-3):** 8-11 days
 
@@ -905,13 +1204,12 @@ npm run preview
 - [ ] Onboarding tour for new users
 - [ ] Bulk operations (select multiple transactions)
 - [ ] Export transactions to CSV
-- [ ] Import transactions from CSV
-- [ ] Drag-and-drop file upload
+- [ ] Drag-and-drop file upload (CSV/OFX — covered in Phase 7)
 - [ ] Undo/redo functionality
 
 ### Performance
 - [ ] Implement virtual scrolling for transaction list
-- [ ] Add service worker for offline support
+- [ ] Extend service worker for offline support (service worker added in Phase 7)
 - [ ] Optimize images and assets
 - [ ] Lazy load routes
 - [ ] Add request caching strategy
@@ -933,6 +1231,15 @@ Backend Phase 2 (Auth) ────────► Frontend Phase 1 (Auth UI)
 Backend Phase 3 (Users) ───────► Frontend Phase 2 (Profile)
                                         │
 Backend Phase 4 (Transactions) ─► Frontend Phase 3 (Transactions UI)
+                                        │
+Backend Phase 7 (Import/Sync) ──► Frontend Phase 7 (Import & Sync UI)
+     (scraper, SSE, MFA,               ├─ File import dropzone
+      web push, notifications)         ├─ Sync schedule management
+                                       ├─ SSE live status + MFA modal
+                                       ├─ Standalone /mfa page
+                                       └─ Service worker + push subscription
+
+Backend Phase 9 (MCP Server) ──► Frontend Phase N (MCP App UIs)
 ```
 
 **Note:** Frontend phases can start 1-2 days after corresponding backend phase is complete and deployed to development environment.
