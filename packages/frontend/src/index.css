@@ -27,6 +27,16 @@
     --color-danger-bg: #1c0707;
     --color-danger-ring: rgba(248, 113, 113, 0.2);
 
+    /* Colors — Success / Income / Expense */
+    --color-success: #4ade80;
+    --color-success-hover: #86efac;
+    --color-success-bg: rgba(74, 222, 128, 0.08);
+    --color-success-border: rgba(74, 222, 128, 0.3);
+    --color-income: #4ade80;
+    --color-expense: #f87171;
+    --color-transfer: #60a5fa;
+    --color-warning: #fbbf24;
+
     /* Typography */
     --font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
     --font-size-xs: 0.75rem;

@@ -1,0 +1,107 @@
+.tx-item {
+    border-bottom: 1px solid var(--color-gray-200);
+    transition: background var(--transition-fast);
+}
+
+.tx-item:hover {
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.tx-item--inactive {
+    opacity: 0.55;
+}
+
+.tx-item td {
+    padding: 0.75rem 0.875rem;
+    font-size: var(--font-size-sm);
+    vertical-align: middle;
+    color: var(--color-gray-700);
+}
+
+.tx-item__date {
+    white-space: nowrap;
+    color: var(--color-gray-500) !important;
+}
+
+.tx-item__description {
+    max-width: 22rem;
+}
+
+.tx-item__desc-text {
+    display: block;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-gray-900) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tx-item__notes {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--color-gray-500) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tx-item__amount {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: var(--font-weight-semibold) !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.tx-item__amount--income {
+    color: var(--color-income) !important;
+}
+
+.tx-item__amount--expense {
+    color: var(--color-expense) !important;
+}
+
+.tx-item__amount--transfer {
+    color: var(--color-transfer) !important;
+}
+
+.tx-item__type {
+    white-space: nowrap;
+}
+
+.tx-item__badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: capitalize;
+}
+
+.tx-item__badge--income {
+    background: color-mix(in srgb, var(--color-income) 15%, transparent);
+    color: var(--color-income);
+}
+
+.tx-item__badge--expense {
+    background: color-mix(in srgb, var(--color-expense) 15%, transparent);
+    color: var(--color-expense);
+}
+
+.tx-item__badge--transfer {
+    background: color-mix(in srgb, var(--color-transfer) 15%, transparent);
+    color: var(--color-transfer);
+}
+
+.tx-item__status {
+    white-space: nowrap;
+}
+
+.tx-item__inactive-badge {
+    font-size: var(--font-size-xs);
+    color: var(--color-gray-400);
+    font-style: italic;
+}
+
+.tx-item__actions {
+    text-align: right;
+}

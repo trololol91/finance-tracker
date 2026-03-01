@@ -1,0 +1,37 @@
+.tx-page {
+    min-height: 100vh;
+    background-color: var(--color-gray-100);
+    padding: 2rem 1rem;
+}
+
+.tx-page__inner {
+    max-width: var(--max-width-content);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.tx-page__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.tx-page__title {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-gray-900);
+    margin: 0;
+}
+
+@media (max-width: 480px) {
+    .tx-page {
+        padding: 1rem 0.75rem;
+    }
+
+    .tx-page__title {
+        font-size: var(--font-size-2xl);
+    }
+}

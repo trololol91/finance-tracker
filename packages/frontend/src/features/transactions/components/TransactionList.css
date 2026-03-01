@@ -1,0 +1,65 @@
+.tx-list {
+    background: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.tx-list--centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 12rem;
+    padding: 2rem;
+}
+
+.tx-list__scroll {
+    overflow-x: auto;
+}
+
+.tx-list__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tx-list__th {
+    padding: 0.75rem 0.875rem;
+    text-align: left;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--color-gray-200);
+    background: var(--color-gray-50);
+    white-space: nowrap;
+}
+
+.tx-list__th--right {
+    text-align: right;
+}
+
+.tx-list__error {
+    color: var(--color-danger);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.tx-list__empty {
+    color: var(--color-gray-500);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+/* Visually hide "Actions" column header while keeping it accessible */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
