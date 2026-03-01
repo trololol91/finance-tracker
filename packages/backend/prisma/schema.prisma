@@ -24,6 +24,15 @@ enum TransactionType {
   transfer
 }
 
+enum AccountType {
+  checking
+  savings
+  credit
+  investment
+  loan
+  other
+}
+
 model User {
   id             String    @id @default(uuid()) @db.Uuid
   email          String    @unique
@@ -50,6 +59,7 @@ model User {
   // Relations
   transactions   Transaction[]
   categories     Category[]
+  accounts       Account[]
 
   @@map("users")
 }
@@ -84,6 +94,7 @@ model Transaction {
   // Relations
   user            User            @relation(fields: [userId], references: [id])
   category        Category?       @relation(fields: [categoryId], references: [id])
+  account         Account?        @relation(fields: [accountId], references: [id])
 
   @@index([userId])
   @@index([userId, date])
@@ -117,4 +128,31 @@ model Category {
   @@index([userId])
   @@index([userId, isActive])
   @@map("categories")
+}
+
+model Account {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @map("user_id") @db.Uuid
+
+  name           String
+  type           AccountType @default(other)
+  institution    String?
+  currency       String      @default("CAD")
+  openingBalance Decimal     @default(0) @map("opening_balance") @db.Decimal(12, 2)
+  color          String?
+  notes          String?
+
+  isActive       Boolean     @default(true) @map("is_active")
+
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @updatedAt      @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user           User        @relation(fields: [userId], references: [id])
+  transactions   Transaction[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([userId, isActive])
+  @@map("accounts")
 }

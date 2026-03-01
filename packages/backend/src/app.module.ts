@@ -8,6 +8,7 @@ import {TransactionsModule} from '#transactions/transactions.module.js';
 import {UsersModule} from '#users/users.module.js';
 import {AuthModule} from '#auth/auth.module.js';
 import {CategoriesModule} from '#categories/categories.module.js';
+import {AccountsModule} from '#accounts/accounts.module.js';
 
 @Module({
     imports: [
@@ -20,7 +21,8 @@ import {CategoriesModule} from '#categories/categories.module.js';
         UsersModule,
         AuthModule,
         TransactionsModule,
-        CategoriesModule
+        CategoriesModule,
+        AccountsModule
     ],
     controllers: [AppController],
     providers: [AppService]
