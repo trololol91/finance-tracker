@@ -27,6 +27,8 @@ export interface AuthContextType {
     token: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
+    /** Non-null when auth initialisation failed due to a network error (not a 401). */
+    authError: string | null;
     login: (email: string, password: string) => Promise<void>;
     register: (data: CreateUserDto) => Promise<void>;
     logout: () => void;

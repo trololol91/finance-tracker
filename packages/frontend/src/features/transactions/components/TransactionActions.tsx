@@ -22,6 +22,8 @@ export const TransactionActions = ({
     const [isOpen, setIsOpen] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const [menuPos, setMenuPos] = useState<{top: number, right: number} | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -35,6 +37,22 @@ export const TransactionActions = ({
         return (): void => { document.removeEventListener('mousedown', handleClickOutside); };
     }, [isOpen]);
 
+    // Keep the fixed-position menu in sync with the trigger while open
+    useEffect(() => {
+        if (!isOpen) return;
+        const update = (): void => {
+            if (!triggerRef.current) return;
+            const rect = triggerRef.current.getBoundingClientRect();
+            setMenuPos({top: rect.bottom + 4, right: window.innerWidth - rect.right});
+        };
+        window.addEventListener('scroll', update, true);
+        window.addEventListener('resize', update);
+        return (): void => {
+            window.removeEventListener('scroll', update, true);
+            window.removeEventListener('resize', update);
+        };
+    }, [isOpen]);
+
     const handleKeyDown = (e: React.KeyboardEvent): void => {
         if (e.key === 'Escape') {
             setIsOpen(false);
@@ -42,12 +60,21 @@ export const TransactionActions = ({
         }
     };
 
+    const handleToggle = (): void => {
+        if (!isOpen && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setMenuPos({top: rect.bottom + 4, right: window.innerWidth - rect.right});
+        }
+        setIsOpen((prev) => !prev);
+    };
+
     return (
         <div className="tx-actions" ref={menuRef} onKeyDown={handleKeyDown}>
             <button
+                ref={triggerRef}
                 type="button"
                 className="tx-actions__trigger"
-                onClick={() => { setIsOpen((prev) => !prev); }}
+                onClick={handleToggle}
                 aria-label={`Actions for ${transaction.description}`}
                 aria-haspopup="menu"
                 aria-expanded={isOpen}
@@ -56,8 +83,12 @@ export const TransactionActions = ({
                 &#8942;
             </button>
 
-            {isOpen && (
-                <div className="tx-actions__menu" role="menu">
+            {isOpen && menuPos !== null && (
+                <div
+                    className="tx-actions__menu"
+                    role="menu"
+                    style={{position: 'fixed', top: menuPos.top, right: menuPos.right}}
+                >
                     {!showConfirm ? (
                         <>
                             <button

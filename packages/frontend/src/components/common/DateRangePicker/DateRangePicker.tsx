@@ -27,31 +27,36 @@ const getPresetRange = (preset: DatePreset): DateRange | null => {
     const now = new Date();
     switch (preset) {
         case 'today': {
-            const d = now.toISOString().substring(0, 10);
+            const y = now.getUTCFullYear(), m = now.getUTCMonth(), d = now.getUTCDate();
             return {
-                startDate: new Date(`${d}T00:00:00`).toISOString(),
-                endDate: new Date(`${d}T23:59:59`).toISOString()
+                startDate: new Date(Date.UTC(y, m, d, 0, 0, 0, 0)).toISOString(),
+                endDate: new Date(Date.UTC(y, m, d, 23, 59, 59, 999)).toISOString()
             };
         }
         case 'this-week': {
-            const day = now.getDay();
-            const monday = new Date(now);
-            monday.setDate(now.getDate() - ((day + 6) % 7));
-            monday.setHours(0, 0, 0, 0);
+            const day = now.getUTCDay();
+            const monday = new Date(Date.UTC(
+                now.getUTCFullYear(), now.getUTCMonth(),
+                now.getUTCDate() - ((day + 6) % 7), 0, 0, 0, 0
+            ));
             const sunday = new Date(monday);
-            sunday.setDate(monday.getDate() + 6);
-            sunday.setHours(23, 59, 59, 999);
+            sunday.setUTCDate(monday.getUTCDate() + 6);
+            sunday.setUTCHours(23, 59, 59, 999);
             return {startDate: monday.toISOString(), endDate: sunday.toISOString()};
         }
         case 'this-month': {
-            const start = new Date(now.getFullYear(), now.getMonth(), 1);
-            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-            return {startDate: start.toISOString(), endDate: end.toISOString()};
+            const y = now.getUTCFullYear(), m = now.getUTCMonth();
+            return {
+                startDate: new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)).toISOString(),
+                endDate: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)).toISOString()
+            };
         }
         case 'this-year': {
-            const start = new Date(now.getFullYear(), 0, 1);
-            const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-            return {startDate: start.toISOString(), endDate: end.toISOString()};
+            const y = now.getUTCFullYear();
+            return {
+                startDate: new Date(Date.UTC(y, 0, 1, 0, 0, 0, 0)).toISOString(),
+                endDate: new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999)).toISOString()
+            };
         }
         default:
             return null;
@@ -93,16 +98,18 @@ export const DateRangePicker = (
     };
 
     const handleCustomStart = (e: React.ChangeEvent<HTMLInputElement>): void => {
+        const [y, mo, d] = e.target.value.split('-').map(Number);
         onChange({
-            startDate: new Date(`${e.target.value}T00:00:00`).toISOString(),
+            startDate: new Date(Date.UTC(y, mo - 1, d, 0, 0, 0, 0)).toISOString(),
             endDate
         });
     };
 
     const handleCustomEnd = (e: React.ChangeEvent<HTMLInputElement>): void => {
+        const [y, mo, d] = e.target.value.split('-').map(Number);
         onChange({
             startDate,
-            endDate: new Date(`${e.target.value}T23:59:59`).toISOString()
+            endDate: new Date(Date.UTC(y, mo - 1, d, 23, 59, 59, 999)).toISOString()
         });
     };
 

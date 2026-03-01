@@ -5,7 +5,8 @@ import {useQueryClient} from '@tanstack/react-query';
 import {
     useTransactionsControllerCreate,
     useTransactionsControllerUpdate,
-    getTransactionsControllerFindAllQueryKey
+    getTransactionsControllerFindAllQueryKey,
+    getTransactionsControllerGetTotalsQueryKey
 } from '@/api/transactions/transactions.js';
 import type {CreateTransactionDtoTransactionType} from '@/api/model/createTransactionDtoTransactionType.js';
 import type {CreateTransactionDto} from '@/api/model/createTransactionDto.js';
@@ -127,6 +128,10 @@ export const useTransactionForm = ({
             const afterSave = (): void => {
                 void queryClient.invalidateQueries({
                     queryKey: queryKey ?? getTransactionsControllerFindAllQueryKey(),
+                    exact: false
+                });
+                void queryClient.invalidateQueries({
+                    queryKey: getTransactionsControllerGetTotalsQueryKey(),
                     exact: false
                 });
                 onSuccess();

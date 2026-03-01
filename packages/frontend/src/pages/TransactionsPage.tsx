@@ -13,7 +13,8 @@ import {useTransactionForm} from '@features/transactions/hooks/useTransactionFor
 import {
     useTransactionsControllerRemove,
     useTransactionsControllerToggleActive,
-    getTransactionsControllerFindAllQueryKey
+    getTransactionsControllerFindAllQueryKey,
+    getTransactionsControllerGetTotalsQueryKey
 } from '@/api/transactions/transactions.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@pages/TransactionsPage.css';
@@ -23,7 +24,8 @@ export const TransactionsPage = (): React.JSX.Element => {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const {
-        filters, apiParams, data, isLoading, isError, updateFilter, clearFilters, setPage, queryKey
+        filters, apiParams, data, isLoading, isError,
+        updateFilter, setDateRange, clearFilters, setPage, queryKey
     } = useTransactionFilters();
 
     const handleSuccess = useCallback((): void => {
@@ -61,6 +63,10 @@ export const TransactionsPage = (): React.JSX.Element => {
                             queryKey: getTransactionsControllerFindAllQueryKey(apiParams),
                             exact: false
                         });
+                        void queryClient.invalidateQueries({
+                            queryKey: getTransactionsControllerGetTotalsQueryKey(),
+                            exact: false
+                        });
                     }
                 }
             );
@@ -76,6 +82,10 @@ export const TransactionsPage = (): React.JSX.Element => {
                     onSuccess: (): void => {
                         void queryClient.invalidateQueries({
                             queryKey: getTransactionsControllerFindAllQueryKey(apiParams),
+                            exact: false
+                        });
+                        void queryClient.invalidateQueries({
+                            queryKey: getTransactionsControllerGetTotalsQueryKey(),
                             exact: false
                         });
                     }
@@ -110,6 +120,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                 <TransactionFilters
                     filters={filters}
                     onFilterChange={updateFilter}
+                    onDateRangeChange={setDateRange}
                     onClear={clearFilters}
                 />
 

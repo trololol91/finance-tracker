@@ -10,17 +10,18 @@ import '@features/transactions/components/TransactionFilters.css';
 interface TransactionFiltersProps {
     filters: TransactionFilterState;
     onFilterChange: (key: keyof TransactionFilterState, value: string | number) => void;
+    onDateRangeChange: (startDate: string, endDate: string) => void;
     onClear: () => void;
 }
 
 export const TransactionFilters = ({
     filters,
     onFilterChange,
+    onDateRangeChange,
     onClear
 }: TransactionFiltersProps): React.JSX.Element => {
     const handleDateRange = (range: {startDate: string, endDate: string}): void => {
-        onFilterChange('startDate', range.startDate);
-        onFilterChange('endDate', range.endDate);
+        onDateRangeChange(range.startDate, range.endDate);
     };
 
     return (

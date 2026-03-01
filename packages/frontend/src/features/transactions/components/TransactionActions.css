@@ -29,10 +29,9 @@
 }
 
 .tx-actions__menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 4px);
-    z-index: 100;
+    /* position is set via inline style (position: fixed) so the menu
+       escapes any overflow:hidden ancestor (e.g. the .tx-list table wrapper) */
+    z-index: 200;
     background: var(--color-white);
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-lg);

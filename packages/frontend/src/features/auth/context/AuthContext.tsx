@@ -46,24 +46,42 @@ const mapToUser = (dto: UserResponseDto): User => ({
 });
 
 /**
- * Validate a stored token by calling GET /auth/me.
- * Returns the full user profile on success, or null if the token is
- * invalid/expired (network errors are treated as invalid).
+ * Thrown when the backend returns 401 / 403 — token is expired or invalid.
+ * The stored token should be cleared.
  */
-const fetchCurrentUser = async (): Promise<User | null> => {
+class AuthExpiredError extends Error {
+    constructor() { super('Auth token expired or invalid'); }
+}
+
+/**
+ * Thrown when the backend is unreachable or returns 5xx.
+ * The stored token should be preserved so the user is not logged out
+ * during a transient network outage.
+ */
+class NetworkError extends Error {
+    constructor(message: string) { super(message); }
+}
+
+/**
+ * Validate a stored token by calling GET /auth/me.
+ * Throws AuthExpiredError on 401/403, NetworkError on everything else.
+ */
+const fetchCurrentUser = async (): Promise<User> => {
     try {
         const profile = await authControllerGetProfile();
         return mapToUser(profile);
-    } catch {
-        return null;
+    } catch (err: unknown) {
+        const status = (err as {response?: {status?: number}}).response?.status;
+        if (status === 401 || status === 403) throw new AuthExpiredError();
+        throw new NetworkError(err instanceof Error ? err.message : 'Network error');
     }
 };
 
 /**
  * Validate the stored token against the backend and populate auth state.
  * If the token is missing, does nothing.
- * If the token is present but invalid, clears auth storage.
- * Throws if localStorage itself is unavailable (propagates to caller).
+ * Throws AuthExpiredError if the token is invalid/expired.
+ * Throws NetworkError if the backend is unreachable.
  */
 const initializeAuth = async (
     setToken: React.Dispatch<React.SetStateAction<string | null>>,
@@ -74,16 +92,12 @@ const initializeAuth = async (
         return;
     }
 
-    // Token exists — validate with backend to get fresh profile data
+    // Token exists — validate with backend to get fresh profile data.
+    // fetchCurrentUser throws on failure; let the caller handle it.
     const user = await fetchCurrentUser();
-    if (user) {
-        authStorage.saveUser(user);
-        setToken(storedToken);
-        setUser(user);
-    } else {
-        // Token invalid or expired
-        authStorage.clearAuth();
-    }
+    authStorage.saveUser(user);
+    setToken(storedToken);
+    setUser(user);
 };
 
 /**
@@ -94,13 +108,24 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [authError, setAuthError] = useState<string | null>(null);
 
     useEffect(() => {
         const init = async (): Promise<void> => {
             try {
                 await initializeAuth(setToken, setUser);
             } catch (error) {
-                console.error('Failed to initialize auth:', error);
+                if (error instanceof AuthExpiredError) {
+                    // Token is definitively invalid — clear storage.
+                    // PrivateRoute will redirect to /login naturally.
+                    authStorage.clearAuth();
+                } else if (error instanceof NetworkError) {
+                    // Backend is temporarily unreachable — preserve the token and
+                    // show a user-visible message instead of silently redirecting.
+                    setAuthError('Unable to reach the server. Please check your connection.');
+                } else {
+                    console.error('[AuthContext] Unexpected auth init error:', error);
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -154,11 +179,36 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
         token,
         isAuthenticated,
         isLoading,
+        authError,
         login,
         register,
         logout,
         updateUser
     };
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return (
+        <AuthContext.Provider value={value}>
+            {authError !== null && (
+                <div
+                    role="alert"
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        zIndex: 9999,
+                        background: '#fef3c7',
+                        borderBottom: '1px solid #f59e0b',
+                        color: '#92400e',
+                        padding: '0.75rem 1.5rem',
+                        textAlign: 'center',
+                        fontWeight: 500
+                    }}
+                >
+                    {authError}
+                </div>
+            )}
+            {children}
+        </AuthContext.Provider>
+    );
 };

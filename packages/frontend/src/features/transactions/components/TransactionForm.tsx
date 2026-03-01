@@ -13,6 +13,7 @@ interface TransactionFormProps {
     errors: FormErrors;
     editTarget: TransactionResponseDto | null;
     isSubmitting: boolean;
+    amountRef?: React.RefObject<HTMLInputElement>;
     onFieldChange: (field: keyof TransactionFormValues, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     onCancel: () => void;
@@ -29,6 +30,7 @@ export const TransactionForm = ({
     errors,
     editTarget,
     isSubmitting,
+    amountRef,
     onFieldChange,
     onSubmit,
     onCancel
@@ -39,6 +41,7 @@ export const TransactionForm = ({
         <form id="transaction-form" className="tx-form" onSubmit={onSubmit} noValidate>
             <div className="tx-form__grid">
                 <Input
+                    ref={amountRef}
                     label="Amount *"
                     type="number"
                     step="0.01"

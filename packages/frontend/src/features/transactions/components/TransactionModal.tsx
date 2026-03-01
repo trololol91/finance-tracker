@@ -8,6 +8,10 @@ import '@features/transactions/components/TransactionModal.css';
 
 type FormErrors = Partial<Record<keyof TransactionFormValues, string>>;
 
+/** CSS selector matching all interactive elements that participate in Tab order. */
+const FOCUSABLE_SELECTOR =
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 interface TransactionModalProps {
     isOpen: boolean;
     editTarget: TransactionResponseDto | null;
@@ -30,15 +34,52 @@ export const TransactionModal = ({
     onClose
 }: TransactionModalProps): React.JSX.Element | null => {
     const dialogRef = useRef<HTMLDialogElement>(null);
+    const amountInputRef = useRef<HTMLInputElement>(null);
 
+    // BUG-07: safe showModal() — try/catch prevents InvalidStateError under StrictMode
+    // double-invoke when the dialog is already in the top layer.
     useEffect(() => {
         const dialog = dialogRef.current;
         if (!dialog) return;
         if (isOpen) {
-            if (!dialog.open) dialog.showModal();
+            if (!dialog.open) {
+                try { dialog.showModal(); } catch { /* already in top layer */ }
+            }
         } else {
             if (dialog.open) dialog.close();
         }
+    }, [isOpen]);
+
+    // BUG-05: move initial focus to the Amount field, not the Close button.
+    useEffect(() => {
+        if (!isOpen) return;
+        const id = requestAnimationFrame(() => {
+            amountInputRef.current?.focus();
+        });
+        return (): void => { cancelAnimationFrame(id); };
+    }, [isOpen]);
+
+    // BUG-06: focus trap — Tab/Shift+Tab must cycle within the dialog only.
+    useEffect(() => {
+        if (!isOpen) return;
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const handleTab = (e: KeyboardEvent): void => {
+            if (e.key !== 'Tab') return;
+            const focusable = Array.from(
+                dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+            );
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey) {
+                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+            } else {
+                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+        };
+        dialog.addEventListener('keydown', handleTab);
+        return (): void => { dialog.removeEventListener('keydown', handleTab); };
     }, [isOpen]);
 
     useEffect(() => {
@@ -56,15 +97,17 @@ export const TransactionModal = ({
     const title = editTarget !== null ? 'Edit Transaction' : 'Add Transaction';
 
     return (
+        // BUG-06: aria-modal + aria-labelledby replace the earlier aria-label.
         <dialog
             ref={dialogRef}
             className="tx-modal"
-            aria-label={title}
+            aria-modal="true"
+            aria-labelledby="tx-modal-title"
             onClick={handleBackdropClick}
         >
             <div className="tx-modal__content">
                 <div className="tx-modal__header">
-                    <h2 className="tx-modal__title">{title}</h2>
+                    <h2 id="tx-modal-title" className="tx-modal__title">{title}</h2>
                     <button
                         type="button"
                         className="tx-modal__close"
@@ -79,6 +122,7 @@ export const TransactionModal = ({
                     errors={errors}
                     editTarget={editTarget}
                     isSubmitting={isSubmitting}
+                    amountRef={amountInputRef}
                     onFieldChange={onFieldChange}
                     onSubmit={onSubmit}
                     onCancel={onClose}

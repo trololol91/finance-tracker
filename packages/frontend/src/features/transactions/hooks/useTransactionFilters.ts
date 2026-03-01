@@ -12,12 +12,15 @@ import type {
     TransactionFilterState, TransactionType
 } from '@features/transactions/types/transaction.types.js';
 
-/** Returns the ISO range for the current calendar month. */
+/** Returns the ISO range for the current calendar month using UTC boundaries. */
 const getThisMonthRange = (): {startDate: string, endDate: string} => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    return {startDate: start.toISOString(), endDate: end.toISOString()};
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    return {
+        startDate: new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)).toISOString(),
+        endDate: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)).toISOString()
+    };
 };
 
 interface UseTransactionFiltersReturn {
@@ -27,6 +30,7 @@ interface UseTransactionFiltersReturn {
     isLoading: boolean;
     isError: boolean;
     updateFilter: (key: keyof TransactionFilterState, value: string | number) => void;
+    setDateRange: (startDate: string, endDate: string) => void;
     clearFilters: () => void;
     setPage: (page: number) => void;
     queryKey: ReturnType<typeof getTransactionsControllerFindAllQueryKey>;
@@ -83,6 +87,19 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
         [setSearchParams]
     );
 
+    const setDateRange = useCallback(
+        (start: string, end: string): void => {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('startDate', start);
+                next.set('endDate', end);
+                next.set('page', '1');
+                return next;
+            });
+        },
+        [setSearchParams]
+    );
+
     const clearFilters = useCallback((): void => {
         const {startDate, endDate} = getThisMonthRange();
         setSearchParams({
@@ -112,6 +129,7 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
         isLoading,
         isError,
         updateFilter,
+        setDateRange,
         clearFilters,
         setPage,
         queryKey: getTransactionsControllerFindAllQueryKey(apiParams)
