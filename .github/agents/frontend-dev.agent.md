@@ -72,4 +72,6 @@ Implement frontend features completely: page component, feature components, hook
    - Body: what changed, files created/modified counts, test count
    - Include the task's tests in the same commit as the implementation
    - Run `git add packages/frontend/<specific-files>` then `git commit`
+   - **Never use `--no-verify`** — pre-commit hooks (lint, tests, coverage) must pass cleanly
+   - If `npm test` or `npm run test:coverage` fails before committing, **hand off to the `test-writer` agent** to fix the tests rather than bypassing hooks
    - Never batch multiple unrelated tasks into a single commit

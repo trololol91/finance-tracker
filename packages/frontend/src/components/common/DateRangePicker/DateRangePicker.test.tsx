@@ -56,4 +56,14 @@ describe('DateRangePicker', () => {
         fireEvent.change(fromInput, {target: {value: '2026-01-01'}});
         expect(onChange).toHaveBeenCalled();
     });
+
+    it('calls onChange when custom end date changes', async () => {
+        const onChange = vi.fn();
+        const user = userEvent.setup();
+        render(<DateRangePicker {...defaultProps} onChange={onChange} />);
+        await user.click(screen.getByRole('button', {name: /custom/i}));
+        const toInput = screen.getByLabelText(/to/i);
+        fireEvent.change(toInput, {target: {value: '2026-12-31'}});
+        expect(onChange).toHaveBeenCalled();
+    });
 });

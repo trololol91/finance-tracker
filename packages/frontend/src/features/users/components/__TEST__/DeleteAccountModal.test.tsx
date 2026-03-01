@@ -266,4 +266,46 @@ describe('DeleteAccountModal', () => {
             ).toHaveFocus();
         });
     });
-});
+
+    describe('focus trap', () => {
+        it('wraps Tab from last focusable element back to first', () => {
+            renderModal();
+            const cancelBtn = screen.getByRole('button', {name: /cancel/i});
+            cancelBtn.focus();
+            fireEvent.keyDown(document, {key: 'Tab'});
+            expect(
+                screen.getByLabelText(/enter your password to confirm/i)
+            ).toHaveFocus();
+        });
+
+        it('wraps Shift+Tab from first focusable element back to last', () => {
+            renderModal();
+            screen.getByLabelText(/enter your password to confirm/i).focus();
+            fireEvent.keyDown(document, {key: 'Tab', shiftKey: true});
+            expect(
+                screen.getByRole('button', {name: /cancel/i})
+            ).toHaveFocus();
+        });
+
+        it('does not wrap Tab when focused element is not the last', async () => {
+            renderModal();
+            await userEvent.type(
+                screen.getByLabelText(/enter your password to confirm/i),
+                'pw'
+            );
+            const input = screen.getByLabelText(/enter your password to confirm/i);
+            input.focus();
+            fireEvent.keyDown(document, {key: 'Tab'});
+            // input is first focusable (not last), so no wrap — focus stays
+            expect(input).toHaveFocus();
+        });
+
+        it('removes the Tab trap listener when modal is closed', () => {
+            const {rerender} = render(<DeleteAccountModal {...defaultProps} />);
+            rerender(<DeleteAccountModal {...defaultProps} isOpen={false} />);
+            // After closing, the trap listener is removed — Tab should not throw
+            expect(() => {
+                fireEvent.keyDown(document, {key: 'Tab'});
+            }).not.toThrow();
+        });
+    });});

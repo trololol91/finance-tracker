@@ -141,8 +141,15 @@ export const useTransactionForm = ({
                 );
             }
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [formValues, editTarget, createTransaction, updateTransaction, onSuccess, queryKey]
+        [
+            formValues,
+            editTarget,
+            createTransaction,
+            updateTransaction,
+            onSuccess,
+            queryKey,
+            queryClient
+        ]
     );
 
     return {
