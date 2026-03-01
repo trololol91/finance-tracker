@@ -39,9 +39,14 @@ export const CategoryListItem = ({
             className={styles.colorSwatch}
             style={{backgroundColor: category.color}}
             aria-hidden="true"
+            data-testid="color-swatch"
         />
     ) : (
-        <span className={`${styles.colorSwatch} ${styles.colorSwatchEmpty}`} aria-hidden="true" />
+        <span
+            className={`${styles.colorSwatch} ${styles.colorSwatchEmpty}`}
+            aria-hidden="true"
+            data-testid="color-swatch-empty"
+        />
     );
 
     return (

@@ -1,5 +1,5 @@
 import {
-    describe, it, expect, vi, beforeEach
+    describe, it, expect, vi, beforeEach, afterEach
 } from 'vitest';
 import {
     renderHook, act
@@ -26,6 +26,10 @@ import {
 
 const mockCreate = vi.mocked(useCategoriesControllerCreate);
 const mockUpdate = vi.mocked(useCategoriesControllerUpdate);
+
+// Shared arg types for testing mutation callbacks
+type OnSuccessArgs = [unknown, {onSuccess: () => void}];
+type OnErrorArgs = [unknown, {onError: (err: unknown) => void}];
 
 const createWrapper = (): (({children}: {children: React.ReactNode}) => React.JSX.Element) => {
     const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
@@ -281,8 +285,7 @@ describe('useCategoryForm', () => {
 
         it('calls onSuccess after create succeeds', () => {
             const onSuccess = vi.fn();
-            type MutateArgs = [unknown, {onSuccess: () => void}];
-            const mockMutate = vi.fn((...[, {onSuccess: cb}]: MutateArgs) => { cb(); });
+            const mockMutate = vi.fn((...[, {onSuccess: cb}]: OnSuccessArgs) => { cb(); });
             mockCreate.mockReturnValue(makeCreate(mockMutate));
             const {result} = setupHook(onSuccess);
             act(() => { result.current.handleFieldChange('name', 'Groceries'); });
@@ -311,8 +314,7 @@ describe('useCategoryForm', () => {
 
         it('calls onSuccess after update succeeds', () => {
             const onSuccess = vi.fn();
-            type MutateArgs = [unknown, {onSuccess: () => void}];
-            const mockUpdateMutate = vi.fn((...[, {onSuccess: cb}]: MutateArgs) => { cb(); });
+            const mockUpdateMutate = vi.fn((...[, {onSuccess: cb}]: OnSuccessArgs) => { cb(); });
             mockUpdate.mockReturnValue(makeUpdate(mockUpdateMutate));
             const {result} = setupHook(onSuccess);
             act(() => { result.current.openEdit(mockCat); });
@@ -337,6 +339,56 @@ describe('useCategoryForm', () => {
         it('is false when neither is pending', () => {
             const {result} = setupHook();
             expect(result.current.isSubmitting).toBe(false);
+        });
+    });
+
+    describe('handleSubmit – onError (create)', () => {
+        beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
+        afterEach(() => { vi.restoreAllMocks(); });
+
+        it('sets errors.name to the server message when create fails with a message', () => {
+            const mockMutate = vi.fn((...[, {onError: cb}]: OnErrorArgs) => {
+                cb({message: 'Duplicate name'});
+            });
+            mockCreate.mockReturnValue(makeCreate(mockMutate));
+            const {result} = setupHook();
+            act(() => { result.current.handleFieldChange('name', 'Groceries'); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.name).toBe('Duplicate name');
+        });
+
+        it('sets a fallback error message when create fails with no message property', () => {
+            const mockMutate = vi.fn((...[, {onError: cb}]: OnErrorArgs) => { cb({}); });
+            mockCreate.mockReturnValue(makeCreate(mockMutate));
+            const {result} = setupHook();
+            act(() => { result.current.handleFieldChange('name', 'Groceries'); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.name).toBe('Failed to create category');
+        });
+    });
+
+    describe('handleSubmit – onError (update)', () => {
+        beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
+        afterEach(() => { vi.restoreAllMocks(); });
+
+        it('sets errors.name to the server message when update fails with a message', () => {
+            const mockUpdateMutate = vi.fn((...[, {onError: cb}]: OnErrorArgs) => {
+                cb({message: 'Name already taken'});
+            });
+            mockUpdate.mockReturnValue(makeUpdate(mockUpdateMutate));
+            const {result} = setupHook();
+            act(() => { result.current.openEdit(mockCat); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.name).toBe('Name already taken');
+        });
+
+        it('sets a fallback error message when update fails with no message property', () => {
+            const mockUpdateMutate = vi.fn((...[, {onError: cb}]: OnErrorArgs) => { cb({}); });
+            mockUpdate.mockReturnValue(makeUpdate(mockUpdateMutate));
+            const {result} = setupHook();
+            act(() => { result.current.openEdit(mockCat); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.name).toBe('Failed to update category');
         });
     });
 });

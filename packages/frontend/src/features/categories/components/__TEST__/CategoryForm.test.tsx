@@ -2,7 +2,7 @@ import {
     describe, it, expect, vi, beforeEach
 } from 'vitest';
 import {
-    render, screen
+    render, screen, fireEvent
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {CategoryForm} from '@features/categories/components/CategoryForm.js';
@@ -194,6 +194,33 @@ describe('CategoryForm', () => {
         it('has accessible form label in edit mode', () => {
             render(<CategoryForm {...defaultProps} editMode />);
             expect(screen.getByRole('form', {name: /edit category form/i})).toBeInTheDocument();
+        });
+    });
+
+    describe('color picker', () => {
+        it('defaults color picker value to #6366f1 when color field is empty', () => {
+            render(<CategoryForm {...defaultProps} values={{...emptyValues, color: ''}} />);
+            expect(screen.getByLabelText('Pick color')).toHaveValue('#6366f1');
+        });
+
+        it('uses the provided color on the color picker input', () => {
+            render(<CategoryForm {...defaultProps} values={{...emptyValues, color: '#ff0000'}} />);
+            expect(screen.getByLabelText('Pick color')).toHaveValue('#ff0000');
+        });
+
+        it('calls onChange with "color" and the new hex when color picker changes', () => {
+            const onChange = vi.fn();
+            const {getByLabelText} = render(<CategoryForm {...defaultProps} onChange={onChange} />);
+            fireEvent.change(getByLabelText('Pick color'), {target: {value: '#abcdef'}});
+            expect(onChange).toHaveBeenCalledWith('color', '#abcdef');
+        });
+
+        it('calls onChange with "color" and the new value when color text input changes', () => {
+            const onChange = vi.fn();
+            const {getByLabelText} = render(<CategoryForm {...defaultProps} onChange={onChange} />);
+            // The text label "Color" maps to the <input type="text" id="cat-color">
+            fireEvent.change(getByLabelText('Color'), {target: {value: '#123456'}});
+            expect(onChange).toHaveBeenCalledWith('color', '#123456');
         });
     });
 });

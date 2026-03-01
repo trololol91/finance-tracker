@@ -170,4 +170,41 @@ describe('CategoryModal', () => {
             expect(onClose).toHaveBeenCalled();
         });
     });
+
+    describe('focus restoration', () => {
+        let triggerBtn: HTMLButtonElement;
+
+        beforeEach(() => {
+            triggerBtn = document.createElement('button');
+            triggerBtn.textContent = 'Open';
+            document.body.appendChild(triggerBtn);
+        });
+
+        afterEach(() => {
+            triggerBtn.remove();
+        });
+
+        it('restores focus to the element that triggered the modal when closed', () => {
+            triggerBtn.focus();
+            expect(document.activeElement).toBe(triggerBtn);
+
+            // Open the modal — useEffect captures document.activeElement (triggerBtn)
+            const {rerender} = render(<CategoryModal {...defaultProps} mode="create" />);
+
+            // Close the modal — restore-focus effect should call triggerBtn.focus()
+            rerender(<CategoryModal {...defaultProps} mode={null} />);
+
+            expect(document.activeElement).toBe(triggerBtn);
+        });
+
+        it('does not throw when there is no trigger element to restore focus to', () => {
+            // Start with nothing focused (activeElement = body)
+            const {rerender} = render(<CategoryModal {...defaultProps} mode="create" />);
+            // Close — triggerRef.current is document.body which is an HTMLElement;
+            // focus() on body is a no-op in jsdom but must not throw.
+            expect(() => {
+                rerender(<CategoryModal {...defaultProps} mode={null} />);
+            }).not.toThrow();
+        });
+    });
 });
