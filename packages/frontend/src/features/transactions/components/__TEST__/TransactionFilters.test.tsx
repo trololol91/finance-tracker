@@ -22,6 +22,7 @@ const defaultFilters: TransactionFilterState = {
 const defaultProps = {
     filters: defaultFilters,
     onFilterChange: vi.fn(),
+    onDateRangeChange: vi.fn(),
     onClear: vi.fn()
 };
 
@@ -76,5 +77,50 @@ describe('TransactionFilters', () => {
     it('has accessible search landmark', () => {
         render(<TransactionFilters {...defaultProps} />);
         expect(screen.getByRole('search', {name: /transaction filters/i})).toBeInTheDocument();
+    });
+
+    describe('onDateRangeChange (BUG-02)', () => {
+        it('calls onDateRangeChange with startDate and endDate when a date preset is clicked', async () => {
+            const onDateRangeChange = vi.fn();
+            const user = userEvent.setup();
+            render(<TransactionFilters {...defaultProps} onDateRangeChange={onDateRangeChange} />);
+
+            await user.click(screen.getByRole('button', {name: /this month/i}));
+
+            expect(onDateRangeChange).toHaveBeenCalledOnce();
+            const [start, end] = onDateRangeChange.mock.calls[0] as [string, string];
+            expect(typeof start).toBe('string');
+            expect(typeof end).toBe('string');
+        });
+
+        it('passes UTC-midnight startDate when a preset is clicked', async () => {
+            const onDateRangeChange = vi.fn();
+            const user = userEvent.setup();
+            render(<TransactionFilters {...defaultProps} onDateRangeChange={onDateRangeChange} />);
+
+            await user.click(screen.getByRole('button', {name: /this month/i}));
+
+            const [start] = onDateRangeChange.mock.calls[0] as [string, string];
+            expect(start).toMatch(/T00:00:00\.000Z$/);
+        });
+
+        it('does not call onFilterChange with startDate or endDate keys when a preset is used', async () => {
+            const onFilterChange = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionFilters
+                    {...defaultProps}
+                    onFilterChange={onFilterChange}
+                />
+            );
+
+            await user.click(screen.getByRole('button', {name: /this month/i}));
+
+            const calledKeys = (onFilterChange.mock.calls as [string, unknown][][]).map(
+                ([key]) => key
+            );
+            expect(calledKeys).not.toContain('startDate');
+            expect(calledKeys).not.toContain('endDate');
+        });
     });
 });

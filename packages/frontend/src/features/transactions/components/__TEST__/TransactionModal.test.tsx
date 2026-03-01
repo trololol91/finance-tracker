@@ -2,7 +2,7 @@ import {
     describe, it, expect, vi, beforeAll, beforeEach
 } from 'vitest';
 import {
-    render, screen, fireEvent
+    render, screen, fireEvent, act
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {TransactionModal} from '@features/transactions/components/TransactionModal.js';
@@ -74,7 +74,7 @@ describe('TransactionModal', () => {
             expect(screen.getByRole('heading', {name: 'Edit Transaction'})).toBeInTheDocument();
         });
 
-        it('has a matching aria-label on the dialog', () => {
+        it('computes an accessible name for the dialog from the heading text', () => {
             render(<TransactionModal {...defaultProps} />);
             expect(screen.getByRole('dialog', {name: /add transaction/i})).toBeInTheDocument();
         });
@@ -169,6 +169,165 @@ describe('TransactionModal', () => {
             unmount();
             dialog.dispatchEvent(new Event('close'));
             expect(onClose).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('accessibility (BUG-06)', () => {
+        it('has aria-modal="true" on the dialog element', () => {
+            render(<TransactionModal {...defaultProps} />);
+            const dialog = screen.getByRole('dialog');
+            expect(dialog).toHaveAttribute('aria-modal', 'true');
+        });
+
+        it('does not use aria-label on the dialog (uses aria-labelledby instead)', () => {
+            render(<TransactionModal {...defaultProps} />);
+            const dialog = screen.getByRole('dialog');
+            expect(dialog).not.toHaveAttribute('aria-label');
+        });
+
+        it('aria-labelledby on the dialog points to the heading id', () => {
+            render(<TransactionModal {...defaultProps} />);
+            const dialog = screen.getByRole('dialog');
+            const heading = screen.getByRole('heading', {name: /add transaction/i});
+            const labelledBy = dialog.getAttribute('aria-labelledby');
+            expect(labelledBy).toBeTruthy();
+            expect(heading.id).toBe(labelledBy);
+        });
+
+        it('heading id changes to match "Edit Transaction" heading when editing', () => {
+            render(<TransactionModal {...defaultProps} editTarget={mockTx} />);
+            const dialog = screen.getByRole('dialog');
+            const heading = screen.getByRole('heading', {name: /edit transaction/i});
+            expect(dialog.getAttribute('aria-labelledby')).toBe(heading.id);
+        });
+    });
+
+    describe('focus management (BUG-05)', () => {
+        it('moves focus into the amount input when the modal opens', () => {
+            vi.useFakeTimers();
+            render(<TransactionModal {...defaultProps} isOpen />);
+            act(() => { vi.runAllTimers(); });
+            vi.useRealTimers();
+            expect(screen.getByLabelText(/amount/i)).toHaveFocus();
+        });
+
+        it('does not steal focus when the modal is closed', () => {
+            vi.useFakeTimers();
+            render(<TransactionModal {...defaultProps} isOpen={false} />);
+            act(() => { vi.runAllTimers(); });
+            vi.useRealTimers();
+            expect(screen.queryByLabelText(/amount/i)).not.toHaveFocus();
+        });
+    });
+
+    describe('focus trap (BUG-06)', () => {
+        const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+        it('wraps forward: Tab on the last focusable element moves focus to the first', () => {
+            render(<TransactionModal {...defaultProps} isOpen />);
+            const dialog = screen.getByRole('dialog');
+            const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            last.focus();
+            expect(document.activeElement).toBe(last);
+
+            fireEvent.keyDown(last, {key: 'Tab', bubbles: true, cancelable: true});
+            expect(document.activeElement).toBe(first);
+        });
+
+        it('wraps backward: Shift+Tab on the first focusable element moves focus to the last', () => {
+            render(<TransactionModal {...defaultProps} isOpen />);
+            const dialog = screen.getByRole('dialog');
+            const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            first.focus();
+            expect(document.activeElement).toBe(first);
+
+            fireEvent.keyDown(first, {key: 'Tab', shiftKey: true, bubbles: true, cancelable: true});
+            expect(document.activeElement).toBe(last);
+        });
+
+        it('does not interfere with Tab on a non-boundary element', () => {
+            render(<TransactionModal {...defaultProps} isOpen />);
+            const dialog = screen.getByRole('dialog');
+            const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+            // Use a middle element if there are at least 3 focusable elements
+            if (focusable.length < 3) return;
+            const middle = focusable[1];
+            middle.focus();
+            const event = new KeyboardEvent('keydown', {key: 'Tab', bubbles: true, cancelable: true});
+            const prevented = !dialog.dispatchEvent(event);
+            expect(prevented).toBe(false); // preventDefault NOT called for a middle element
+        });
+
+        it('Shift+Tab on a non-first element does not preventDefault (no focus wrap)', () => {
+            render(<TransactionModal {...defaultProps} isOpen />);
+            const dialog = screen.getByRole('dialog');
+            const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+            if (focusable.length < 3) return; // guard: need at least 3 elements
+            const middle = focusable[1];
+            middle.focus();
+            expect(document.activeElement).toBe(middle);
+            // Shift+Tab on a non-first element — the inner if check fails, default is NOT prevented
+            const event = new KeyboardEvent('keydown', {
+                key: 'Tab', shiftKey: true, bubbles: true, cancelable: true
+            });
+            // returns false only if preventDefault was called
+            const notPrevented = dialog.dispatchEvent(event);
+            expect(notPrevented).toBe(true);
+            // focus should remain on the middle element (browser moves it, but jsdom does not)
+            expect(document.activeElement).toBe(middle);
+        });
+
+        it('ignores non-Tab keypresses', () => {
+            render(<TransactionModal {...defaultProps} isOpen />);
+            const dialog = screen.getByRole('dialog');
+            const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+            const last = focusable[focusable.length - 1];
+            last.focus();
+            // Pressing Escape should not move focus
+            fireEvent.keyDown(last, {key: 'Escape', bubbles: true});
+            expect(document.activeElement).toBe(last);
+        });
+
+        it('does not throw when the dialog has no focusable children', () => {
+            // Render with isOpen=false then toggle — simulate edge case where
+            // all inputs are somehow removed. We test by dispatching keydown
+            // directly on an empty dialog clone.
+            render(<TransactionModal {...defaultProps} isOpen />);
+            const dialog = screen.getByRole('dialog');
+            // Hide all focusable elements by disabling them
+            const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+            focusable.forEach((el) => { el.setAttribute('disabled', ''); });
+            expect(() => {
+                fireEvent.keyDown(dialog, {key: 'Tab', bubbles: true, cancelable: true});
+            }).not.toThrow();
+        });
+    });
+
+    describe('dialog already open (BUG-07)', () => {
+        it('does not call showModal when the dialog already has the open attribute', () => {
+            const {rerender} = render(<TransactionModal {...defaultProps} isOpen />);
+            // First open sets open attribute via mockShowModal
+            expect(mockShowModal).toHaveBeenCalledOnce();
+            mockShowModal.mockClear();
+            // Rerender with isOpen still true — dialog.open is already true
+            rerender(<TransactionModal {...defaultProps} isOpen />);
+            expect(mockShowModal).not.toHaveBeenCalled();
+        });
+
+        it('swallows the error when showModal throws (covers catch block)', () => {
+            // showModal throws — the component must not propagate the error upward
+            mockShowModal.mockImplementationOnce(() => {
+                throw new DOMException('Element is already in the top layer', 'InvalidStateError');
+            });
+            expect(() => {
+                render(<TransactionModal {...defaultProps} isOpen />);
+            }).not.toThrow();
         });
     });
 });

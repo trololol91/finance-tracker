@@ -102,4 +102,33 @@ describe('TransactionActions', () => {
         await user.keyboard('{Escape}');
         expect(container.querySelector('.tx-actions__menu')).not.toBeInTheDocument();
     });
+
+    it('closes menu when a mousedown occurs outside the component', async () => {
+        const user = userEvent.setup();
+        const {container} = render(
+            <div>
+                <TransactionActions {...defaultProps} />
+                <button type="button">Outside</button>
+            </div>
+        );
+        await user.click(screen.getByRole('button', {name: /actions for/i}));
+        expect(container.querySelector('.tx-actions__menu')).toBeInTheDocument();
+        // clicking an element outside the component triggers the mousedown handler
+        await user.click(screen.getByRole('button', {name: /outside/i}));
+        expect(container.querySelector('.tx-actions__menu')).not.toBeInTheDocument();
+    });
+
+    it('cancels the delete confirmation when Cancel is clicked', async () => {
+        const onDelete = vi.fn();
+        const user = userEvent.setup();
+        render(<TransactionActions {...defaultProps} onDelete={onDelete} />);
+        await user.click(screen.getByRole('button', {name: /actions for/i}));
+        await user.click(screen.getByRole('menuitem', {name: /delete/i}));
+        expect(screen.getByText(/delete this transaction/i)).toBeInTheDocument();
+        // Click Cancel — confirm panel must disappear, onDelete must NOT be called
+        await user.click(screen.getByRole('button', {name: /cancel/i}));
+        expect(onDelete).not.toHaveBeenCalled();
+        expect(screen.queryByText(/delete this transaction/i)).not.toBeInTheDocument();
+        expect(screen.getByRole('menuitem', {name: /edit/i})).toBeInTheDocument();
+    });
 });

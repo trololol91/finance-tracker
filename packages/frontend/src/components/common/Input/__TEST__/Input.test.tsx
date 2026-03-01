@@ -1,6 +1,7 @@
 import {
     describe, it, expect
 } from 'vitest';
+import React from 'react';
 import {
     render, screen
 } from '@testing-library/react';
@@ -39,5 +40,12 @@ describe('Input', () => {
     it('disables input when disabled prop is true', () => {
         render(<Input disabled />);
         expect(screen.getByRole('textbox')).toBeDisabled();
+    });
+
+    it('forwards a ref to the underlying input element', () => {
+        const ref = React.createRef<HTMLInputElement>();
+        render(<Input ref={ref} placeholder="ref-test" />);
+        expect(ref.current).toBeInstanceOf(HTMLInputElement);
+        expect(ref.current).toBe(screen.getByPlaceholderText('ref-test'));
     });
 });

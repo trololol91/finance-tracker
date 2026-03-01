@@ -560,10 +560,13 @@ describe('AuthProvider', () => {
 
         it('is false when token validation fails', async () => {
             vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
-            // Simulate expired / invalid token
-            vi.mocked(authControllerGetProfile).mockRejectedValue(
-                new Error('Unauthorized')
+            // Simulate an expired / invalid token — must carry a 401 status so
+            // AuthContext treats it as AuthExpiredError (not a NetworkError).
+            const expiredErr = Object.assign(
+                new Error('Unauthorized'),
+                {response: {status: 401}}
             );
+            vi.mocked(authControllerGetProfile).mockRejectedValue(expiredErr);
 
             const TestComponent = (): React.JSX.Element => {
                 const context = React.useContext(AuthContext);
@@ -585,6 +588,222 @@ describe('AuthProvider', () => {
             });
 
             expect(authStorage.clearAuth).toHaveBeenCalledOnce();
+        });
+    });
+
+    describe('authError (BUG-04)', () => {
+        it('sets authError when the server is unreachable (network error)', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            const networkErr = new Error('Network Error');
+            vi.mocked(authControllerGetProfile).mockRejectedValue(networkErr);
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                return (
+                    <div data-testid="auth-error">
+                        {context?.authError ?? 'none'}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('auth-error')).not.toHaveTextContent('none');
+            });
+
+            expect(screen.getByTestId('auth-error')).toHaveTextContent(/unable to reach/i);
+        });
+
+        it('does NOT call clearAuth when the error is a network error', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            const networkErr = new Error('Network Error');
+            vi.mocked(authControllerGetProfile).mockRejectedValue(networkErr);
+
+            render(<AuthProvider><div /></AuthProvider>);
+
+            await waitFor(() => {
+                expect(authControllerGetProfile).toHaveBeenCalled();
+            });
+            // Give any pending state updates time to flush
+            await waitFor(() => {
+                expect(authStorage.clearAuth).not.toHaveBeenCalled();
+            });
+        });
+
+        it('calls clearAuth on a 401 response but does NOT set authError', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            const expiredErr = Object.assign(
+                new Error('Unauthorized'),
+                {response: {status: 401}}
+            );
+            vi.mocked(authControllerGetProfile).mockRejectedValue(expiredErr);
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                return (
+                    <div data-testid="auth-error">
+                        {context?.authError ?? 'none'}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(authStorage.clearAuth).toHaveBeenCalledOnce();
+            });
+
+            expect(screen.getByTestId('auth-error')).toHaveTextContent('none');
+        });
+
+        it('calls clearAuth on a 403 response but does NOT set authError', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            const forbiddenErr = Object.assign(
+                new Error('Forbidden'),
+                {response: {status: 403}}
+            );
+            vi.mocked(authControllerGetProfile).mockRejectedValue(forbiddenErr);
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                return (
+                    <div data-testid="auth-error">
+                        {context?.authError ?? 'none'}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(authStorage.clearAuth).toHaveBeenCalledOnce();
+            });
+
+            expect(screen.getByTestId('auth-error')).toHaveTextContent('none');
+        });
+
+        it('renders an alert banner in the DOM when authError is set', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            const networkErr = new Error('Network Error');
+            vi.mocked(authControllerGetProfile).mockRejectedValue(networkErr);
+
+            render(<AuthProvider><div>app</div></AuthProvider>);
+
+            await waitFor(() => {
+                expect(screen.getByRole('alert')).toBeInTheDocument();
+            });
+
+            expect(screen.getByRole('alert')).toHaveTextContent(/unable to reach/i);
+        });
+
+        it('authError is null when initialization succeeds', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            // authControllerGetProfile already resolves in beforeEach
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                return (
+                    <div data-testid="auth-error">
+                        {context?.authError ?? 'none'}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('auth-error')).toHaveTextContent('none');
+            });
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // mapToUser null-coalescing fallbacks (dto.firstName ?? '' and dto.lastName ?? '')
+    // -------------------------------------------------------------------------
+
+    describe('mapToUser null fallbacks', () => {
+        it('uses empty string when firstName and lastName are null in the profile response', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            vi.mocked(authControllerGetProfile).mockResolvedValue({
+                ...mockProfileResponse,
+                firstName: null as unknown as string,
+                lastName: null as unknown as string
+            });
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                return (
+                    <div data-testid="user-name">
+                        {context?.user
+                            ? `${context.user.firstName}|${context.user.lastName}`
+                            : 'none'}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                // Both firstName and lastName must fall back to '' not null
+                expect(screen.getByTestId('user-name')).toHaveTextContent('|');
+            });
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // fetchCurrentUser non-Error rejection — covers the
+    // `err instanceof Error ? err.message : 'Network error'` false branch
+    // -------------------------------------------------------------------------
+
+    describe('fetchCurrentUser non-Error rejection', () => {
+        it('sets authError when a plain object (not an Error) is thrown during profile fetch', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
+            // Reject with a plain non-Error object; instanceof Error returns false
+            vi.mocked(authControllerGetProfile).mockRejectedValue(
+                {response: {status: 503}, code: 'ECONNREFUSED'}
+            );
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                return (
+                    <div data-testid="auth-error">
+                        {context?.authError ?? 'none'}
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('auth-error')).not.toHaveTextContent('none');
+            });
+            // clearAuth must NOT be called — this is a network failure, not expiry
+            expect(authStorage.clearAuth).not.toHaveBeenCalled();
         });
     });
 });

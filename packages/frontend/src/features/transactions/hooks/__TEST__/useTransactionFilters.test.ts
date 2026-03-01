@@ -82,4 +82,63 @@ describe('useTransactionFilters', () => {
         expect(result.current.filters.transactionType).toBe('');
         expect(result.current.filters.page).toBe(1);
     });
+
+    describe('setDateRange (BUG-02)', () => {
+        it('sets startDate and endDate simultaneously', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => {
+                result.current.setDateRange(
+                    '2026-03-01T00:00:00.000Z',
+                    '2026-03-31T23:59:59.999Z'
+                );
+            });
+            expect(result.current.filters.startDate).toBe('2026-03-01T00:00:00.000Z');
+            expect(result.current.filters.endDate).toBe('2026-03-31T23:59:59.999Z');
+        });
+
+        it('resets page to 1 when setting a date range', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.setPage(5); });
+            expect(result.current.filters.page).toBe(5);
+            act(() => {
+                result.current.setDateRange(
+                    '2026-03-01T00:00:00.000Z',
+                    '2026-03-31T23:59:59.999Z'
+                );
+            });
+            expect(result.current.filters.page).toBe(1);
+        });
+
+        it('preserves unrelated filters when setting a date range', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.updateFilter('search', 'rent'); });
+            act(() => {
+                result.current.setDateRange(
+                    '2026-04-01T00:00:00.000Z',
+                    '2026-04-30T23:59:59.999Z'
+                );
+            });
+            expect(result.current.filters.search).toBe('rent');
+        });
+    });
+
+    describe('default UTC month range (BUG-01)', () => {
+        it('default startDate is the first of the current UTC month at midnight', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            expect(result.current.filters.startDate).toMatch(/-01T00:00:00\.000Z$/);
+        });
+
+        it('default endDate ends at 23:59:59.999Z', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            expect(result.current.filters.endDate).toMatch(/T23:59:59\.999Z$/);
+        });
+
+        it('default startDate and endDate are in the same calendar month', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            const start = new Date(result.current.filters.startDate);
+            const end = new Date(result.current.filters.endDate);
+            expect(start.getUTCMonth()).toBe(end.getUTCMonth());
+            expect(start.getUTCFullYear()).toBe(end.getUTCFullYear());
+        });
+    });
 });

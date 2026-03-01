@@ -15,13 +15,15 @@ import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js
 vi.mock('@/api/transactions/transactions.js', () => ({
     useTransactionsControllerCreate: vi.fn(),
     useTransactionsControllerUpdate: vi.fn(),
-    getTransactionsControllerFindAllQueryKey: vi.fn(() => ['/transactions'])
+    getTransactionsControllerFindAllQueryKey: vi.fn(() => ['/transactions']),
+    getTransactionsControllerGetTotalsQueryKey: vi.fn(() => ['/transactions/totals'])
 }));
 
 // Imported after vi.mock — Vitest hoists the mock call above all imports at runtime
 import {
     useTransactionsControllerCreate,
-    useTransactionsControllerUpdate
+    useTransactionsControllerUpdate,
+    getTransactionsControllerGetTotalsQueryKey
 } from '@/api/transactions/transactions.js';
 
 const mockCreate = vi.mocked(useTransactionsControllerCreate);
@@ -415,6 +417,60 @@ describe('useTransactionForm', () => {
                 expect.objectContaining({queryKey: ['custom-key']})
             );
             expect(onSuccess).toHaveBeenCalledOnce();
+        });
+    });
+
+    describe('totals query invalidation (BUG-03)', () => {
+        it('always invalidates the totals query key after a successful create', () => {
+            const onSuccess = vi.fn();
+            type MutateArgs = [unknown, {onSuccess: () => void}];
+            const mockMutate = vi.fn((...[, {onSuccess: cb}]: MutateArgs) => { cb(); });
+            mockCreate.mockReturnValue(makeCreate(mockMutate));
+
+            const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
+            const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+            const wrapper = ({children}: {children: React.ReactNode}): React.JSX.Element =>
+                React.createElement(QueryClientProvider, {client: qc}, children);
+
+            const {result} = renderHook(
+                () => useTransactionForm({onSuccess}),
+                {wrapper}
+            );
+            act(() => {
+                result.current.handleFieldChange('amount', '15');
+                result.current.handleFieldChange('description', 'Coffee');
+                result.current.handleFieldChange('date', '2026-02-15');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+
+            const totalsKey = vi.mocked(getTransactionsControllerGetTotalsQueryKey)();
+            expect(invalidateSpy).toHaveBeenCalledWith(
+                expect.objectContaining({queryKey: totalsKey})
+            );
+        });
+
+        it('always invalidates the totals query key after a successful update', () => {
+            const onSuccess = vi.fn();
+            type MutateArgs = [unknown, {onSuccess: () => void}];
+            const mockUpdateMutate = vi.fn((...[, {onSuccess: cb}]: MutateArgs) => { cb(); });
+            mockUpdate.mockReturnValue(makeUpdate(mockUpdateMutate));
+
+            const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
+            const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+            const wrapper = ({children}: {children: React.ReactNode}): React.JSX.Element =>
+                React.createElement(QueryClientProvider, {client: qc}, children);
+
+            const {result} = renderHook(
+                () => useTransactionForm({onSuccess}),
+                {wrapper}
+            );
+            act(() => { result.current.openEdit(mockTx); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+
+            const totalsKey = vi.mocked(getTransactionsControllerGetTotalsQueryKey)();
+            expect(invalidateSpy).toHaveBeenCalledWith(
+                expect.objectContaining({queryKey: totalsKey})
+            );
         });
     });
 });

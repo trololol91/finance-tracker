@@ -34,6 +34,31 @@ describe('formatters', () => {
         it('handles invalid date', () => {
             expect(formatters.date('invalid')).toBe('Invalid date');
         });
+
+        it('accepts a custom format string', () => {
+            expect(formatters.date('2024-06-15', 'yyyy/MM/dd')).toBe('2024/06/15');
+        });
+    });
+
+    describe('dateTime', () => {
+        it('formats a date string with time', () => {
+            const result = formatters.dateTime('2024-12-25T14:30:00Z');
+            expect(result).toContain('Dec');
+            expect(result).toContain('2024');
+            // 12-hour time present
+            expect(result).toMatch(/\d{1,2}:\d{2}\s*(AM|PM)/i);
+        });
+
+        it('formats a Date object with time', () => {
+            const date = new Date('2024-06-01T09:00:00Z');
+            const result = formatters.dateTime(date);
+            expect(result).toContain('Jun');
+            expect(result).toContain('2024');
+        });
+
+        it('returns "Invalid date" for an unparseable string', () => {
+            expect(formatters.dateTime('not-a-date')).toBe('Invalid date');
+        });
     });
 
     describe('percentage', () => {
