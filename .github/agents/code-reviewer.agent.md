@@ -1,6 +1,6 @@
 ---
 description: Review code for quality, security, conventions, and suggest improvements (read-only)
-tools: ['codebase', 'search', 'fetch', 'findTestFiles', 'problems', 'usages']
+tools: ['codebase', 'search', 'fetch', 'problems', 'usages']
 handoffs:
   - label: Apply Fixes
     agent: backend-dev

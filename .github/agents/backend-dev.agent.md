@@ -1,6 +1,6 @@
 ---
 description: Implement NestJS backend features following finance-tracker conventions
-tools: ['codebase', 'editFiles', 'runCommands', 'search', 'fetch', 'findTestFiles', 'problems', 'usages']
+tools: ['edit', 'execute', 'search', 'web', 'problems', 'usages', 'gitkraken/*']
 handoffs:
   - label: Write Tests
     agent: test-writer
@@ -13,6 +13,10 @@ handoffs:
   - label: Code Review
     agent: code-reviewer
     prompt: Review the backend changes just implemented for quality, security, and convention compliance.
+    send: false
+  - label: Test Backend API
+    agent: backend-tester
+    prompt: Explore and test the backend feature just implemented using curl. Test all endpoints, auth guards, validation errors, and edge cases, then produce a full test report.
     send: false
 ---
 
@@ -49,9 +53,32 @@ Each feature lives in `packages/backend/src/[feature]/` with:
 - Strict TypeScript with explicit return types on all methods
 - Use `interface` for object shapes, `type` for unions
 
+### Date handling
+- Store all dates as UTC in the database — never rely on the server's local timezone
+- Accept incoming dates as ISO 8601 UTC strings in DTOs; validate with `@IsDateString()` from `class-validator`
+- In Prisma `where` clauses, always compute range boundaries with UTC midnight — never `new Date(year, month, day)` which resolves to local time:
+  - Correct: `new Date(Date.UTC(year, month, 1))` for start-of-month
+  - Correct: `new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999))` for end-of-month
+- When a filter accepts both `startDate` and `endDate`, treat them as independent params — never silently default one when only the other is supplied. Missing `startDate` with a supplied `endDate` (BUG-02 pattern) must either be rejected (400) or explicitly fall back to a documented default
+- Return all date fields from the API as ISO 8601 UTC strings — never localised strings
+
 ### Error handling
-- Throw NestJS exceptions (`NotFoundException`, `BadRequestException`, etc.)
-- Never return raw Prisma errors to clients
+- Throw NestJS exceptions (`NotFoundException`, `BadRequestException`, `UnauthorizedException`, `ForbiddenException`) — never `throw new Error()`
+- **Never return raw Prisma errors to clients** — catch `PrismaClientKnownRequestError` and map to the appropriate NestJS exception (e.g. P2002 unique constraint → `ConflictException`, P2025 not found → `NotFoundException`)
+- **Never expose stack traces in responses** — the global exception filter must strip `stack` from all non-development error responses. Check `NODE_ENV` before including trace details
+- **4xx responses must include a human-readable `message`** that the frontend can display inline — not just a status code
+- Use the standard NestJS error shape: `{ statusCode, message, error }`. Do not invent custom error envelopes
+
+### Logging
+- Use NestJS's built-in `Logger` — inject with the class name as context: `private readonly logger = new Logger(TransactionsService.name)`
+- **Correct level usage**:
+  - `this.logger.error(msg, trace)` — only for unexpected 5xx-class failures (unhandled exceptions, database connectivity loss). This is what the backend-tester checks for in server output.
+  - `this.logger.warn(msg)` — for degraded-but-handled states (e.g. a retry, a deprecated param)
+  - `this.logger.log(msg)` — request lifecycle info (optional, dev-only)
+  - `this.logger.debug(msg)` — verbose internals; guard with `LOG_LEVEL` env var
+- **Never log at `error` level for expected 4xx scenarios** — a user supplying a wrong password is not a server error; logging it as `error` pollutes monitoring and creates false positives in the backend-tester's log check
+- **Always include context in error logs**: `this.logger.error('Failed to create transaction', error.stack)` — the class prefix from `Logger(ClassName.name)` is automatic
+- **Never use `console.log` / `console.error`** directly — all output must go through `Logger` so it respects the configured log level and transport
 
 ### Testing
 - Vitest with `vi.fn()` mocks — not Jest

@@ -1,6 +1,6 @@
 ---
 description: Write comprehensive Vitest tests for backend services, controllers, and frontend components
-tools: ['codebase', 'editFiles', 'runCommands', 'search', 'findTestFiles', 'problems', 'usages']
+tools: ['codebase', 'edit', 'execute', 'search', 'problems', 'usages', 'gitkraken/*']
 handoffs:
   - label: Fix Failing Tests
     agent: backend-dev
