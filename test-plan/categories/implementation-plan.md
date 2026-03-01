@@ -1,6 +1,6 @@
 # Phase 5 — Categories Module: Implementation Plan
 
-**Status:** ⬜ Not Started  
+**Status:** 🔄 In Progress — Backend verified (58/58 API tests ✅); ready for frontend  
 **Date:** 2026-03-01  
 **Planner:** GitHub Copilot (Planner mode)
 
@@ -382,6 +382,8 @@ After categories are implemented, update `TransactionForm.tsx` to replace the fr
 
 Target: `~40` unit tests across service + controller.
 
+> **Actual (2026-03-01):** 239 backend unit tests total; categories module at **100% statements / branches / functions / lines**. Includes coverage for `checkNameUnique`, HTTP 204 hard-delete, soft-delete, depth guard, and `ValidateIf` null-clear paths.
+
 ### Frontend component tests (Vitest + RTL)
 
 | File | Focus |
@@ -435,7 +437,7 @@ Use `vi.mock('@/api/categories/categories.js')` to mock Orval hooks. All queries
 
 ## 8. Backend API Test Plan
 
-> For the **backend-tester** agent.
+> **Executed 2026-03-01 — 58/58 PASS.** Full results: `test-plan/categories/backend-report.md` (commit `5dbfdf7`).
 
 **Preconditions:** Backend running on `localhost:3001`, valid JWT for a test user, second JWT for isolation checks.
 
@@ -443,55 +445,76 @@ Use `vi.mock('@/api/categories/categories.js')` to mock Orval hooks. All queries
 
 #### `GET /categories`
 
-| Scenario | Expected status | Notes |
-|---|---|---|
-| Authenticated, no categories | 200 | Returns `[]` |
-| Authenticated, has categories | 200 | Returns array with `transactionCount` populated |
-| No auth header | 401 | |
+| Scenario | Expected status | Notes | Live result |
+|---|---|---|---|
+| Authenticated, no categories | 200 | Returns `[]` | ✅ TC-30 |
+| Authenticated, has categories | 200 | Returns array with `transactionCount` populated | ✅ TC-30 |
+| Data isolation — other user's categories not returned | 200 `[]` | | ✅ TC-31 |
+| `children` always `[]` on list (flat) | 200 | By design | ✅ TC-32 |
+| Inactive categories included (no isActive filter) | 200 | | ✅ TC-33 |
+| No auth header | 401 | | ✅ TC-02 |
 
 #### `POST /categories`
 
-| Scenario | Request body | Expected status |
-|---|---|---|
-| Valid top-level | `{ name: "Food" }` | 201 |
-| Valid with all fields | `{ name: "Groceries", color: "#4CAF50", icon: "🛒", parentId: "<uuid>" }` | 201 |
-| Missing name | `{}` | 400 |
-| Empty name | `{ name: "" }` | 400 |
-| Invalid colour | `{ name: "X", color: "red" }` | 400 |
-| Invalid parentId (not UUID) | `{ name: "X", parentId: "abc" }` | 400 |
-| parentId belongs to another user | `{ name: "X", parentId: "<other-user-uuid>" }` | 404 |
-| parent has a parent (depth > 1) | `{ name: "X", parentId: "<child-uuid>" }` | 400 |
-| Duplicate name at same level | create "Food" twice | 409 |
-| No auth | — | 401 |
+| Scenario | Request body | Expected status | Live result |
+|---|---|---|---|
+| Valid top-level | `{ name: "Food" }` | 201 | ✅ TC-16 |
+| Valid with all fields | `{ name: "Groceries", color: "#4CAF50", icon: "🛒", parentId: "<uuid>" }` | 201 | ✅ TC-13 |
+| Response has all 12 DTO fields | — | 201 | ✅ TC-14–15 |
+| Missing name | `{}` | 400 | ✅ TC-07 |
+| Empty name | `{ name: "" }` | 400 | ✅ TC-08 |
+| Name > 100 chars | — | 400 | ✅ TC-09 |
+| Invalid colour | `{ name: "X", color: "red" }` | 400 | ✅ TC-10 |
+| Invalid parentId (not UUID) | `{ name: "X", parentId: "abc" }` | 400 | ✅ TC-11 |
+| parentId non-existent | `{ name: "X", parentId: "<zero-uuid>" }` | 404 | ✅ TC-19 |
+| parent has a parent (depth > 1) | `{ name: "X", parentId: "<child-uuid>" }` | 400 | ✅ TC-22 |
+| Duplicate name at same level | create "Food" twice | 409 | ✅ TC-17 |
+| Duplicate name under same parent | second "Groceries" under Food | 409 | ✅ TC-23 |
+| Same name OK at different parent level | top-level vs under parent | 201 | ✅ TC-24 |
+| Soft-deleted name can be reused | `isActive=false` then create same name | 201 | ✅ TC-45 |
+| 409 body has no stack trace / Prisma internals | — | — | ✅ TC-18 |
+| No auth | — | 401 | ✅ TC-03 |
 
 #### `GET /categories/:id`
 
-| Scenario | Expected status |
-|---|---|
-| Own category | 200 |
-| Other user's category ID | 404 |
-| Non-existent UUID | 404 |
-| No auth | 401 |
+| Scenario | Expected status | Live result |
+|---|---|---|
+| Own category | 200 | ✅ TC-25 |
+| Other user's category ID | 404 | ✅ TC-28 |
+| Non-existent UUID | 404 | ✅ TC-26 |
+| 404 body has no stack trace / Prisma internals | — | ✅ TC-27 |
+| No auth | 401 | ✅ TC-06 |
 
 #### `PATCH /categories/:id`
 
-| Scenario | Expected status |
-|---|---|
-| Update name | 200 |
-| Set `isActive: false` (soft delete via patch) | 200 |
-| Duplicate name conflict | 409 |
-| Other user's category | 404 |
-| No auth | 401 |
+| Scenario | Expected status | Live result |
+|---|---|---|
+| Rename | 200 | ✅ TC-34 |
+| Update color + icon | 200 | ✅ TC-35 |
+| Clear nullable fields with `null` (description, color, icon) | 200 | ✅ TC-36–37 |
+| Set `isActive: false` | 200 | ✅ TC-41 |
+| Set `isActive: true` (reactivate) | 200 | ✅ TC-42 |
+| Reparent to valid parent | 200 | — (covered in unit tests) |
+| Reparent to non-existent parent | 404 | ✅ TC-43 |
+| Reparent exceeds depth limit | 400 | ✅ TC-44 |
+| Duplicate name conflict | 409 | ✅ TC-38 |
+| Not found | 404 | ✅ TC-39 |
+| Other user's category | 404 | ✅ TC-40 |
+| No auth | 401 | ✅ TC-04 |
 
 #### `DELETE /categories/:id`
 
-| Scenario | Expected status | Notes |
-|---|---|---|
-| No transactions, no children | 204 | Hard delete |
-| Has transactions | 200 | Soft delete: `isActive: false` returned |
-| Has children | 400 | Error message returned |
-| Other user's category | 404 | |
-| No auth | 401 | |
+| Scenario | Expected status | Notes | Live result |
+|---|---|---|---|
+| No transactions, no children | 204 | Hard delete | ✅ TC-51 |
+| Response body empty on 204 | — | `raw=""` | ✅ TC-52 |
+| GET after hard-delete → 404 | 404 | Fully removed | ✅ TC-53 |
+| Has transactions | 200 | Soft delete: `isActive: false` returned | ⚠️ **Not tested live** — requires seeded transaction; covered in unit tests only |
+| Has children | 400 | Error message returned | ✅ TC-49 |
+| 400 body has no stack trace / Prisma internals | — | | ✅ TC-50 |
+| Not found | 404 | | ✅ TC-46 |
+| Other user's category | 404 | | ✅ TC-48 |
+| No auth | 401 | | ✅ TC-05 |
 
 ---
 
@@ -506,17 +529,19 @@ Use `vi.mock('@/api/categories/categories.js')` to mock Orval hooks. All queries
 ## 10. Implementation Checklist
 
 ### Backend
-- [ ] Prisma schema: `Category` model added, `User.categories` and `Transaction.category` relations wired
-- [ ] Migration created and tested on fresh database
-- [ ] `CategoriesModule` created with `categories.module.ts`, `categories.service.ts`, `categories.controller.ts`
-- [ ] All 5 DTOs created with full `@ApiProperty` decorators and `class-validator` rules
-- [ ] `#categories/*` alias already in `tsconfig.json` — confirm it resolves correctly
-- [ ] `CategoriesModule` registered in `app.module.ts`
-- [ ] `TransactionsModule` exports `TransactionsService` (already does) — no change needed for FK validation
-- [ ] All 5 endpoints implemented with `JwtAuthGuard` and `@CurrentUser()`
-- [ ] Unit tests: ≥ 40 tests (service + controller), all passing
-- [ ] Zero lint errors (`npm run lint`)
-- [ ] Swagger UI shows all 5 endpoints under `categories` tag
+- [x] Prisma schema: `Category` model added, `User.categories` and `Transaction.category` relations wired
+- [x] Migration created and tested on fresh database
+- [x] `CategoriesModule` created with `categories.module.ts`, `categories.service.ts`, `categories.controller.ts`
+- [x] All 5 DTOs created with full `@ApiProperty` decorators and `class-validator` rules
+- [x] `#categories/*` alias already in `tsconfig.json` — confirm it resolves correctly
+- [x] `CategoriesModule` registered in `app.module.ts`
+- [x] `TransactionsModule` exports `TransactionsService` (already does) — no change needed for FK validation
+- [x] All 5 endpoints implemented with `JwtAuthGuard` and `@CurrentUser()`
+- [x] Unit tests: 239 backend tests total; categories module 100% statements/branches/functions/lines
+- [x] Post-review fixes: HTTP 204 hard-delete, `checkNameUnique` null-uniqueness guard, `isActive:true` filter on `checkNameUnique`, `@ValidateIf` on nullable DTO fields
+- [x] Zero lint errors (`npm run lint`)
+- [x] Swagger UI shows all 5 endpoints under `categories` tag
+- [x] **Backend API tested live — 58/58 PASS** (see `test-plan/categories/backend-report.md`)
 
 ### Frontend (after `npm run generate:api`)
 - [ ] Orval-generated hooks available in `src/api/categories/`
@@ -533,10 +558,12 @@ Use `vi.mock('@/api/categories/categories.js')` to mock Orval hooks. All queries
 
 ## Handoff Recommendations
 
-1. **`@backend-dev`** — implement the Prisma schema change + migration first, then the categories module (service → controller → DTOs → Swagger). Use `packages/backend/src/transactions/` as the reference pattern.
-2. **`@test-writer`** — write Vitest unit tests for `CategoriesService` and `CategoriesController` immediately after the module compiles.
-3. **`@backend-tester`** — validate all endpoints in section 8 against the running server; save results to `test-plan/categories/backend-report.md`.
-4. **`@code-reviewer`** — review backend before committing; pay attention to the self-referential relation, depth-limit guard, and soft-vs-hard delete logic.
-5. Run `npm run generate:api` in `packages/frontend` once the Swagger spec is stable.
+1. ~~**`@backend-dev`** — implement the Prisma schema change + migration first, then the categories module (service → controller → DTOs → Swagger). Use `packages/backend/src/transactions/` as the reference pattern.~~ ✅ Done (commits `9938644`, `d64d0da`)
+2. ~~**`@test-writer`** — write Vitest unit tests for `CategoriesService` and `CategoriesController` immediately after the module compiles.~~ ✅ Done (239 tests, 100% coverage)
+3. ~~**`@code-reviewer`** — review backend before committing; pay attention to the self-referential relation, depth-limit guard, and soft-vs-hard delete logic.~~ ✅ Done (two rounds; fixes in commit `62008b0`)
+4. ~~**`@backend-tester`** — validate all endpoints in section 8 against the running server; save results to `test-plan/categories/backend-report.md`.~~ ✅ Done — 58/58 PASS (commit `5dbfdf7`)
+5. **→ NEXT: Run `npm run generate:api`** in `packages/frontend` to regenerate the Orval API client from the updated Swagger spec.
 6. **`@frontend-dev`** — implement the CategoriesPage and feature components per section 5.
 7. **`@frontend-tester`** — expand section 7 into a full Playwright plan; save to `test-plan/categories/frontend.md` and results to `test-plan/categories/frontend-report.md`.
+
+> **Gap to revisit:** The soft-delete path on `DELETE /categories/:id` (returns 200 + `isActive=false`) was not confirmed live because no transactions are seeded. To close this gap, either: (a) run the scenario manually after creating a transaction with a `categoryId`, or (b) add a targeted integration test once the frontend can create transactions with categories.

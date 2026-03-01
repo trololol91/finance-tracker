@@ -213,6 +213,7 @@ When doing exploratory testing for a feature, investigate:
 
 - [ ] Page loads without blank screen or JS errors
 - [ ] **Take a screenshot on initial page load** and verify structural layout: page-level sections appear in the correct order (header → toolbar → content → pagination), tables have visible column headers, toolbars are not overlapping content, summary/stat bars are not clipped, and the layout is intact at 1280×720
+- [ ] **Dark theme is applied** — the page background must be dark (`#0f172a` / `--color-gray-100`), not white or light grey. A light-mode page is a sign that a component CSS file uses semantic token names (e.g. `--color-surface`, `--color-background`, `--color-text-primary`) that are not yet defined in `src/index.css`. Verify via screenshot and, if suspect, evaluate `getComputedStyle(document.body).backgroundColor` — it should be `rgb(15, 23, 42)`. If it is not, check `src/index.css` Semantic Color Aliases section and add any missing tokens before proceeding with other test cases.
 - [ ] Tables render with correct columns, row data is not truncated or zero-height
 - [ ] Toolbars and filter bars are positioned correctly — not pushed off-screen or overlapping the content area
 - [ ] Summary / stat sections display values and are not overflowing their containers

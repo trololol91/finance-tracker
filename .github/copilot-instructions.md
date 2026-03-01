@@ -29,6 +29,15 @@ This is a finance tracker monorepo with:
   - Backend: `import { UsersService } from '#users/users.service.js';`
   - Frontend: `import { Button } from '@components/common';`
 
+### CSS / Design Tokens
+- **REQUIRED**: All CSS variables used in component/feature `.css` or `.module.css` files **must be defined** in `src/index.css` under the Semantic Color Aliases section.
+- The app uses a **dark-theme-first scale** with remapped names: `--color-gray-100` is `#0f172a` (darkest, page bg), `--color-gray-900` is `#f1f5f9` (lightest, headings).
+- Semantic aliases bridge scale tokens to descriptive names: `--color-background`, `--color-surface`, `--color-text-primary`, etc.
+- **Never rely on a hardcoded fallback** (e.g. `var(--color-surface, #fff)`) as the actual colour — those are emergency fallbacks only. If a variable is needed, define it in `src/index.css` first.
+- When adding a new component that uses a new semantic token, add the token to `src/index.css` `:root` before writing the component CSS.
+- `--space-*` scale (`--space-1` through `--space-12`) is defined in `src/index.css`. Use scale values, not raw `rem` values, in component CSS.
+- Use CSS Modules (`.module.css`) for all feature and page components to avoid class name collisions.
+
 ### Naming Conventions
 - Components: PascalCase (`TransactionList.tsx`)
 - Hooks: camelCase with `use` prefix (`useTransactions.ts`)
