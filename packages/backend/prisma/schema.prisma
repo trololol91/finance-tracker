@@ -49,6 +49,7 @@ model User {
 
   // Relations
   transactions   Transaction[]
+  categories     Category[]
 
   @@map("users")
 }
@@ -82,9 +83,38 @@ model Transaction {
 
   // Relations
   user            User            @relation(fields: [userId], references: [id])
+  category        Category?       @relation(fields: [categoryId], references: [id])
 
   @@index([userId])
   @@index([userId, date])
   @@index([userId, isActive])
   @@map("transactions")
+}
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+
+  name        String
+  description String?
+  color       String?
+  icon        String?
+
+  parentId    String?   @map("parent_id") @db.Uuid
+
+  isActive    Boolean   @default(true) @map("is_active")
+
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt      @map("updated_at") @db.Timestamptz
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  parent       Category?     @relation("CategoryChildren", fields: [parentId], references: [id])
+  children     Category[]    @relation("CategoryChildren")
+  transactions Transaction[]
+
+  @@unique([userId, name, parentId])
+  @@index([userId])
+  @@index([userId, isActive])
+  @@map("categories")
 }
