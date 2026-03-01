@@ -60,6 +60,7 @@ accountactivity.csv
 # Playwright MCP state and cache
 .playwright-mcp/
 
-# Test screenshots — stored under test-plan/<feature>/screenshots/ not repo root
+# Test screenshots — stored in screenshots/ at the workspace root, never committed
+screenshots/
 *.png
 transaction.json

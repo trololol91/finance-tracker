@@ -110,7 +110,7 @@ Use the Playwright MCP tools in this order for any test scenario:
 2. **Snapshot** – take an accessibility snapshot to understand the page structure before interacting
 3. **Interact** – click, type, select, press keys
 4. **Assert** – snapshot again and verify expected text / state appears
-5. **Screenshot** – **required immediately after any modal, drawer, overlay, tooltip, or dropdown opens**; also capture on failure or for documentation. Verify the element is correctly positioned — not off-screen or clipped — before proceeding with further interaction. **Always save screenshots to `test-plan/<feature>/screenshots/`** (e.g. `test-plan/transactions/screenshots/tc18-add-modal.png`) — never to the workspace root. The Playwright MCP tool writes to the process working directory by default; always supply the relative path explicitly in the filename argument
+5. **Screenshot** – **required immediately after any modal, drawer, overlay, tooltip, or dropdown opens**; also capture on failure or for documentation. Verify the element is correctly positioned — not off-screen or clipped — before proceeding with further interaction. **Always save screenshots to `screenshots/`** at the workspace root (e.g. `screenshots/tc18-add-modal.png`). The Playwright MCP tool writes to the process working directory by default; always supply the relative path explicitly in the filename argument. Screenshots are gitignored and should never be committed
 6. **Check console** – call `browser_console_messages(level: 'error')` after every navigation and every mutation
 7. **Check network** – call `browser_network_requests` after every CRUD operation to verify endpoint, method, and status code
 8. **Repeat** for each step in the test plan
