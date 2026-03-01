@@ -8,9 +8,9 @@ import {PrismaService} from '#database/prisma.service.js';
 import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNamespace.js';
 import type {Account} from '#generated/prisma/client.js';
 import {TransactionType} from '#generated/prisma/client.js';
-import type {CreateAccountDto} from './dto/create-account.dto.js';
-import type {UpdateAccountDto} from './dto/update-account.dto.js';
-import {AccountResponseDto} from './dto/account-response.dto.js';
+import type {CreateAccountDto} from '#accounts/dto/create-account.dto.js';
+import type {UpdateAccountDto} from '#accounts/dto/update-account.dto.js';
+import {AccountResponseDto} from '#accounts/dto/account-response.dto.js';
 
 @Injectable()
 export class AccountsService {
@@ -21,6 +21,10 @@ export class AccountsService {
     /**
      * List all accounts for the given user.
      * Returns accounts ordered by name with computed currentBalance and transactionCount.
+     *
+     * NOTE: This issues 2 DB queries per account (groupBy + count) — N+1 pattern.
+     * Acceptable for typical account counts (<20), but should be replaced with a
+     * single aggregation query if performance becomes a concern.
      */
     public async findAll(userId: string): Promise<AccountResponseDto[]> {
         const accounts = await this.prisma.account.findMany({
@@ -165,6 +169,11 @@ export class AccountsService {
      * Compute currentBalance and transactionCount for an account and return DTO.
      * currentBalance = openingBalance + Σ(active income) − Σ(active expense).
      * Transfers are excluded from balance calculation.
+     *
+     * NOTE: transactionCount includes ALL transactions (active and inactive),
+     * while currentBalance only sums active ones. This is intentional — the count
+     * is used for the hard/soft delete guard and for UI display purposes, while
+     * inactive transactions are excluded from the balance to reflect post-void state.
      */
     private async toDto(account: Account): Promise<AccountResponseDto> {
         const [sums, transactionCount] = await Promise.all([
@@ -195,6 +204,11 @@ export class AccountsService {
     /**
      * Ensure no active account with the same name exists for this user.
      * @param excludeId - When updating, skip the row being updated.
+     *
+     * DESIGN NOTE: Only active accounts are checked (isActive: true). This allows
+     * a user to reuse the name of a previously soft-deleted account. This is
+     * intentional — soft-deleted accounts are retained for transaction history
+     * and a user may legitimately want to re-open an account with the same name.
      */
     private async checkNameUnique(
         userId: string,

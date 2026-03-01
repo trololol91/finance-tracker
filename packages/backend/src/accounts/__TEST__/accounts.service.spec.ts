@@ -254,7 +254,7 @@ describe('AccountsService', () => {
             expect(prisma.account.findFirst).toHaveBeenCalledOnce();
         });
 
-        it('calls checkNameUnique when name changes', async () => {
+        it('calls checkNameUnique with excludeId when name changes', async () => {
             const existing = makeAccount({name: 'Old Name'});
             vi.mocked(prisma.account.findFirst)
                 .mockResolvedValueOnce(existing)   // lookup
@@ -266,7 +266,33 @@ describe('AccountsService', () => {
             const result = await service.update(userId, accId, {name: 'New Name'});
 
             expect(prisma.account.findFirst).toHaveBeenCalledTimes(2);
+            // Second call is checkNameUnique — must pass excludeId so the row being
+            // updated is not flagged as its own duplicate.
+            expect(prisma.account.findFirst).toHaveBeenNthCalledWith(2, {
+                where: {
+                    userId,
+                    name: 'New Name',
+                    isActive: true,
+                    id: {not: accId}
+                }
+            });
             expect(result).toBeInstanceOf(AccountResponseDto);
+        });
+
+        it('empty DTO is a no-op and succeeds', async () => {
+            const existing = makeAccount();
+            vi.mocked(prisma.account.findFirst).mockResolvedValue(existing);
+            vi.mocked(prisma.account.update).mockResolvedValue(existing);
+            vi.mocked(prisma.transaction.groupBy).mockResolvedValue(emptyGroupBy as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            const result = await service.update(userId, accId, {});
+
+            expect(result).toBeInstanceOf(AccountResponseDto);
+            // update called with empty data object — Prisma accepts this as a no-op
+            expect(prisma.account.update).toHaveBeenCalledWith(
+                expect.objectContaining({data: {}})
+            );
         });
 
         it('throws ConflictException when new name conflicts', async () => {

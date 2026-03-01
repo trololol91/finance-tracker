@@ -6,6 +6,7 @@ import {
     Delete,
     Body,
     Param,
+    ParseUUIDPipe,
     HttpCode,
     HttpStatus,
     UseGuards,
@@ -65,7 +66,7 @@ export class AccountsController {
     @ApiResponse({status: 404, description: 'Account not found'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async findOne(
-        @Param('id') id: string,
+        @Param('id', new ParseUUIDPipe({version: '4'})) id: string,
         @CurrentUser() currentUser: User
     ): Promise<AccountResponseDto> {
         return this.accountsService.findOne(currentUser.id, id);
@@ -112,7 +113,7 @@ export class AccountsController {
     @ApiResponse({status: 404, description: 'Account not found'})
     @ApiResponse({status: 409, description: 'Duplicate account name'})
     public async update(
-        @Param('id') id: string,
+        @Param('id', new ParseUUIDPipe({version: '4'})) id: string,
         @Body() updateDto: UpdateAccountDto,
         @CurrentUser() currentUser: User
     ): Promise<AccountResponseDto> {
@@ -143,7 +144,7 @@ export class AccountsController {
     @ApiResponse({status: 401, description: 'Unauthorized'})
     @ApiResponse({status: 404, description: 'Account not found'})
     public async remove(
-        @Param('id') id: string,
+        @Param('id', new ParseUUIDPipe({version: '4'})) id: string,
         @CurrentUser() currentUser: User,
         @Res({passthrough: true}) res: Response
     ): Promise<AccountResponseDto | void> {
