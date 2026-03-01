@@ -44,10 +44,10 @@ const fakeEvent = (): React.FormEvent =>
     ({preventDefault: vi.fn()}) as unknown as React.FormEvent;
 
 const makeCreate = (mutate = vi.fn(), isPending = false): CreateReturn =>
-    ({mutate, isPending}) as CreateReturn;
+    ({mutate, isPending}) as unknown as CreateReturn;
 
 const makeUpdate = (mutate = vi.fn(), isPending = false): UpdateReturn =>
-    ({mutate, isPending}) as UpdateReturn;
+    ({mutate, isPending}) as unknown as UpdateReturn;
 
 type HookReturn = ReturnType<typeof useCategoryForm>;
 type RenderedHook = ReturnType<typeof renderHook<HookReturn, unknown>>;

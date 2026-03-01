@@ -13,7 +13,7 @@ interface TransactionFormProps {
     errors: FormErrors;
     editTarget: TransactionResponseDto | null;
     isSubmitting: boolean;
-    amountRef?: React.RefObject<HTMLInputElement>;
+    amountRef?: React.RefObject<HTMLInputElement | null>;
     onFieldChange: (field: keyof TransactionFormValues, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     onCancel: () => void;

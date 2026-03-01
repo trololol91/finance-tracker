@@ -5,6 +5,7 @@ import {
     render, screen
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type {ComponentProps} from 'react';
 import {CategoryListItem} from '@features/categories/components/CategoryListItem.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 
@@ -25,7 +26,7 @@ const mockCat = (overrides: Partial<CategoryResponseDto> = {}): CategoryResponse
     ...overrides
 });
 
-const defaultProps = {
+const defaultProps: ComponentProps<typeof CategoryListItem> = {
     category: mockCat(),
     parentName: null,
     onEdit: vi.fn(),

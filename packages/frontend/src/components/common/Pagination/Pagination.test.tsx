@@ -87,7 +87,6 @@ describe('Pagination', () => {
     it('omits the trailing ellipsis when current page is near the end of a large set', () => {
         // totalPages=10, current=9 → current >= totalPages - 2, so no trailing '...'
         render(<Pagination {...defaultProps} page={9} total={500} limit={50} />);
-        const _nav = screen.getByRole('navigation');
         // Page buttons include 10 (last); the number immediately before should also be present
         const buttons = screen.getAllByRole('button', {name: /page \d/i});
         const lastLabel = buttons[buttons.length - 1].getAttribute('aria-label');

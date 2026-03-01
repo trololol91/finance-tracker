@@ -44,9 +44,9 @@ type HookResult = ReturnType<typeof useTransactionForm>;
 const fakeEvent = (): React.FormEvent =>
     ({preventDefault: vi.fn()}) as unknown as React.FormEvent;
 const makeCreate = (mutate = vi.fn(), isPending = false): CreateReturn =>
-    ({mutate, isPending}) as CreateReturn;
+    ({mutate, isPending}) as unknown as CreateReturn;
 const makeUpdate = (mutate = vi.fn(), isPending = false): UpdateReturn =>
-    ({mutate, isPending}) as UpdateReturn;
+    ({mutate, isPending}) as unknown as UpdateReturn;
 const setupHook = (onSuccess = vi.fn()) =>
     renderHook(() => useTransactionForm({onSuccess}), {wrapper: createWrapper()});
 const mockTx: TransactionResponseDto = {
@@ -271,7 +271,7 @@ describe('useTransactionForm', () => {
                 result.current.handleFieldChange('date', '2026-02-15');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            const [{data}] = mockMutate.mock.calls[0] as [{data: {description: string}}][];
+            const [{data}] = mockMutate.mock.calls[0] as [{data: {description: string}}];
             expect(data.description).toBe('Trimmed');
         });
 
@@ -286,7 +286,7 @@ describe('useTransactionForm', () => {
                 result.current.handleFieldChange('notes', '');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            const [{data}] = mockMutate.mock.calls[0] as [{data: {notes: string | null}}][];
+            const [{data}] = mockMutate.mock.calls[0] as [{data: {notes: string | null}}];
             expect(data.notes).toBeNull();
         });
 
@@ -301,7 +301,7 @@ describe('useTransactionForm', () => {
                 result.current.handleFieldChange('notes', 'A note');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            const [{data}] = mockMutate.mock.calls[0] as [{data: {notes: string | null}}][];
+            const [{data}] = mockMutate.mock.calls[0] as [{data: {notes: string | null}}];
             expect(data.notes).toBe('A note');
         });
 

@@ -12,6 +12,7 @@ import {MemoryRouter} from 'react-router-dom';
 import React from 'react';
 import {TransactionsPage} from '@pages/TransactionsPage.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
+import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 
 // ---------------------------------------------------------------------------
 // Component stubs
@@ -123,21 +124,23 @@ const mockSetDateRange = vi.fn();
 const mockClearFilters = vi.fn();
 const mockSetPage = vi.fn();
 
-const defaultFilterState = {
+const defaultFilterState: UseTransactionFiltersReturn = {
     filters: {
         startDate: '2026-02-01T00:00:00.000Z',
         endDate: '2026-02-28T23:59:59.999Z',
-        isActive: 'true',
+        isActive: TransactionsControllerFindAllIsActive.true,
         page: 1,
         limit: 50,
         search: '',
-        transactionType: '',
-        categoryId: '',
-        accountId: ''
+        transactionType: ''
     },
     apiParams: {
         startDate: '2026-02-01T00:00:00.000Z',
-        endDate: '2026-02-28T23:59:59.999Z'
+        endDate: '2026-02-28T23:59:59.999Z',
+        isActive: TransactionsControllerFindAllIsActive.true,
+        search: undefined,
+        page: 1,
+        limit: 50
     },
     data: undefined, // no transactions loaded in default state
     isLoading: false,
@@ -146,7 +149,7 @@ const defaultFilterState = {
     setDateRange: mockSetDateRange,
     clearFilters: mockClearFilters,
     setPage: mockSetPage,
-    queryKey: ['/transactions'] as unknown[]
+    queryKey: getTransactionsControllerFindAllQueryKey()
 };
 
 vi.mock('@features/transactions/hooks/useTransactionFilters.js', () => ({
@@ -209,7 +212,13 @@ import {
     useTransactionsControllerRemove,
     useTransactionsControllerToggleActive
 } from '@/api/transactions/transactions.js';
-import {useTransactionFilters} from '@features/transactions/hooks/useTransactionFilters.js';
+import {
+    useTransactionFilters,
+    type UseTransactionFiltersReturn
+} from '@features/transactions/hooks/useTransactionFilters.js';
+
+type RemoveReturn = ReturnType<typeof useTransactionsControllerRemove>;
+type ToggleReturn = ReturnType<typeof useTransactionsControllerToggleActive>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -262,10 +271,10 @@ describe('TransactionsPage', () => {
             (_args, opts) => { opts.onSuccess(); }
         );
         vi.mocked(useTransactionsControllerRemove).mockReturnValue(
-            {mutate: mockRemoveMutate} as ReturnType<typeof useTransactionsControllerRemove>
+            {mutate: mockRemoveMutate} as unknown as RemoveReturn
         );
         vi.mocked(useTransactionsControllerToggleActive).mockReturnValue(
-            {mutate: mockToggleMutate} as ReturnType<typeof useTransactionsControllerToggleActive>
+            {mutate: mockToggleMutate} as unknown as ToggleReturn
         );
         vi.mocked(useTransactionFilters).mockReturnValue({
             ...defaultFilterState,

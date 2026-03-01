@@ -142,6 +142,7 @@ describe('useAuth', () => {
             token: 'mock-token',
             isAuthenticated: true,
             isLoading: false,
+            authError: null,
             login: () => Promise.resolve(),
             register: () => Promise.resolve(),
             logout: () => {},

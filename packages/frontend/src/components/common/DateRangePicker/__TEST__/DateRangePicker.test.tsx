@@ -1,5 +1,5 @@
 import {
-    describe, it, expect, vi
+    describe, it, expect, vi, beforeEach
 } from 'vitest';
 import {
     render, screen, fireEvent
@@ -14,6 +14,7 @@ const defaultProps = {
 };
 
 describe('DateRangePicker', () => {
+    beforeEach(() => { vi.clearAllMocks(); });
     it('renders preset buttons', () => {
         render(<DateRangePicker {...defaultProps} />);
         expect(screen.getByRole('button', {name: /today/i})).toBeInTheDocument();
@@ -73,7 +74,7 @@ describe('DateRangePicker', () => {
             const user = userEvent.setup();
             render(<DateRangePicker {...defaultProps} onChange={onChange} />);
             await user.click(screen.getByRole('button', {name: /today/i}));
-            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}][];
+            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}];
             expect(range.startDate).toMatch(/T00:00:00\.000Z$/);
             expect(range.endDate).toMatch(/T23:59:59\.999Z$/);
         });
@@ -83,7 +84,7 @@ describe('DateRangePicker', () => {
             const user = userEvent.setup();
             render(<DateRangePicker {...defaultProps} onChange={onChange} />);
             await user.click(screen.getByRole('button', {name: /this month/i}));
-            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}][];
+            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}];
             expect(range.startDate).toMatch(/-01T00:00:00\.000Z$/);
             expect(range.endDate).toMatch(/T23:59:59\.999Z$/);
         });
@@ -93,7 +94,7 @@ describe('DateRangePicker', () => {
             const user = userEvent.setup();
             render(<DateRangePicker {...defaultProps} onChange={onChange} />);
             await user.click(screen.getByRole('button', {name: /this year/i}));
-            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}][];
+            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}];
             expect(range.startDate).toMatch(/-01-01T00:00:00\.000Z$/);
             expect(range.endDate).toMatch(/-12-31T23:59:59\.999Z$/);
         });
@@ -104,7 +105,7 @@ describe('DateRangePicker', () => {
             render(<DateRangePicker {...defaultProps} onChange={onChange} />);
             await user.click(screen.getByRole('button', {name: /custom/i}));
             fireEvent.change(screen.getByLabelText(/from/i), {target: {value: '2026-03-15'}});
-            const [range] = onChange.mock.calls.at(-1) as [{startDate: string, endDate: string}][];
+            const [range] = onChange.mock.calls.at(-1) as [{startDate: string, endDate: string}];
             expect(range.startDate).toBe('2026-03-15T00:00:00.000Z');
         });
 
@@ -114,7 +115,7 @@ describe('DateRangePicker', () => {
             render(<DateRangePicker {...defaultProps} onChange={onChange} />);
             await user.click(screen.getByRole('button', {name: /custom/i}));
             fireEvent.change(screen.getByLabelText(/to/i), {target: {value: '2026-03-31'}});
-            const [range] = onChange.mock.calls.at(-1) as [{startDate: string, endDate: string}][];
+            const [range] = onChange.mock.calls.at(-1) as [{startDate: string, endDate: string}];
             expect(range.endDate).toBe('2026-03-31T23:59:59.999Z');
         });
 
@@ -123,7 +124,7 @@ describe('DateRangePicker', () => {
             const user = userEvent.setup();
             render(<DateRangePicker {...defaultProps} onChange={onChange} />);
             await user.click(screen.getByRole('button', {name: /this week/i}));
-            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}][];
+            const [range] = onChange.mock.calls[0] as [{startDate: string, endDate: string}];
             // startDate is monday at 00:00:00.000Z
             expect(range.startDate).toMatch(/T00:00:00\.000Z$/);
             // endDate is sunday at 23:59:59.999Z

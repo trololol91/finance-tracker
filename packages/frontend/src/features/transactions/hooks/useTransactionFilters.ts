@@ -23,7 +23,7 @@ const getThisMonthRange = (): {startDate: string, endDate: string} => {
     };
 };
 
-interface UseTransactionFiltersReturn {
+export interface UseTransactionFiltersReturn {
     filters: TransactionFilterState;
     apiParams: TransactionsControllerFindAllParams;
     data: PaginatedTransactionsResponseDto | undefined;

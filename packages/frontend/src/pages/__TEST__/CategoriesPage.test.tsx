@@ -129,8 +129,8 @@ const makeFindAll = (
     isError = false
 ): FindAllReturn => ({data, isLoading, isError}) as FindAllReturn;
 
-const makeUpdate = (): UpdateReturn => ({mutate: mockUpdateMutate}) as UpdateReturn;
-const makeRemove = (): RemoveReturn => ({mutate: mockDeleteMutate}) as RemoveReturn;
+const makeUpdate = (): UpdateReturn => ({mutate: mockUpdateMutate}) as unknown as UpdateReturn;
+const makeRemove = (): RemoveReturn => ({mutate: mockDeleteMutate}) as unknown as RemoveReturn;
 
 const defaultFormValues = {
     name: '',

@@ -1,5 +1,5 @@
 import {
-    describe, it, expect, vi, beforeAll, beforeEach
+    describe, it, expect, vi, beforeAll, beforeEach, afterEach
 } from 'vitest';
 import {
     render, screen, fireEvent
