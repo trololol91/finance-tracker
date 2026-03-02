@@ -17,7 +17,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **3** | Secure Users Module | User Profile Management | ✅ Complete |
 | **4** | Transactions Module | Transactions UI | ✅ Complete |
 | **5** | Categories Module | Categories UI | ✅ Complete |
-| **6** | Accounts Module | Accounts UI | ⬜ In Progress |
+| **6** | Accounts Module | Accounts UI | ✅ Complete |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | ⬜ Not Started |
 | **8** | Budgets Module *(optional)* | Dashboard & Analytics | ⬜ Not Started |
 | **9** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
@@ -261,31 +261,35 @@ Each phase has two naturally sequential workstreams (BE → FE), but different *
 
 ---
 
-## Current Focus: Phase 6 — Accounts Module
+## Completed: Phase 6 — Accounts Module
 
-Phase 5 (Categories) is complete — backend and frontend both shipped and QA-verified (581 frontend tests passing, 0 type errors, 0 lint warnings; category selector wired into TransactionForm, TransactionList, and TransactionFilters).
+Phase 6 (Accounts) is complete — backend and frontend both shipped and fully tested (698 frontend tests passing, 0 type errors, 0 lint warnings; account selector wired into TransactionForm, TransactionList, TransactionListItem, TransactionFilters, and TransactionsPage).
 
 Implementation plan: [`test-plan/accounts/implementation-plan.md`](../test-plan/accounts/implementation-plan.md)
 
 **Phase 6 progress:**
 
 1. ✅ `@planner` — plan complete (`test-plan/accounts/implementation-plan.md`).
-2. ⬜ `@backend-dev` — Prisma schema (`AccountType` enum + `Account` model) + migration + `AccountsModule` (service, controller, 3 DTOs, Swagger).
-3. ⬜ `@test-writer` — backend unit tests (≥ 25 cases: service + controller).
-4. ⬜ `@backend-tester` — 23-case live API test plan + report (`test-plan/accounts/backend.md`, `backend-report.md`).
-5. ⬜ `@code-reviewer` — backend review; apply critical fixes.
-6. ⬜ `@backend-dev` — commit backend: schema/migration → service+tests → controller.
-7. ⬜ `npm run generate:api` in `packages/frontend` — Orval client regenerated.
-8. ⬜ `@frontend-dev` — `account.types.ts`, `useAccountForm`, `AccountForm`, `AccountModal`, `AccountList`, `AccountListItem`, `AccountsPage` (replace stub).
-9. ⬜ `@test-writer` — frontend unit tests for all accounts components.
-10. ⬜ `@code-reviewer` — frontend review; apply critical fixes.
+2. ✅ `@backend-dev` — Prisma schema (`AccountType` enum + `Account` model) + migration + `AccountsModule` (service, controller, 3 DTOs, Swagger).
+3. ✅ `@test-writer` — backend unit tests (35 cases: service + controller).
+4. ✅ `@backend-tester` — 38-case live API test plan + report (`test-plan/accounts/backend.md`, `backend-report.md`).
+5. ✅ `@code-reviewer` — backend review; critical fixes applied.
+6. ✅ `@backend-dev` — backend committed: schema/migration → service+tests → controller.
+7. ✅ `npm run generate:api` in `packages/frontend` — Orval client regenerated.
+8. ✅ `@frontend-dev` — `account.types.ts`, `useAccountForm`, `AccountForm`, `AccountModal`, `AccountList`, `AccountsSummary`, `AccountsErrorBoundary`, `AccountsPage` (replaced stub).
+9. ✅ `@test-writer` — frontend unit tests for all accounts components (115 tests across 6 files).
+10. ✅ `@code-reviewer` — frontend review; critical fixes applied.
 11. ⬜ `@frontend-tester` — Playwright E2E: `test-plan/accounts/frontend.md` + report.
-12. ⬜ **Cross-feature Step A** — `@frontend-dev`: Wire `accountId` select into `TransactionForm` (account dropdown, default None, active accounts only, `null` on clear). Tests in `TransactionForm.test.tsx`.
-13. ⬜ **Cross-feature Step B** — `@frontend-dev`: Add Account column (`th`/`td`) to `TransactionList` / `TransactionListItem` (name + color swatch; hide at ≤767px). Tests in `TransactionListItem.test.tsx`.
-14. ⬜ **Cross-feature Step C** — `@frontend-dev`: Wire `accountId` filter dropdown into `TransactionFilters` ("All Accounts"; `accountId` URL param already flows through `useTransactionFilters`). Tests in `TransactionFilters.test.tsx`.
-15. ⬜ Cross-feature TCs added to `test-plan/transactions/frontend.md` (Filters, Add Transaction, Edit Transaction, Responsive Layout sections).
-16. ⬜ `@frontend-dev` — commit frontend in logical chunks.
-17. ⬜ Phase 6 marked complete; Phase 7 set as current focus.
+12. ✅ **Cross-feature Step A** — `accountId` select wired into `TransactionForm`. Tests updated in `TransactionForm.test.tsx`.
+13. ✅ **Cross-feature Step B** — Account column added to `TransactionList` / `TransactionListItem`. Tests updated in `TransactionListItem.test.tsx`.
+14. ✅ **Cross-feature Step C** — `accountId` filter dropdown wired into `TransactionFilters`. Tests updated in `TransactionFilters.test.tsx`.
+15. ✅ Cross-feature TCs TC-45–TC-51 added to `test-plan/transactions/frontend.md`.
+16. ✅ `@frontend-dev` — frontend committed (commit `55043c0`): 35 files, 698 tests.
+17. ✅ Phase 6 marked complete; Phase 7 set as current focus.
+
+## Current Focus: Phase 7 — Budgets Module
+
+Phase 6 (Accounts) is complete — backend and frontend both shipped and QA-verified.
 
 ---
 
