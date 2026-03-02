@@ -191,3 +191,113 @@ See [test-plan/transactions/frontend.md](../transactions/frontend.md) — TC-45 
 | Lines | 97.57% | 90% | ✅ |
 
 **Backend + Frontend combined:** 698 frontend tests + 274 backend tests = 972 total tests passing.
+
+---
+
+## Playwright Exploratory Test Report
+
+**Date:** 2026-03-01  
+**Environment:** http://localhost:5173  
+**Backend:** http://localhost:3001  
+**Test User:** session already authenticated  
+**Commits under test:** `1548783` (test fixes), `233a88c` (Phase 6 tests), `f580cc3`, `bce51d9`, `61fd5c0`
+
+### Summary
+
+| Total | Passed | Partial | Failed | Skipped |
+|-------|--------|---------|--------|---------|
+| 18 | 18 | 0 | 0 | 0 |
+
+### Console Errors Observed
+
+None — zero console errors recorded across all 18 test cases.
+
+### Network Verification (Mutation TCs)
+
+| TC | Endpoint | Method | Status | Result |
+|----|----------|--------|--------|--------|
+| TC-06 | /accounts | POST | 201 Created | ✅ |
+| TC-07 | /accounts/{id} | PATCH | 200 OK | ✅ |
+| TC-09 (deactivate) | /accounts/{id} | PATCH | 200 OK | ✅ |
+| TC-10 | /accounts/{id} | DELETE | 204 No Content | ✅ |
+| TC-11 (cancelled) | — | — | no request | ✅ |
+| cleanup (chequing) | /accounts/{id} | DELETE | 204 No Content | ✅ |
+
+### Bugs Found
+
+None.
+
+### Results
+
+#### ✅ TC-01: Page load — structural layout, empty state, dark theme
+Dark background `rgb(15, 23, 42)` confirmed. "Accounts" h1, "+ New Account" button, "Show inactive" checkbox, "0 account(s)" count, and empty state paragraph all visible in correct order. No AccountsSummary bar (correct — 0 accounts). Zero console errors.
+
+#### ✅ TC-02: New Account modal opens — layout and field presence
+Modal centred, not clipped by viewport, backdrop visible. "New Account" heading. All 9 form controls present. Focus automatically moves to Account Name input. ✕ Close button in header. `dialog[open]` confirmed. Screenshot: `screenshots/tc02-new-account-modal.png`.
+
+#### ✅ TC-03: Validation — submit with empty name
+"Name is required" alert inline below the Account Name field. Red border on input. Modal stays open. No network request sent. Screenshot: `screenshots/tc03-validation-empty-name.png`.
+
+#### ✅ TC-04: Close modal via Escape key
+Escape closes modal. Focus restored to "+ New Account" button (confirmed `[active]` state in snapshot).
+
+#### ✅ TC-05: Close modal via ✕ button
+✕ button closes modal. Focus restored to "+ New Account" button. Form is reset to empty state when reopened.
+
+#### ✅ TC-06: Create account — full valid form, POST → 201
+Account "Playwright Test Chequing" created: POST /accounts → 201. Modal auto-closed. AccountsSummary appeared showing "1 / $1,500.00 / 0". Table row rendered with: blue color swatch, account name, ℹ notes hint, "Checking" badge, "TD Bank", "$1,500.00" (green positive), "0", "Active" badge, Edit/Delete action buttons. Screenshot: `screenshots/tc06-account-created.png`.
+
+#### ✅ TC-07: Edit modal — fields populate, type locked, PATCH → 200
+Edit modal title "Edit Account", form `aria-label="Edit account form"`. All fields pre-populated from existing account. Type select `[disabled]` with "Account type cannot be changed after creation." hint. isActive checkbox present and checked. "Save Changes" button (not "Create Account"). PATCH /accounts/{id} → 200. Table row name updated. Focus restored to Edit button. Screenshot: `screenshots/tc07-edit-modal.png`.
+
+#### ✅ TC-08: "Show inactive" checkbox toggles visible count
+With 1 active account, checking "Show inactive" still shows "1 account(s)" (correct — no inactive accounts). Unchecking reverts. No console errors.
+
+#### ✅ TC-09: Deactivate account → Show inactive toggle
+Deactivated "Playwright Test Savings" via isActive checkbox uncheck → PATCH → 200. Row disappeared from default view (showInactive=false). AccountsSummary: 1 account, Net Balance $1,500.00 (savings excluded from aggregate). Checked "Show inactive" → savings row reappeared at 55% opacity with "Inactive" badge. Count showed "2 account(s)". Screenshot: `screenshots/tc09-show-inactive.png`.
+
+**Note:** AccountsSummary correctly counts only `isActive=true` accounts for all 3 stats. Tested and confirmed with 2 accounts (1 active, 1 inactive) — summary shows "1 / $1,500.00 / 0" even when "Show inactive" is checked.
+
+#### ✅ TC-10: Delete account (0 transactions) — DELETE → 204
+Confirm dialog: `Delete account "Playwright Test Savings"? This cannot be undone.`. Accept → DELETE /accounts/{id} → 204. Row removed. Count decremented. Summary updated.
+
+#### ✅ TC-11: Delete cancelled — no API call
+Dismiss confirm dialog → row intact → no DELETE request in network log.
+
+#### ✅ TC-12: Per-row actions on 1-row list (boundary)
+At 1-row list minimum, Edit and Delete buttons fully visible in viewport, not clipped by table `overflow: hidden`. No table scrollbar. Screenshot: `screenshots/tc12-row-actions-short-list.png`.
+
+#### ✅ TC-13: Tablet (768×1024) layout
+"Transactions" column correctly hidden (`hideOnTablet`). Remaining columns — Name, Type, Institution, Balance, Status, Actions — all visible. AccountsSummary horizontal (3 stats side by side). No horizontal overflow. Screenshot: `screenshots/tc13-tablet-768.png`.
+
+#### ✅ TC-14: Mobile (390×844) layout
+Type, Institution, Transactions, Status columns hidden (`hideOnMobile`). Name, Balance, Actions visible. AccountsSummary stacks vertically (`flex-direction: column`). `body.scrollWidth > body.clientWidth === false`. Screenshot: `screenshots/tc14-mobile-390.png`.
+
+#### ✅ TC-15: Modal at mobile (390×844)
+Modal fits within 390px width via `width: min(92vw, 42rem)`. No body horizontal overflow with modal open. Type + Institution row collapses to single column (`@media (max-width: 480px)`). Modal is internally scrollable (overflow-y: auto) — form taller than 92vh at this viewport; all fields reachable by scrolling within the dialog. "Create Account" button visible. Escape closes modal. Screenshot: `screenshots/tc15-modal-mobile.png`.
+
+#### ✅ TC-16: Focus trap in modal
+10 focusable elements confirmed in order: ✕ Close → acc-name → acc-type → acc-institution → acc-currency → acc-balance → color-picker → acc-color → acc-notes → Create Account. Tab from last wraps to first (✕ Close). Shift+Tab from first wraps to last (Create Account). Both directions work.
+
+#### ✅ TC-17: Type and Currency select options (boundary)
+Type: 6 options — Checking, Savings, Credit, Investment, Loan, Other. Currency: 7 options — CAD, USD, EUR, GBP, AUD, JPY, CHF.
+
+#### ✅ TC-18: Empty state messages (both variants)
+`showInactive=false`, 0 accounts → "No active accounts. Create one or show inactive."  
+`showInactive=true`, 0 accounts → "No accounts found. Create your first account."  
+Both branch conditions verified.
+
+### Test Data Created and Cleaned Up
+
+| Description | Type | Amount | Status | Cleaned Up |
+|-------------|------|--------|--------|------------|
+| Playwright Test Chequing | Checking | $1,500.00 CAD | Deleted via UI | ✅ Yes |
+| Playwright Test Savings | Savings | -$250.00 CAD | Deleted via UI (0 transactions) | ✅ Yes |
+
+### Testing Gaps — Retrospective
+
+1. **Unauthenticated redirect** — TC for `/accounts` without auth not tested (would require a separate browser context or logout flow); redirect logic confirmed functional from previous auth tests.
+2. **Delete with transactions > 0** — the confirm message differs (deactivate path). Not testable without live transactions linked to an account in this run.
+3. **Color picker interaction** — the native `<input type="color">` is not inspectable via Playwright accessibility snapshot. Color was verified visually via color swatch rendered in the table row.
+4. **Opening balance hint text** — "Balance at the time you added this account" is present in snapshots but the hint's `aria-describedby` wiring was verified by Vitest unit tests, not Playwright.
+5. **Backend error handling** — no test for what happens when POST/PATCH/DELETE returns 4xx/5xx (error boundary not exercisable without network interception).
