@@ -24,7 +24,7 @@ const EMPTY_FORM: AccountFormValues = {
     type: CreateAccountDtoType.checking,
     institution: '',
     currency: 'CAD',
-    openingBalance: '0',
+    openingBalance: '',
     color: '',
     notes: '',
     isActive: true
@@ -100,6 +100,7 @@ const runSubmit = (args: SubmitArgs): void => {
     const success = (): void => { invalidate(); setModalMode(null); onSuccess?.(); };
     const errHandler = (label: string) => (err: unknown): void => {
         console.error('[AccountForm]', err);
+        // Orval/Axios wraps API errors as {message: string}; fallback handles other error shapes
         const msg = (err as {message?: string}).message ?? `Failed to ${label} account`;
         setErrors({name: msg});
     };

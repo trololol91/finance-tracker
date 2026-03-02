@@ -81,7 +81,7 @@ export const TransactionListItem = ({
                 {account !== null ? (
                     <span className="tx-item__account-label">{account.name}</span>
                 ) : (
-                    <span className="tx-item__category-none">—</span>
+                    <span className="tx-item__account-none">—</span>
                 )}
             </td>
             <td className="tx-item__status tx-item__hide-mobile">

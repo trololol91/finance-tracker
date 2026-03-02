@@ -81,6 +81,7 @@ export const AccountForm = ({
                     required
                     aria-required="true"
                     aria-invalid={errors.type !== undefined ? 'true' : 'false'}
+                    aria-describedby={errors.type !== undefined ? 'acc-type-error' : undefined}
                     disabled={editMode}
                     onChange={(e) => { onChange('type', e.target.value); }}
                 >
@@ -109,11 +110,12 @@ export const AccountForm = ({
                     value={values.institution}
                     maxLength={100}
                     aria-invalid={errors.institution !== undefined ? 'true' : 'false'}
+                    aria-describedby={errors.institution !== undefined ? 'acc-institution-error' : undefined}
                     onChange={(e) => { onChange('institution', e.target.value); }}
                     placeholder="e.g. TD Bank"
                 />
                 {errors.institution !== undefined && (
-                    <span role="alert" className={styles.error}>{errors.institution}</span>
+                    <span id="acc-institution-error" role="alert" className={styles.error}>{errors.institution}</span>
                 )}
             </div>
         </div>
@@ -124,8 +126,10 @@ export const AccountForm = ({
                 <label className={styles.label} htmlFor="acc-currency">Currency</label>
                 <select
                     id="acc-currency"
-                    className={styles.select}
+                    className={`${styles.select}${errors.currency !== undefined ? ` ${styles.inputError}` : ''}`}
                     value={values.currency}
+                    aria-invalid={errors.currency !== undefined ? 'true' : 'false'}
+                    aria-describedby={errors.currency !== undefined ? 'acc-currency-error' : undefined}
                     onChange={(e) => { onChange('currency', e.target.value); }}
                 >
                     {COMMON_CURRENCIES.map((c) => (
@@ -133,7 +137,7 @@ export const AccountForm = ({
                     ))}
                 </select>
                 {errors.currency !== undefined && (
-                    <span role="alert" className={styles.error}>{errors.currency}</span>
+                    <span id="acc-currency-error" role="alert" className={styles.error}>{errors.currency}</span>
                 )}
             </div>
 
@@ -205,11 +209,12 @@ export const AccountForm = ({
                 maxLength={500}
                 rows={2}
                 aria-invalid={errors.notes !== undefined ? 'true' : 'false'}
+                aria-describedby={errors.notes !== undefined ? 'acc-notes-error' : undefined}
                 onChange={(e) => { onChange('notes', e.target.value); }}
                 placeholder="Optional notes…"
             />
             {errors.notes !== undefined && (
-                <span role="alert" className={styles.error}>{errors.notes}</span>
+                <span id="acc-notes-error" role="alert" className={styles.error}>{errors.notes}</span>
             )}
         </div>
 

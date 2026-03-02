@@ -126,7 +126,8 @@
     flex-shrink: 0;
 }
 
-.tx-item__category-none {
+.tx-item__category-none,
+.tx-item__account-none {
     color: var(--color-gray-400);
     font-size: var(--font-size-sm);
 }

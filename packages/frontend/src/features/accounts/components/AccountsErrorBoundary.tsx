@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from '@features/accounts/components/AccountsErrorBoundary.module.css';
 
 interface State {
     hasError: boolean;
@@ -27,23 +28,15 @@ export class AccountsErrorBoundary extends React.Component<Props, State> {
     public override render(): React.ReactNode {
         if (this.state.hasError) {
             return (
-                <div role="alert" style={{padding: '2rem', textAlign: 'center'}}>
-                    <h2 style={{color: 'var(--color-danger)'}}>Something went wrong</h2>
-                    <p style={{color: 'var(--color-text-secondary)', marginTop: '0.5rem'}}>
+                <div role="alert" className={styles.container}>
+                    <h2 className={styles.heading}>Something went wrong</h2>
+                    <p className={styles.message}>
                         {this.state.message}
                     </p>
                     <button
                         type="button"
+                        className={styles.retryBtn}
                         onClick={(): void => { this.setState({hasError: false, message: ''}); }}
-                        style={{
-                            marginTop: '1rem',
-                            padding: '0.5rem 1rem',
-                            background: 'var(--color-primary)',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 'var(--radius-md)',
-                            cursor: 'pointer'
-                        }}
                     >
                         Try again
                     </button>
