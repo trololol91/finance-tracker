@@ -362,7 +362,7 @@ This document outlines the implementation order for building the Finance Tracker
 
 ---
 
-### Phase 6: Accounts Module
+### Phase 6: Accounts Module ✅ **COMPLETE**
 
 **Priority:** LOW - Track multiple accounts
 
@@ -377,22 +377,37 @@ This document outlines the implementation order for building the Finance Tracker
    - currency: string (default 'USD')
    - institution: string (optional)
    - account_number: string (encrypted, optional)
+   - is_active: boolean (default true)
    - created_at: timestamp
    - updated_at: timestamp
    ```
 
 2. **Implement Accounts CRUD**
    - User-scoped accounts
-   - Track current balance
-   - Update balance on transaction create/update/delete
+   - Track current balance (opening balance stored; closing balance computed)
+   - Soft-delete via `isActive` flag (show/hide inactive toggle in UI)
 
 3. **Update Transactions**
-   - Add account relationship
-   - Support transfers between accounts
+   - Added optional `accountId` foreign key to `Transaction` model
+   - Transactions filtered/displayed by account in frontend
 
-**Phase 6 Checklist:** Apply Standard Checklist (Core, Documentation, Testing, Security, Database)
+**Phase 6 Checklist:** ✅ **COMPLETE**
+- [x] **Core:** `AccountsModule` with service, controller, 3 DTOs (`CreateAccountDto`, `UpdateAccountDto`, `AccountResponseDto`)
+- [x] **Documentation:** Swagger decorators on all 5 endpoints; verified in Swagger UI
+- [x] **Testing:** 35 backend unit tests (service + controller); 38-case live API test plan executed (all pass) — see `test-plan/accounts/backend.md` + `backend-report.md`
+- [x] **Security:** All endpoints protected with `JwtAuthGuard`; `userId` scoped at service layer; 404 on cross-user access
+- [x] **Database:** `AccountType` enum + `Account` model in `schema.prisma`; migration applied
 
-**Estimated Time:** 1-2 days
+**Validation (confirmed via backend-tester live run):**
+- Create account (POST /accounts → 201)
+- List own accounts (GET /accounts → 200, only own records)
+- Get single account (GET /accounts/:id → 200 / 404 for missing or other user's)
+- Update account (PATCH /accounts/:id → 200)
+- Delete account (DELETE /accounts/:id → 204)
+- Inactive accounts included/excluded via `includeInactive` query param
+- Cannot access another user's accounts
+
+**Estimated Time:** 1-2 days (actual: ~2 days)
 
 ---
 

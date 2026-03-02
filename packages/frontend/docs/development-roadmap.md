@@ -762,20 +762,63 @@ export interface TransactionTotals {
 
 ---
 
-## Phase 6: Accounts Management (Future)
+## Phase 6: Accounts Management ✅ **Complete**
 
 **Priority:** LOW
-**Backend Dependency:** Backend Phase 6 (Accounts Module)
-**Timeline:** 2-3 days
+**Backend Dependency:** Backend Phase 6 (Accounts Module) ✅ Complete
+**Timeline:** 2-3 days (actual: ~3 days)
 
-### Goals (High-Level)
-- View account list
-- Add/edit/delete accounts
-- Account balance tracking
-- Transfer between accounts
-- Account transaction history
+### Goals
+- ✅ View account list with balances, type, currency, institution
+- ✅ Add/edit accounts via modal form (`AccountModal` + `AccountForm`)
+- ✅ Soft-deactivate accounts (edit → toggle `isActive`); show/hide inactive toggle
+- ✅ Delete account with confirmation dialog
+- ✅ Account selector wired into `TransactionForm`, `TransactionFilters`, `TransactionList`, `TransactionListItem`
+- ✅ Empty state and error boundary handled
 
-**Note:** Detailed requirements to be defined based on backend implementation.
+### Implemented Files
+
+```
+src/features/accounts/
+├── components/
+│   ├── AccountForm.tsx           # create/edit form (name, type, currency, balance, institution)
+│   ├── AccountForm.module.css
+│   ├── AccountList.tsx           # table with show/hide inactive toggle
+│   ├── AccountList.module.css
+│   ├── AccountModal.tsx          # wraps AccountForm in a modal
+│   ├── AccountModal.module.css
+│   ├── AccountsErrorBoundary.tsx
+│   ├── AccountsSummary.tsx       # total assets / liabilities chips
+│   ├── AccountsSummary.module.css
+│   └── __TEST__/                 # 115 tests across 6 files
+├── hooks/
+│   └── useAccountForm.ts
+├── types/
+│   └── account.types.ts
+└── index.ts
+src/pages/AccountsPage.tsx        # route: /accounts
+```
+
+### Cross-Feature Integration
+- ✅ `TransactionForm` — `accountId` select wired in (uses `useGetAccounts`)
+- ✅ `TransactionList` / `TransactionListItem` — Account column added, account name resolved
+- ✅ `TransactionFilters` — `accountId` filter dropdown added
+- ✅ Cross-feature TCs TC-45–TC-51 added to `test-plan/transactions/frontend.md`
+
+### Phase 6 Checklist ✅ **COMPLETE**
+- [x] Page component + route registered (`/accounts`)
+- [x] Feature components / hooks / types created
+- [x] Uses Orval-generated hooks (no manual fetch calls)
+- [x] DTO types imported from `src/api/model/` (not redefined)
+- [x] Dev server starts without errors
+- [x] Page opens without blank screen
+- [x] Zero TypeScript errors
+- [x] Zero ESLint warnings
+- [x] Unit tests: 115 accounts component tests + 43 cross-feature tests = **741 total** (39 files)
+- [x] Code review complete; all critical fixes applied
+- [x] Playwright E2E: 18 TCs, 18 pass, 0 fail, 0 console errors — `test-plan/accounts/frontend.md` + `frontend-report.md`
+
+**Final commits:** `55043c0` (35 files, 698 tests), `1548783` (test quality fixes — typed factory functions, stale fixture, misleading comment; 741 tests)
 
 ---
 

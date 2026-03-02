@@ -263,7 +263,7 @@ Each phase has two naturally sequential workstreams (BE → FE), but different *
 
 ## Completed: Phase 6 — Accounts Module
 
-Phase 6 (Accounts) is complete — backend and frontend both shipped and fully tested (698 frontend tests passing, 0 type errors, 0 lint warnings; account selector wired into TransactionForm, TransactionList, TransactionListItem, TransactionFilters, and TransactionsPage).
+Phase 6 (Accounts) is complete — backend and frontend both shipped and fully tested (741 frontend tests passing, 0 type errors, 0 lint warnings; account selector wired into TransactionForm, TransactionList, TransactionListItem, TransactionFilters, and TransactionsPage; 18/18 Playwright TCs passing).
 
 Implementation plan: [`test-plan/accounts/implementation-plan.md`](../test-plan/accounts/implementation-plan.md)
 
@@ -279,17 +279,24 @@ Implementation plan: [`test-plan/accounts/implementation-plan.md`](../test-plan/
 8. ✅ `@frontend-dev` — `account.types.ts`, `useAccountForm`, `AccountForm`, `AccountModal`, `AccountList`, `AccountsSummary`, `AccountsErrorBoundary`, `AccountsPage` (replaced stub).
 9. ✅ `@test-writer` — frontend unit tests for all accounts components (115 tests across 6 files).
 10. ✅ `@code-reviewer` — frontend review; critical fixes applied.
-11. ⬜ `@frontend-tester` — Playwright E2E: `test-plan/accounts/frontend.md` + report.
+11. ✅ `@frontend-tester` — Playwright E2E: 18 TCs, all pass, 0 bugs. `test-plan/accounts/frontend.md` + `frontend-report.md` written. Commit `1548783` (test quality fixes: typed `makeAccount` factories, stale fixture, misleading comment).
 12. ✅ **Cross-feature Step A** — `accountId` select wired into `TransactionForm`. Tests updated in `TransactionForm.test.tsx`.
 13. ✅ **Cross-feature Step B** — Account column added to `TransactionList` / `TransactionListItem`. Tests updated in `TransactionListItem.test.tsx`.
 14. ✅ **Cross-feature Step C** — `accountId` filter dropdown wired into `TransactionFilters`. Tests updated in `TransactionFilters.test.tsx`.
 15. ✅ Cross-feature TCs TC-45–TC-51 added to `test-plan/transactions/frontend.md`.
 16. ✅ `@frontend-dev` — frontend committed (commit `55043c0`): 35 files, 698 tests.
-17. ✅ Phase 6 marked complete; Phase 7 set as current focus.
+17. ✅ Phase 6 fully complete — Playwright E2E done; test quality fixes committed (`1548783`); 741 tests passing.
 
-## Current Focus: Phase 7 — Budgets Module
+## Current Focus: Phase 7 — Transaction Import & Automated Sync
 
-Phase 6 (Accounts) is complete — backend and frontend both shipped and QA-verified.
+Phase 6 (Accounts) is complete — backend and frontend both shipped and QA-verified (741 frontend tests, 0 type errors, 0 lint warnings, 18/18 Playwright TCs passing).
+
+**Recommended next actions:**
+1. `@planner` — Plan Phase 7: Transaction Import & Automated Sync (CSV/OFX file upload, scraper sync schedules, SSE live status, MFA modal). Research existing transactions module patterns.
+2. After plan review → `@backend-dev` — Implement `TransactionImport` + `SyncSchedule` Prisma models + migration.
+3. `@test-writer` — Backend unit tests for import parsing service and sync scheduler.
+4. `@backend-tester` — Live API tests for import and sync endpoints.
+5. After Swagger is stable → `npm run generate:api` in `packages/frontend`, then `@frontend-dev`.
 
 ---
 
