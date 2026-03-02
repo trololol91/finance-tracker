@@ -235,4 +235,95 @@ describe('AccountForm', () => {
             expect(values).toContain('credit');
         });
     });
+
+    describe('aria-describedby wiring (Phase 6 a11y fix)', () => {
+        it('type select has aria-describedby pointing to error span when type error is set', () => {
+            const errors: AccountFormErrors = {type: 'Account type is required'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            const select = screen.getByLabelText(/^type/i);
+            expect(select).toHaveAttribute('aria-describedby', 'acc-type-error');
+        });
+
+        it('type select does not have aria-describedby when there is no type error', () => {
+            render(<AccountForm {...defaultProps} />);
+            const select = screen.getByLabelText(/^type/i);
+            expect(select).not.toHaveAttribute('aria-describedby');
+        });
+
+        it('type error span has the id acc-type-error', () => {
+            const errors: AccountFormErrors = {type: 'Required'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            expect(document.getElementById('acc-type-error')).toBeInTheDocument();
+        });
+
+        it('institution input has aria-describedby pointing to error span when institution error is set', () => {
+            const errors: AccountFormErrors = {institution: 'Too long'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            const input = screen.getByLabelText(/institution/i);
+            expect(input).toHaveAttribute('aria-describedby', 'acc-institution-error');
+        });
+
+        it('institution input does not have aria-describedby when there is no error', () => {
+            render(<AccountForm {...defaultProps} />);
+            const input = screen.getByLabelText(/institution/i);
+            expect(input).not.toHaveAttribute('aria-describedby');
+        });
+
+        it('institution error span has the id acc-institution-error', () => {
+            const errors: AccountFormErrors = {institution: 'Too long'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            expect(document.getElementById('acc-institution-error')).toBeInTheDocument();
+        });
+
+        it('currency select has aria-describedby pointing to error span when currency error is set', () => {
+            const errors: AccountFormErrors = {currency: 'Invalid currency'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            const select = screen.getByLabelText(/currency/i);
+            expect(select).toHaveAttribute('aria-describedby', 'acc-currency-error');
+        });
+
+        it('currency select does not have aria-describedby when there is no error', () => {
+            render(<AccountForm {...defaultProps} />);
+            const select = screen.getByLabelText(/currency/i);
+            expect(select).not.toHaveAttribute('aria-describedby');
+        });
+
+        it('currency error span has the id acc-currency-error', () => {
+            const errors: AccountFormErrors = {currency: 'Invalid'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            expect(document.getElementById('acc-currency-error')).toBeInTheDocument();
+        });
+
+        it('notes textarea has aria-describedby pointing to error span when notes error is set', () => {
+            const errors: AccountFormErrors = {notes: 'Notes too long'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            const textarea = screen.getByLabelText(/notes/i);
+            expect(textarea).toHaveAttribute('aria-describedby', 'acc-notes-error');
+        });
+
+        it('notes textarea does not have aria-describedby when there is no error', () => {
+            render(<AccountForm {...defaultProps} />);
+            const textarea = screen.getByLabelText(/notes/i);
+            expect(textarea).not.toHaveAttribute('aria-describedby');
+        });
+
+        it('notes error span has the id acc-notes-error', () => {
+            const errors: AccountFormErrors = {notes: 'Too long'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            expect(document.getElementById('acc-notes-error')).toBeInTheDocument();
+        });
+
+        it('name error span has the id acc-name-error', () => {
+            const errors: AccountFormErrors = {name: 'Required'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            expect(document.getElementById('acc-name-error')).toBeInTheDocument();
+        });
+
+        it('name input has aria-describedby pointing to error span when name error is set', () => {
+            const errors: AccountFormErrors = {name: 'Required'};
+            render(<AccountForm {...defaultProps} errors={errors} />);
+            const input = screen.getByLabelText(/account name/i);
+            expect(input).toHaveAttribute('aria-describedby', 'acc-name-error');
+        });
+    });
 });

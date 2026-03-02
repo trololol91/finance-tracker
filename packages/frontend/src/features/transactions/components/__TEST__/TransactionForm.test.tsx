@@ -260,4 +260,110 @@ describe('TransactionForm', () => {
             expect(screen.getByRole('button', {name: /loading/i})).toBeDisabled();
         });
     });
+
+    describe('account select (Phase 6)', () => {
+        const makeAccount = (overrides = {}) => ({
+            id: 'acc-1',
+            userId: 'u-1',
+            name: 'Main Chequing',
+            type: 'checking' as const,
+            institution: 'TD Bank',
+            currency: 'CAD',
+            openingBalance: 0,
+            currentBalance: 1000,
+            transactionCount: 5,
+            color: null,
+            notes: null,
+            isActive: true,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+            ...overrides
+        });
+
+        it('renders the account select', () => {
+            render(<TransactionForm {...defaultProps} />);
+            expect(screen.getByLabelText(/account/i)).toBeInTheDocument();
+        });
+
+        it('shows "None" option in the account select', () => {
+            render(<TransactionForm {...defaultProps} />);
+            // There may be multiple "None" options (category + account); at least one must exist
+            expect(screen.getAllByRole('option', {name: /none/i}).length).toBeGreaterThan(0);
+        });
+
+        it('shows active accounts as options', () => {
+            const accounts = [makeAccount({id: 'acc-1', name: 'Main Chequing'})];
+            render(<TransactionForm {...defaultProps} accounts={accounts} />);
+            expect(screen.getByRole('option', {name: 'Main Chequing'})).toBeInTheDocument();
+        });
+
+        it('excludes inactive accounts from the account select', () => {
+            const accounts = [
+                makeAccount({id: 'acc-1', name: 'Active Account', isActive: true}),
+                makeAccount({id: 'acc-2', name: 'Closed Account', isActive: false})
+            ];
+            render(<TransactionForm {...defaultProps} accounts={accounts} />);
+            expect(screen.getByRole('option', {name: 'Active Account'})).toBeInTheDocument();
+            expect(screen.queryByRole('option', {name: 'Closed Account'})).not.toBeInTheDocument();
+        });
+
+        it('account select is enabled in create mode', () => {
+            render(
+                <TransactionForm
+                    {...defaultProps}
+                    accounts={[makeAccount()]}
+                    editTarget={null}
+                />
+            );
+            expect(screen.getByLabelText(/account/i)).not.toBeDisabled();
+        });
+
+        it('account select is disabled in edit mode', () => {
+            render(
+                <TransactionForm
+                    {...defaultProps}
+                    accounts={[makeAccount()]}
+                    editTarget={mockTx}
+                />
+            );
+            expect(screen.getByLabelText(/account/i)).toBeDisabled();
+        });
+
+        it('shows account-locked hint in edit mode', () => {
+            render(
+                <TransactionForm
+                    {...defaultProps}
+                    accounts={[makeAccount()]}
+                    editTarget={mockTx}
+                />
+            );
+            // Both type and account show cannot-change hints; at least two should appear
+            const hints = screen.getAllByText(/cannot be changed/i);
+            expect(hints.length).toBeGreaterThanOrEqual(2);
+        });
+
+        it('does not show account-locked hint in create mode', () => {
+            render(
+                <TransactionForm {...defaultProps} accounts={[makeAccount()]} editTarget={null} />
+            );
+            // Only type hint is absent in create mode
+            expect(screen.queryByText(/cannot be changed/i)).not.toBeInTheDocument();
+        });
+
+        it('calls onFieldChange with accountId when account is selected', async () => {
+            const onFieldChange = vi.fn();
+            const user = userEvent.setup();
+            const accounts = [makeAccount({id: 'acc-1', name: 'Main Chequing'})];
+            render(
+                <TransactionForm
+                    {...defaultProps}
+                    formValues={{...filledValues, accountId: ''}}
+                    accounts={accounts}
+                    onFieldChange={onFieldChange}
+                />
+            );
+            await user.selectOptions(screen.getByLabelText(/account/i), 'acc-1');
+            expect(onFieldChange).toHaveBeenCalledWith('accountId', 'acc-1');
+        });
+    });
 });

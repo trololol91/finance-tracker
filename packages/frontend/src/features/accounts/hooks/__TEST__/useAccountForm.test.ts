@@ -89,6 +89,18 @@ describe('useAccountForm', () => {
             expect(result.current.formValues.currency).toBe('CAD');
         });
 
+        it('openingBalance defaults to empty string (not "0")', () => {
+            const {result} = renderHook(() => useAccountForm(), {wrapper: createWrapper()});
+            expect(result.current.formValues.openingBalance).toBe('');
+        });
+
+        it('openingBalance is still empty string after openCreate', () => {
+            const {result} = renderHook(() => useAccountForm(), {wrapper: createWrapper()});
+            act(() => { result.current.handleFieldChange('openingBalance', '500'); });
+            act(() => { result.current.openCreate(); });
+            expect(result.current.formValues.openingBalance).toBe('');
+        });
+
         it('starts with no errors', () => {
             const {result} = renderHook(() => useAccountForm(), {wrapper: createWrapper()});
             expect(result.current.errors).toEqual({});

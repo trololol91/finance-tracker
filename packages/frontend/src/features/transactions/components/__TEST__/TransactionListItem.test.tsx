@@ -210,4 +210,60 @@ describe('TransactionListItem', () => {
             expect(onToggleActive).toHaveBeenCalledWith('tx-1');
         });
     });
+
+    describe('account column (Phase 6)', () => {
+        const makeAccount = (overrides = {}) => ({
+            id: 'acc-1',
+            userId: 'user-1',
+            name: 'Main Chequing',
+            type: 'checking' as const,
+            institution: null,
+            currency: 'CAD',
+            openingBalance: 0,
+            currentBalance: 1000,
+            transactionCount: 0,
+            color: null,
+            notes: null,
+            isActive: true,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+            ...overrides
+        });
+
+        it('shows "—" in the account column when accountId is null', () => {
+            const tx = makeTx({accountId: null});
+            const {container} = renderItem(tx, {accounts: [makeAccount()]});
+            expect(container.querySelector('.tx-item__account-none')).toBeInTheDocument();
+        });
+
+        it('shows account name when a matching account is found', () => {
+            const tx = makeTx({accountId: 'acc-1'});
+            renderItem(tx, {accounts: [makeAccount({id: 'acc-1', name: 'Main Chequing'})]});
+            expect(screen.getByText('Main Chequing')).toBeInTheDocument();
+        });
+
+        it('shows "—" when accountId is set but no matching account is in the list', () => {
+            const tx = makeTx({accountId: 'acc-999'});
+            const {container} = renderItem(tx, {accounts: [makeAccount({id: 'acc-1'})]});
+            expect(container.querySelector('.tx-item__account-none')).toBeInTheDocument();
+        });
+
+        it('shows "—" when accounts prop is empty array', () => {
+            const tx = makeTx({accountId: 'acc-1'});
+            const {container} = renderItem(tx, {accounts: []});
+            expect(container.querySelector('.tx-item__account-none')).toBeInTheDocument();
+        });
+
+        it('shows "—" in the account column when accounts prop is omitted', () => {
+            const tx = makeTx({accountId: 'acc-1'});
+            const {container} = renderItem(tx);
+            expect(container.querySelector('.tx-item__account-none')).toBeInTheDocument();
+        });
+
+        it('renders account name in the tx-item__account-label span', () => {
+            const tx = makeTx({accountId: 'acc-1'});
+            const {container} = renderItem(tx, {accounts: [makeAccount({id: 'acc-1', name: 'Savings'})]});
+            expect(container.querySelector('.tx-item__account-label')?.textContent).toBe('Savings');
+        });
+    });
 });

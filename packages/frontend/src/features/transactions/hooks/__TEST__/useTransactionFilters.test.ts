@@ -141,4 +141,43 @@ describe('useTransactionFilters', () => {
             expect(start.getUTCFullYear()).toBe(end.getUTCFullYear());
         });
     });
+
+    describe('accountId filter (Phase 6)', () => {
+        it('accountId defaults to empty string', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            expect(result.current.filters.accountId).toBe('');
+        });
+
+        it('updateFilter updates accountId', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.updateFilter('accountId', 'acc-1'); });
+            expect(result.current.filters.accountId).toBe('acc-1');
+        });
+
+        it('updateFilter with accountId resets page to 1', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.setPage(3); });
+            act(() => { result.current.updateFilter('accountId', 'acc-1'); });
+            expect(result.current.filters.page).toBe(1);
+        });
+
+        it('clearFilters resets accountId to empty string', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.updateFilter('accountId', 'acc-1'); });
+            expect(result.current.filters.accountId).toBe('acc-1');
+            act(() => { result.current.clearFilters(); });
+            expect(result.current.filters.accountId).toBe('');
+        });
+
+        it('clearFilters does not preserve accountId alongside other filters', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => {
+                result.current.updateFilter('accountId', 'acc-2');
+                result.current.updateFilter('search', 'coffee');
+            });
+            act(() => { result.current.clearFilters(); });
+            expect(result.current.filters.accountId).toBe('');
+            expect(result.current.filters.search).toBe('');
+        });
+    });
 });

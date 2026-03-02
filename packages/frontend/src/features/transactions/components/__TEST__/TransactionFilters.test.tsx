@@ -131,6 +131,91 @@ describe('TransactionFilters', () => {
         expect(screen.getByRole('search', {name: /transaction filters/i})).toBeInTheDocument();
     });
 
+    describe('account filter (Phase 6)', () => {
+        const makeAccount = (overrides = {}) => ({
+            id: 'acc-1',
+            userId: 'u-1',
+            name: 'Main Chequing',
+            type: 'checking' as const,
+            institution: 'TD Bank',
+            currency: 'CAD',
+            openingBalance: 0,
+            currentBalance: 1000,
+            transactionCount: 5,
+            color: null,
+            notes: null,
+            isActive: true,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+            ...overrides
+        });
+
+        it('renders the Account filter select', () => {
+            render(<TransactionFilters {...defaultProps} />);
+            expect(screen.getByLabelText(/account/i)).toBeInTheDocument();
+        });
+
+        it('shows "All Accounts" as the default option', () => {
+            render(<TransactionFilters {...defaultProps} />);
+            expect(screen.getByRole('option', {name: /all accounts/i})).toBeInTheDocument();
+        });
+
+        it('shows active account names as options', () => {
+            render(
+                <TransactionFilters
+                    {...defaultProps}
+                    accounts={[makeAccount({id: 'acc-1', name: 'Main Chequing'})]}
+                />
+            );
+            expect(screen.getByRole('option', {name: 'Main Chequing'})).toBeInTheDocument();
+        });
+
+        it('excludes inactive accounts from the account dropdown', () => {
+            const accounts = [
+                makeAccount({id: 'acc-1', name: 'Main Chequing', isActive: true}),
+                makeAccount({id: 'acc-2', name: 'Closed Savings', isActive: false})
+            ];
+            render(<TransactionFilters {...defaultProps} accounts={accounts} />);
+            const accountSelect = screen.getByLabelText<HTMLSelectElement>(/account/i);
+            const optionValues = Array.from(accountSelect.options).map((o) => o.value);
+            expect(optionValues).toContain('acc-1');
+            expect(optionValues).not.toContain('acc-2');
+        });
+
+        it('calls onFilterChange with accountId when an account is selected', async () => {
+            const onFilterChange = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionFilters
+                    {...defaultProps}
+                    accounts={[makeAccount({id: 'acc-1', name: 'Main Chequing'})]}
+                    onFilterChange={onFilterChange}
+                />
+            );
+            await user.selectOptions(screen.getByLabelText(/account/i), 'acc-1');
+            expect(onFilterChange).toHaveBeenCalledWith('accountId', 'acc-1');
+        });
+
+        it('account filter reflects the current filters.accountId value', () => {
+            render(
+                <TransactionFilters
+                    {...defaultProps}
+                    filters={{...defaultFilters, accountId: 'acc-1'}}
+                    accounts={[makeAccount({id: 'acc-1', name: 'Main Chequing'})]}
+                />
+            );
+            const select = screen.getByLabelText<HTMLSelectElement>(/account/i);
+            expect(select.value).toBe('acc-1');
+        });
+
+        it('renders empty account filter when no accounts are passed', () => {
+            render(<TransactionFilters {...defaultProps} accounts={[]} />);
+            const select = screen.getByLabelText<HTMLSelectElement>(/account/i);
+            // Only "All Accounts" option present
+            expect(select.options.length).toBe(1);
+        });
+    });
+
     describe('onDateRangeChange (BUG-02)', () => {
         it('calls onDateRangeChange with startDate and endDate when a date preset is clicked', async () => {
             const onDateRangeChange = vi.fn();
