@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import {TransactionListItem} from '@features/transactions/components/TransactionListItem.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 
 const makeCategory = (overrides: Partial<CategoryResponseDto> = {}): CategoryResponseDto => ({
     id: 'cat-1',
@@ -212,7 +213,7 @@ describe('TransactionListItem', () => {
     });
 
     describe('account column (Phase 6)', () => {
-        const makeAccount = (overrides = {}) => ({
+        const makeAccount = (overrides: Partial<AccountResponseDto> = {}): AccountResponseDto => ({
             id: 'acc-1',
             userId: 'user-1',
             name: 'Main Chequing',

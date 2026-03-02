@@ -20,7 +20,7 @@ const defaultValues: AccountFormValues = {
     type: CreateAccountDtoType.checking,
     institution: '',
     currency: 'CAD',
-    openingBalance: '0',
+    openingBalance: '',
     color: '',
     notes: '',
     isActive: true

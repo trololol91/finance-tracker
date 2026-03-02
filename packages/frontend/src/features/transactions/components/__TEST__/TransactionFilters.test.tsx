@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import {TransactionFilters} from '@features/transactions/components/TransactionFilters.js';
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 import type {TransactionFilterState} from '@features/transactions/types/transaction.types.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 
 const defaultFilters: TransactionFilterState = {
     startDate: '2026-02-01T00:00:00.000Z',
@@ -132,7 +133,7 @@ describe('TransactionFilters', () => {
     });
 
     describe('account filter (Phase 6)', () => {
-        const makeAccount = (overrides = {}) => ({
+        const makeAccount = (overrides: Partial<AccountResponseDto> = {}): AccountResponseDto => ({
             id: 'acc-1',
             userId: 'u-1',
             name: 'Main Chequing',

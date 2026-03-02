@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import {TransactionForm} from '@features/transactions/components/TransactionForm.js';
 import type {TransactionFormValues} from '@features/transactions/types/transaction.types.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 
 const emptyValues: TransactionFormValues = {
     amount: '',
@@ -262,7 +263,7 @@ describe('TransactionForm', () => {
     });
 
     describe('account select (Phase 6)', () => {
-        const makeAccount = (overrides = {}) => ({
+        const makeAccount = (overrides: Partial<AccountResponseDto> = {}): AccountResponseDto => ({
             id: 'acc-1',
             userId: 'u-1',
             name: 'Main Chequing',
@@ -346,7 +347,7 @@ describe('TransactionForm', () => {
             render(
                 <TransactionForm {...defaultProps} accounts={[makeAccount()]} editTarget={null} />
             );
-            // Only type hint is absent in create mode
+            // Neither the type nor the account lock hint appears in create mode
             expect(screen.queryByText(/cannot be changed/i)).not.toBeInTheDocument();
         });
 
