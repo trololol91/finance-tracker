@@ -111,13 +111,36 @@ The tester calls `browser_console_messages(level: 'error')` after every page nav
 
 ## Workflow
 
-1. Read an existing feature (e.g. `features/transactions/`) for patterns before starting
-2. Implement all files (page, components, hooks, services, types, route)
+### Copy-first approach (preferred for new CRUD features)
+
+When implementing a new feature that is structurally similar to an existing one (e.g. a new entity with list, form, modal, summary, and error boundary), **do not build from scratch**. Instead:
+
+1. **Identify the closest existing feature** — `features/transactions/` is the canonical reference; `features/accounts/` is the next closest for simpler entity features.
+2. **Copy the entire feature directory** in the terminal (`cp -r` or equivalent) and rename files to match the new feature.
+3. **Rename all symbols in bulk** — replace every occurrence of the old entity name (e.g. `Transaction` → `Import`) across the copied files before wiring anything up.
+4. **Strip what does not apply** — delete components, hooks, and CSS that have no equivalent in the new feature. It is faster to delete than to rebuild.
+5. **Swap the API layer** — replace the Orval-generated hooks with the new feature's generated hooks; the call-site pattern stays identical.
+6. **Run `get_errors` immediately after renaming** — stale imports and type mismatches surface at this point, before any new logic is added.
+
+This preserves already-correct implementations of: modal focus-trap, bottom-sheet responsive breakpoint, `Date.UTC` date boundaries, full `invalidateQueries` coverage (list + totals), and the error boundary pattern — all hard-won fixes that would otherwise risk being re-introduced as bugs in each new feature.
+
+**Downsides to watch for:**
+- **Carries over bugs** — if the source feature has a bug, the copy inherits it. Only copy from a feature that is verified and fully tested.
+- **Incomplete stripping** — it is easy to leave behind components, CSS classes, or logic that belong to the original but have no meaning in the new feature. Dead code that compiles silently is harder to spot than a missing import — do an explicit pass to delete every inapplicable file.
+- **Symbol rename misses** — a bulk rename can hit unintended strings (comments, user-facing labels, unrelated type names). Review every changed occurrence after renaming.
+- **False confidence in tests** — a copied and renamed test suite does not cover the new feature's actual behaviour. Tests must be rewritten for the new entity's fields and business rules, not just renamed.
+- **Structural divergence** — if the new feature is genuinely different (e.g. SSE streaming, no modal form, no list view), force-fitting the transactions structure costs more time than it saves. When the implementation plan flags significant structural divergence, build from targeted patterns instead of copying wholesale.
+
+### Full workflow
+
+1. Copy the closest existing feature directory and rename (see Copy-first approach above)
+2. Adapt copied files to the new feature's shape — update types, API hooks, field names, and remove inapplicable components
 3. Run `get_errors` on every file created or modified — fix all TypeScript errors
 4. Run `npx eslint <file> --max-warnings 0` to confirm zero ESLint warnings
-5. Start the dev server if not running (`npm run dev` in `packages/frontend/`) and verify the page loads
-6. Open the page in the Simple Browser to confirm it renders without errors
-7. Commit **per task/section**, not once at the end of the phase. After each task's review is clean, stage only the files for that task and commit:
+5. Implement all remaining files not covered by the copy (page, route registration, any net-new components)
+6. Start the dev server if not running (`npm run dev` in `packages/frontend/`) and verify the page loads
+7. Open the page in the Simple Browser to confirm it renders without errors
+8. Commit **per task/section**, not once at the end of the phase. After each task's review is clean, stage only the files for that task and commit:
    - Scope the summary: `feat(frontend): add <feature> components with tests`
    - Body: what changed, files created/modified counts, test count
    - Include the task's tests in the same commit as the implementation

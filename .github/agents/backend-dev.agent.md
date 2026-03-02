@@ -88,9 +88,31 @@ Each feature lives in `packages/backend/src/[feature]/` with:
 
 ## Workflow
 
-1. Read the existing `transactions/` module as a reference for patterns
+### Copy-first approach (preferred for new CRUD features)
+
+When implementing a new feature that is structurally similar to an existing one (e.g. a new entity with module, controller, service, DTOs, and tests), **do not build from scratch**. Instead:
+
+1. **Identify the closest existing feature** — `transactions/` is the canonical reference; `accounts/` or `categories/` is the next closest for simpler entities.
+2. **Copy the entire feature directory** in the terminal (`cp -r` or equivalent) and rename files to match the new feature.
+3. **Rename all symbols in bulk** — replace every occurrence of the old entity name (e.g. `Transaction` → `Import`) across the copied files before wiring anything up.
+4. **Strip what does not apply** — delete DTOs, service methods, and controller endpoints that have no equivalent in the new feature.
+5. **Adapt the Prisma layer** — update the model name and fields used in service queries to match the new schema.
+6. **Run `get_errors` immediately after renaming** — stale imports and type mismatches surface at this point, before any new logic is added.
+
+This preserves already-correct implementations of: Prisma error mapping, NestJS exception types, UTC date boundary handling, Logger usage, and Swagger decorators — patterns that are easy to get subtly wrong when writing from scratch.
+
+**Downsides to watch for:**
+- **Carries over bugs** — if the source feature has a bug, the copy inherits it. Only copy from a feature that is verified and fully tested.
+- **Incomplete stripping** — it is easy to leave behind service methods, DTOs, or controller endpoints that belong to the original but have no meaning in the new feature.
+- **Symbol rename misses** — a bulk rename can hit unintended strings (comments, Swagger descriptions, unrelated type names). Review every changed occurrence after renaming.
+- **False confidence in tests** — a copied and renamed test suite does not cover the new feature's actual behaviour. Tests must be rewritten for the new entity's fields and business rules, not just renamed.
+- **Structural divergence** — if the new feature is genuinely different (e.g. file parsing, SSE streaming, scheduler jobs), force-fitting the transactions structure costs more time than it saves. When the implementation plan flags significant structural divergence, build from targeted patterns instead of copying wholesale.
+
+### Full workflow
+
+1. Copy the closest existing feature directory and rename (see Copy-first approach above)
 2. Check `app.module.ts` before adding imports
-3. Implement all files
+3. Adapt copied files — update Prisma model, DTOs, and service methods to match the new feature
 4. Run `npm run lint` and `npm test` in `packages/backend/` — fix all errors before finishing
 5. Run `get_errors` on every file created or modified
 6. Commit **per task/section**, not once at the end of the phase. After each task's review is clean, stage only the files for that task and commit:
