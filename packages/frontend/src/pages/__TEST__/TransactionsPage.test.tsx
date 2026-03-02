@@ -133,7 +133,8 @@ const defaultFilterState: UseTransactionFiltersReturn = {
         limit: 50,
         search: '',
         transactionType: '',
-        categoryId: ''
+        categoryId: '',
+        accountId: ''
     },
     apiParams: {
         startDate: '2026-02-01T00:00:00.000Z',

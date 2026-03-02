@@ -5,12 +5,14 @@ import {DateRangePicker} from '@components/common/DateRangePicker/DateRangePicke
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 import {TransactionsControllerFindAllTransactionType} from '@/api/model/transactionsControllerFindAllTransactionType.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import type {TransactionFilterState} from '@features/transactions/types/transaction.types.js';
 import '@features/transactions/components/TransactionFilters.css';
 
 interface TransactionFiltersProps {
     filters: TransactionFilterState;
     categories?: CategoryResponseDto[];
+    accounts?: AccountResponseDto[];
     onFilterChange: (key: keyof TransactionFilterState, value: string | number) => void;
     onDateRangeChange: (startDate: string, endDate: string) => void;
     onClear: () => void;
@@ -19,6 +21,7 @@ interface TransactionFiltersProps {
 export const TransactionFilters = ({
     filters,
     categories = [],
+    accounts = [],
     onFilterChange,
     onDateRangeChange,
     onClear
@@ -28,6 +31,7 @@ export const TransactionFilters = ({
     };
 
     const activeCategories = categories.filter((c) => c.isActive);
+    const activeAccounts = accounts.filter((a) => a.isActive);
 
     return (
         <div className="tx-filters" role="search" aria-label="Transaction filters">
@@ -74,6 +78,23 @@ export const TransactionFilters = ({
                         {activeCategories.map((c) => (
                             <option key={c.id} value={c.id}>
                                 {c.icon ? `${c.icon} ` : ''}{c.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="tx-filters__group">
+                    <label htmlFor="tx-filter-account" className="tx-filters__label">Account</label>
+                    <select
+                        id="tx-filter-account"
+                        className="tx-filters__select"
+                        value={filters.accountId}
+                        onChange={(e) => { onFilterChange('accountId', e.target.value); }}
+                    >
+                        <option value="">All Accounts</option>
+                        {activeAccounts.map((a) => (
+                            <option key={a.id} value={a.id}>
+                                {a.name}
                             </option>
                         ))}
                     </select>

@@ -3,6 +3,7 @@ import {Button} from '@components/common/Button/Button.js';
 import {Input} from '@components/common/Input/Input.js';
 import {CreateTransactionDtoTransactionType} from '@/api/model/createTransactionDtoTransactionType.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import type {TransactionFormValues} from '@features/transactions/types/transaction.types.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionForm.css';
@@ -15,6 +16,7 @@ interface TransactionFormProps {
     editTarget: TransactionResponseDto | null;
     isSubmitting: boolean;
     categories?: CategoryResponseDto[];
+    accounts?: AccountResponseDto[];
     amountRef?: React.RefObject<HTMLInputElement | null>;
     onFieldChange: (field: keyof TransactionFormValues, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
@@ -33,6 +35,7 @@ export const TransactionForm = ({
     editTarget,
     isSubmitting,
     categories = [],
+    accounts = [],
     amountRef,
     onFieldChange,
     onSubmit,
@@ -40,6 +43,7 @@ export const TransactionForm = ({
 }: TransactionFormProps): React.JSX.Element => {
     const isEditing = editTarget !== null;
     const activeCategories = categories.filter((c) => c.isActive);
+    const activeAccounts = accounts.filter((a) => a.isActive);
 
     return (
         <form id="transaction-form" className="tx-form" onSubmit={onSubmit} noValidate>
@@ -103,6 +107,27 @@ export const TransactionForm = ({
                         </option>
                     ))}
                 </select>
+            </div>
+
+            <div className="tx-form__field">
+                <label htmlFor="tx-form-account" className="tx-form__label">Account</label>
+                <select
+                    id="tx-form-account"
+                    className="tx-form__select"
+                    value={formValues.accountId}
+                    onChange={(e) => { onFieldChange('accountId', e.target.value); }}
+                    disabled={isEditing}
+                >
+                    <option value="">None</option>
+                    {activeAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                            {a.name}
+                        </option>
+                    ))}
+                </select>
+                {isEditing && (
+                    <span className="tx-form__hint">Account cannot be changed after creation.</span>
+                )}
             </div>
 
             <Input

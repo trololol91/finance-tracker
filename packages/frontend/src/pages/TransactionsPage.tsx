@@ -17,6 +17,7 @@ import {
     getTransactionsControllerGetTotalsQueryKey
 } from '@/api/transactions/transactions.js';
 import {useCategoriesControllerFindAll} from '@/api/categories/categories.js';
+import {useAccountsControllerFindAll} from '@/api/accounts/accounts.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@pages/TransactionsPage.css';
 
@@ -32,6 +33,10 @@ export const TransactionsPage = (): React.JSX.Element => {
     // Fetch categories for form select, list column, and filter dropdown.
     const {data: categoriesData} = useCategoriesControllerFindAll();
     const categories = categoriesData ?? [];
+
+    // Fetch accounts for form select, list column, and filter dropdown.
+    const {data: accountsData} = useAccountsControllerFindAll();
+    const accounts = accountsData ?? [];
 
     const handleSuccess = useCallback((): void => {
         setIsModalOpen(false);
@@ -125,6 +130,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                 <TransactionFilters
                     filters={filters}
                     categories={categories}
+                    accounts={accounts}
                     onFilterChange={updateFilter}
                     onDateRangeChange={setDateRange}
                     onClear={clearFilters}
@@ -136,6 +142,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                     isLoading={isLoading}
                     isError={isError}
                     categories={categories}
+                    accounts={accounts}
                     onEdit={handleEdit}
                     onToggleActive={handleToggleActive}
                     onDelete={handleDelete}
@@ -160,6 +167,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                 errors={errors}
                 isSubmitting={isSubmitting}
                 categories={categories}
+                accounts={accounts}
                 onFieldChange={handleFieldChange}
                 onSubmit={handleSubmit}
                 onClose={handleCloseModal}

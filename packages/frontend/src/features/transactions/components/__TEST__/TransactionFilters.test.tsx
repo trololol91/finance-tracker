@@ -16,6 +16,7 @@ const defaultFilters: TransactionFilterState = {
     isActive: TransactionsControllerFindAllIsActive.true,
     search: '',
     categoryId: '',
+    accountId: '',
     page: 1,
     limit: 50
 };

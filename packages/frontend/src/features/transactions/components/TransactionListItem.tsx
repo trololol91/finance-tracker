@@ -1,12 +1,14 @@
 import React from 'react';
 import {TransactionActions} from '@features/transactions/components/TransactionActions.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionListItem.css';
 
 interface TransactionListItemProps {
     transaction: TransactionResponseDto;
     categories?: CategoryResponseDto[];
+    accounts?: AccountResponseDto[];
     onEdit: (transaction: TransactionResponseDto) => void;
     onToggleActive: (id: string) => void;
     onDelete: (id: string) => void;
@@ -27,6 +29,7 @@ const formatAmount = (amount: number, type: string): string => {
 export const TransactionListItem = ({
     transaction,
     categories = [],
+    accounts = [],
     onEdit,
     onToggleActive,
     onDelete,
@@ -34,6 +37,7 @@ export const TransactionListItem = ({
 }: TransactionListItemProps): React.JSX.Element => {
     const amountClass = `tx-item__amount tx-item__amount--${transaction.transactionType}`;
     const category = categories.find((c) => c.id === transaction.categoryId) ?? null;
+    const account = accounts.find((a) => a.id === transaction.accountId) ?? null;
 
     return (
         <tr
@@ -69,6 +73,13 @@ export const TransactionListItem = ({
                         )}
                         {category.icon ? `${category.icon} ` : ''}{category.name}
                     </span>
+                ) : (
+                    <span className="tx-item__category-none">—</span>
+                )}
+            </td>
+            <td className="tx-item__account tx-item__hide-mobile">
+                {account !== null ? (
+                    <span className="tx-item__account-label">{account.name}</span>
                 ) : (
                     <span className="tx-item__category-none">—</span>
                 )}

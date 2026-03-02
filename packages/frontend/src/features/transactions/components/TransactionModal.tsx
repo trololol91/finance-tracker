@@ -3,6 +3,7 @@ import React, {
 } from 'react';
 import {TransactionForm} from '@features/transactions/components/TransactionForm.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import type {TransactionFormValues} from '@features/transactions/types/transaction.types.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionModal.css';
@@ -20,6 +21,7 @@ interface TransactionModalProps {
     errors: FormErrors;
     isSubmitting: boolean;
     categories?: CategoryResponseDto[];
+    accounts?: AccountResponseDto[];
     onFieldChange: (field: keyof TransactionFormValues, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     onClose: () => void;
@@ -32,6 +34,7 @@ export const TransactionModal = ({
     errors,
     isSubmitting,
     categories = [],
+    accounts = [],
     onFieldChange,
     onSubmit,
     onClose
@@ -126,6 +129,7 @@ export const TransactionModal = ({
                     editTarget={editTarget}
                     isSubmitting={isSubmitting}
                     categories={categories}
+                    accounts={accounts}
                     amountRef={amountInputRef}
                     onFieldChange={onFieldChange}
                     onSubmit={onSubmit}

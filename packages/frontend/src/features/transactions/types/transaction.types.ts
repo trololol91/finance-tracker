@@ -20,6 +20,8 @@ export interface TransactionFilterState {
     search: string;
     /** UUID of the selected category filter, or empty string for 'all categories'. */
     categoryId: string;
+    /** UUID of the selected account filter, or empty string for 'all accounts'. */
+    accountId: string;
     page: number;
     limit: number;
 }

@@ -1,0 +1,78 @@
+.modal {
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    padding: 0;
+    width: min(92vw, 42rem);
+    max-height: 92vh;
+    overflow-y: auto;
+    background-color: var(--color-surface);
+    margin: auto;
+}
+
+.modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    background-color: var(--color-surface);
+    z-index: 1;
+}
+
+.title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    line-height: 1;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.closeBtn:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-hover);
+}
+
+.body {
+    padding: var(--space-5);
+}
+
+/* Bottom-sheet on mobile ≤480px */
+@media (max-width: 480px) {
+    .modal {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        transform: none;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 1rem 1rem 0 0;
+        max-height: 90vh;
+        margin: 0;
+    }
+}

@@ -514,3 +514,67 @@
   4. Evaluate `document.body.scrollWidth > document.body.clientWidth` — assert `false`
   5. Resize back to 1280×720 — verify CATEGORY column reappears
 - **Expected result**: At ≤767px, `.tx-list__th--hide-mobile` and `.tx-item__hide-mobile` hide the CATEGORY column; no body-level horizontal overflow; column is restored at desktop width
+
+---
+
+## Cross-Feature: Accounts Integration (Phase 6)
+
+> These test cases cover the account selector in the transaction form, the account column in the transaction list, and the account filter in the filter bar. They were added when the Accounts feature (Phase 6) was wired into the Transactions page.
+
+### TC-45: Account selector visible in Add Transaction modal
+- **Type**: Smoke
+- **Steps**:
+  1. Ensure at least one account exists (e.g. "Main Chequing" via the Accounts page)
+  2. Navigate to `/transactions`
+  3. Click "+ Add Transaction"
+  4. Take screenshot — verify the Account field is present in the modal (between Category and Description)
+- **Expected result**: Account `<select>` is visible; default option is "None"; all active accounts appear as options; inactive accounts are absent
+
+### TC-46: Create transaction with account — account column shows account name
+- **Type**: Smoke
+- **Steps**:
+  1. Open Add Transaction modal; fill Amount, Type, Date, Description
+  2. Select a known account (e.g. "Main Chequing")
+  3. Click "Save"
+  4. Call `browser_network_requests` — verify `POST /transactions` returned 201 with `accountId` UUID in the request body
+  5. Call `browser_console_messages(level: 'error')` — confirm no JS errors
+- **Expected result**: Modal closes; new row in the list shows "Main Chequing" (or the account short name) in the ACCOUNT column; summary totals update
+
+### TC-47: Edit modal — Account field is disabled and shows hint
+- **Type**: Regression
+- **Steps**:
+  1. Click ⋮ on a transaction that has an account assigned; click "Edit"
+  2. Take screenshot — verify edit modal is centred; inspect the Account field
+- **Expected result**: Account `<select>` is `disabled`; hint "Account cannot be changed after creation." is visible below the select
+
+### TC-48: Account filter — select account filters the list
+- **Type**: Smoke
+- **Steps**:
+  1. Navigate to `/transactions`
+  2. Select a known account in the Account dropdown of the filter bar
+  3. Inspect the URL query string — verify `accountId=<uuid>` is present
+  4. Call `browser_network_requests` — verify `GET /transactions?…&accountId=<uuid>` was called
+- **Expected result**: List updates to show only transactions assigned to that account; URL contains `accountId` param; `page` resets to 1
+
+### TC-49: Account filter — no matching transactions shows empty state
+- **Type**: Regression
+- **Steps**:
+  1. Select an account that has no transactions assigned
+- **Expected result**: "No transactions found for the selected filters." message is displayed
+
+### TC-50: Clear Filters resets Account dropdown to "All Accounts"
+- **Type**: Regression
+- **Steps**:
+  1. Select any account in the Account dropdown
+  2. Click "Clear Filters"
+- **Expected result**: Account dropdown resets to "All Accounts"; `accountId` param removed from URL; full transaction list restores
+
+### TC-51: Account column hidden at mobile 390×844, no body overflow
+- **Type**: Regression
+- **Steps**:
+  1. Resize viewport to 390×844
+  2. Navigate to `/transactions`
+  3. Take screenshot — verify ACCOUNT column header and data cells are not visible
+  4. Evaluate `document.body.scrollWidth > document.body.clientWidth` — assert `false`
+  5. Resize back to 1280×720 — verify ACCOUNT column reappears
+- **Expected result**: At ≤767px, the ACCOUNT column is hidden by the same `.tx-item__hide-mobile` class; no body-level horizontal overflow; column is restored at desktop width

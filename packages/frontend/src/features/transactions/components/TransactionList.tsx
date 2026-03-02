@@ -2,6 +2,7 @@ import React from 'react';
 import {TransactionListItem} from '@features/transactions/components/TransactionListItem.js';
 import {Loading} from '@components/common/Loading/Loading.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
+import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionList.css';
 
@@ -10,6 +11,7 @@ interface TransactionListProps {
     isLoading: boolean;
     isError: boolean;
     categories?: CategoryResponseDto[];
+    accounts?: AccountResponseDto[];
     onEdit: (transaction: TransactionResponseDto) => void;
     onToggleActive: (id: string) => void;
     onDelete: (id: string) => void;
@@ -20,6 +22,7 @@ export const TransactionList = ({
     isLoading,
     isError,
     categories = [],
+    accounts = [],
     onEdit,
     onToggleActive,
     onDelete
@@ -59,6 +62,7 @@ export const TransactionList = ({
                             <th scope="col" className="tx-list__th tx-list__th--right">Amount</th>
                             <th scope="col" className="tx-list__th tx-list__th--hide-mobile">Type</th>
                             <th scope="col" className="tx-list__th tx-list__th--hide-mobile">Category</th>
+                            <th scope="col" className="tx-list__th tx-list__th--hide-mobile">Account</th>
                             <th scope="col" className="tx-list__th tx-list__th--hide-mobile">Status</th>
                             <th scope="col" className="tx-list__th tx-list__th--right">
                                 <span className="sr-only">Actions</span>
@@ -71,6 +75,7 @@ export const TransactionList = ({
                                 key={tx.id}
                                 transaction={tx}
                                 categories={categories}
+                                accounts={accounts}
                                 onEdit={onEdit}
                                 onToggleActive={onToggleActive}
                                 onDelete={onDelete}

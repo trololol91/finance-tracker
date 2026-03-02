@@ -22,6 +22,12 @@ export const Header = (): React.JSX.Element => {
                     <Link to={APP_ROUTES.REPORTS} className="header-link">
                         Reports
                     </Link>
+                    <Link to={APP_ROUTES.ACCOUNTS} className="header-link">
+                        Accounts
+                    </Link>
+                    <Link to={APP_ROUTES.CATEGORIES} className="header-link">
+                        Categories
+                    </Link>
                 </nav>
             </div>
         </header>

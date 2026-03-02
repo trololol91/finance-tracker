@@ -80,7 +80,8 @@ describe('TransactionForm', () => {
 
         it('category select shows "None" option by default', () => {
             render(<TransactionForm {...defaultProps} />);
-            expect(screen.getByRole('option', {name: /none/i})).toBeInTheDocument();
+            // Both category and account selects have a "None" option
+            expect(screen.getAllByRole('option', {name: /none/i}).length).toBeGreaterThan(0);
         });
 
         it('category select shows active categories as options', () => {
@@ -147,7 +148,8 @@ describe('TransactionForm', () => {
 
         it('shows the type-locked hint in edit mode', () => {
             render(<TransactionForm {...editProps} />);
-            expect(screen.getByText(/cannot be changed/i)).toBeInTheDocument();
+            // Both type and account show 'cannot be changed' hints in edit mode
+            expect(screen.getAllByText(/cannot be changed/i).length).toBeGreaterThan(0);
         });
     });
 
