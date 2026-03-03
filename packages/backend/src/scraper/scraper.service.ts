@@ -53,7 +53,8 @@ export class ScraperService {
     public async sync(
         userId: string,
         scheduleId: string,
-        triggeredBy: 'cron' | 'manual' = 'manual'
+        triggeredBy: 'cron' | 'manual' = 'manual',
+        startDateOverride?: string
     ): Promise<{sessionId: string}> {
         const schedule = await this.prisma.syncSchedule.findFirst({
             where: {id: scheduleId, userId}
@@ -80,7 +81,7 @@ export class ScraperService {
         } as MessageEvent);
 
         // Spawn worker asynchronously — do not block the caller
-        void this.runWorker(sessionId, job.id, schedule);
+        void this.runWorker(sessionId, job.id, schedule, startDateOverride);
 
         return {sessionId};
     }
@@ -92,7 +93,8 @@ export class ScraperService {
     private async runWorker(
         sessionId: string,
         jobId: string,
-        schedule: SyncSchedule
+        schedule: SyncSchedule,
+        startDateOverride?: string
     ): Promise<void> {
         await this.prisma.syncJob.update({
             where: {id: jobId},
@@ -109,7 +111,9 @@ export class ScraperService {
             this.cryptoService.decrypt(schedule.credentialsEnc)
         ) as {username: string, password: string};
 
-        const startDate = this.computeStartDate(schedule);
+        const startDate = startDateOverride
+            ? new Date(startDateOverride)
+            : this.computeStartDate(schedule);
         const endDate = new Date();
 
         const workerInput: ScraperWorkerInput = {
