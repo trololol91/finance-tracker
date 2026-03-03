@@ -12,6 +12,9 @@ import {parse as parseOfx} from 'ofx';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
+/** Columns that must be present in a CSV header row before any data rows are parsed. */
+const REQUIRED_CSV_HEADERS = ['date', 'description', 'amount'] as const;
+
 interface CsvRow {
     date?: string;
     description?: string;
@@ -248,11 +251,10 @@ export class ImportService {
 
         // Validate required headers are present (catches files uploaded without a header row)
         const fields = (result.meta.fields ?? []);
-        const REQUIRED_HEADERS = ['date', 'description', 'amount'];
-        const missingHeaders = REQUIRED_HEADERS.filter(h => !fields.includes(h));
+        const missingHeaders = REQUIRED_CSV_HEADERS.filter(h => !fields.includes(h));
         if (missingHeaders.length > 0) {
             throw new BadRequestException(
-                `CSV is missing required column(s): ${missingHeaders.join(', ')}. Expected header row: date,description,amount,type`
+                `CSV is missing required column(s): ${missingHeaders.join(', ')}. Required columns: date, description, amount`
             );
         }
         const rows: ParsedTransaction[] = [];

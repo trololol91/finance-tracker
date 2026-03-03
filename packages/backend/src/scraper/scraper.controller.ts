@@ -5,6 +5,7 @@ import {
     ApiTags, ApiOperation, ApiResponse
 } from '@nestjs/swagger';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
+import {ScraperInfoDto} from '#scraper/scraper-info.dto.js';
 import type {ScraperInfo} from '#scraper/interfaces/bank-scraper.interface.js';
 
 /**
@@ -30,7 +31,8 @@ export class ScraperController {
     })
     @ApiResponse({
         status: 200,
-        description: 'Array of scraper metadata objects'
+        description: 'Array of scraper metadata objects',
+        type: [ScraperInfoDto]
     })
     public listScrapers(): ScraperInfo[] {
         return this.registry.listAll();

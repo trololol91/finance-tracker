@@ -375,6 +375,9 @@ describe('SyncScheduleService', () => {
         it('should delete the schedule and remove the cron job', async () => {
             await service.remove(userId, mockScheduleBase.id);
 
+            expect(prisma.syncJob.deleteMany).toHaveBeenCalledWith({
+                where: {syncScheduleId: mockScheduleBase.id}
+            });
             expect(prisma.syncSchedule.delete).toHaveBeenCalled();
             expect(schedulerRegistry.deleteCronJob).toHaveBeenCalledWith(
                 `sync-${mockScheduleBase.id}`
