@@ -3,10 +3,8 @@ import {
     Inject,
     Optional
 } from '@nestjs/common';
-import type {
-    BankScraper,
-    ScraperInfo
-} from '#scraper/interfaces/bank-scraper.interface.js';
+import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
+import {ScraperInfoDto} from '#scraper/scraper-info.dto.js';
 
 /** NestJS multi-provider injection token for BankScraper implementations. */
 export const BANK_SCRAPER = 'BANK_SCRAPER';
@@ -37,7 +35,7 @@ export class ScraperRegistry {
     }
 
     /** Returns all registered scrapers as serialisable info objects. */
-    public listAll(): ScraperInfo[] {
+    public listAll(): ScraperInfoDto[] {
         return Array.from(this.scraperMap.values()).map(s => ({
             bankId: s.bankId,
             displayName: s.displayName,

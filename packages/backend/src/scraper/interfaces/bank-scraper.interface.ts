@@ -65,17 +65,6 @@ export interface RawTransaction {
 }
 
 /**
- * Serialisable scraper metadata returned by GET /scrapers.
- */
-export interface ScraperInfo {
-    bankId: string;
-    displayName: string;
-    requiresMfaOnEveryRun: boolean;
-    maxLookbackDays: number;
-    pendingTransactionsIncluded: boolean;
-}
-
-/**
  * Input passed to the scraper worker thread via `workerData`.
  * All sensitive values (credentials) are decrypted in the main process
  * before being passed here. The worker should never touch the database.
