@@ -7,8 +7,8 @@ import {Worker} from 'worker_threads';
 import {join} from 'path';
 import {fileURLToPath} from 'url';
 import type {MessageEvent} from '@nestjs/common';
-import type {PrismaService} from '#database/prisma.service.js';
-import type {CryptoService} from '#scraper/crypto/crypto.service.js';
+import {PrismaService} from '#database/prisma.service.js';
+import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
 import type {SyncSchedule} from '#generated/prisma/client.js';
 import type {

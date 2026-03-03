@@ -10,7 +10,7 @@ import {SchedulerRegistry} from '@nestjs/schedule';
 import {CronJob} from 'cron';
 import {isValidCron} from 'cron-validator';
 import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNamespace.js';
-import type {PrismaService} from '#database/prisma.service.js';
+import {PrismaService} from '#database/prisma.service.js';
 import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import {CreateSyncScheduleDto} from '#scraper/sync/dto/create-sync-schedule.dto.js';

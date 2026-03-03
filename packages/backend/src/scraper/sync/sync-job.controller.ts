@@ -24,7 +24,7 @@ import {Observable} from 'rxjs';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
-import type {PrismaService} from '#database/prisma.service.js';
+import {PrismaService} from '#database/prisma.service.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
 import {RunSyncNowDto} from '#scraper/sync/dto/run-sync-now.dto.js';
