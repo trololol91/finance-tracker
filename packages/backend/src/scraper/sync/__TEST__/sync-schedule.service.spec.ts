@@ -1,0 +1,436 @@
+import {
+    describe, it, expect, beforeEach, vi
+} from 'vitest';
+import {
+    BadRequestException, NotFoundException, ForbiddenException, ConflictException
+} from '@nestjs/common';
+import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNamespace.js';
+import {SyncScheduleService} from '#scraper/sync/sync-schedule.service.js';
+import type {PrismaService} from '#database/prisma.service.js';
+import type {CryptoService} from '#scraper/crypto/crypto.service.js';
+import type {ScraperRegistry} from '#scraper/scraper.registry.js';
+import type {SchedulerRegistry} from '@nestjs/schedule';
+import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const mockScraper: BankScraper = {
+    bankId: 'cibc',
+    displayName: 'CIBC',
+    requiresMfaOnEveryRun: true,
+    maxLookbackDays: 90,
+    pendingTransactionsIncluded: false,
+    login: vi.fn(),
+    scrapeTransactions: vi.fn()
+};
+
+const mockScheduleBase = {
+    id: 'sched-uuid-1',
+    userId: 'user-uuid-1',
+    accountId: 'acct-uuid-1',
+    bankId: 'cibc',
+    credentialsEnc: 'encrypted:data',
+    cron: '0 8 * * *',
+    enabled: true,
+    lastRunAt: null,
+    lastRunStatus: null,
+    lastSuccessfulSyncAt: null,
+    lookbackDays: 3,
+    createdAt: new Date('2026-01-15'),
+    updatedAt: new Date('2026-01-15')
+};
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('SyncScheduleService', () => {
+    let service: SyncScheduleService;
+    let prisma: PrismaService;
+    let scraperRegistry: ScraperRegistry;
+    let cryptoService: CryptoService;
+    let schedulerRegistry: SchedulerRegistry;
+
+    const userId = 'user-uuid-1';
+
+    beforeEach(() => {
+        prisma = {
+            syncSchedule: {
+                findMany: vi.fn(),
+                findFirst: vi.fn(),
+                create: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn()
+            },
+            account: {
+                findFirst: vi.fn()
+            }
+        } as unknown as PrismaService;
+
+        scraperRegistry = {
+            findByBankId: vi.fn(),
+            has: vi.fn(),
+            listAll: vi.fn()
+        } as unknown as ScraperRegistry;
+
+        cryptoService = {
+            encrypt: vi.fn(),
+            decrypt: vi.fn()
+        } as unknown as CryptoService;
+
+        schedulerRegistry = {
+            addCronJob: vi.fn(),
+            deleteCronJob: vi.fn(),
+            getCronJob: vi.fn(),
+            hasCronJob: vi.fn()
+        } as unknown as SchedulerRegistry;
+
+        service = new SyncScheduleService(
+            prisma, scraperRegistry, cryptoService, schedulerRegistry
+        );
+        vi.clearAllMocks();
+
+        // Default mocks
+        vi.mocked(scraperRegistry.findByBankId).mockReturnValue(mockScraper);
+        vi.mocked(scraperRegistry.listAll).mockReturnValue([{
+            bankId: 'cibc',
+            displayName: 'CIBC',
+            requiresMfaOnEveryRun: true,
+            maxLookbackDays: 90,
+            pendingTransactionsIncluded: false
+        }]);
+        vi.mocked(cryptoService.encrypt).mockReturnValue('encrypted:data');
+        vi.mocked(cryptoService.decrypt).mockReturnValue(
+            JSON.stringify({username: 'user1', password: 'pass1'})
+        );
+    });
+
+    // -------------------------------------------------------------------------
+    // findAll
+    // -------------------------------------------------------------------------
+
+    describe('findAll', () => {
+        it('should return all schedules for the user', async () => {
+            vi.mocked(prisma.syncSchedule.findMany).mockResolvedValue([mockScheduleBase]);
+
+            const result = await service.findAll(userId);
+
+            expect(result).toHaveLength(1);
+            expect(result[0].bankId).toBe('cibc');
+            expect(result[0].displayName).toBe('CIBC');
+        });
+
+        it('should return empty array when user has no schedules', async () => {
+            vi.mocked(prisma.syncSchedule.findMany).mockResolvedValue([]);
+
+            const result = await service.findAll(userId);
+
+            expect(result).toEqual([]);
+        });
+
+        it('should use fallback displayName when scraper not found', async () => {
+            vi.mocked(prisma.syncSchedule.findMany).mockResolvedValue([mockScheduleBase]);
+            vi.mocked(scraperRegistry.findByBankId).mockReturnValue(undefined);
+
+            const result = await service.findAll(userId);
+
+            expect(result[0].displayName).toContain('Unknown');
+            expect(result[0].displayName).toContain('cibc');
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // findOne
+    // -------------------------------------------------------------------------
+
+    describe('findOne', () => {
+        it('should return a single schedule', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockScheduleBase);
+
+            const result = await service.findOne(userId, mockScheduleBase.id);
+
+            expect(result.id).toBe(mockScheduleBase.id);
+            expect(result.displayName).toBe('CIBC');
+        });
+
+        it('should throw NotFoundException for unknown schedule', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(null);
+
+            await expect(service.findOne(userId, 'nonexistent-id')).rejects.toThrow(
+                NotFoundException
+            );
+        });
+
+        it('should use fallback displayName when scraper not registered for findOne', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockScheduleBase);
+            vi.mocked(scraperRegistry.findByBankId).mockReturnValue(undefined);
+
+            const result = await service.findOne(userId, mockScheduleBase.id);
+
+            expect(result.displayName).toContain('Unknown');
+            expect(result.displayName).toContain('cibc');
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // create
+    // -------------------------------------------------------------------------
+
+    describe('create', () => {
+        const dto = {
+            accountId: 'acct-uuid-1',
+            bankId: 'cibc',
+            username: 'user1',
+            password: 'pass1',
+            cron: '0 8 * * *'
+        };
+
+        beforeEach(() => {
+            vi.mocked(prisma.account.findFirst).mockResolvedValue({id: 'acct-uuid-1'} as never);
+            vi.mocked(prisma.syncSchedule.create).mockResolvedValue(mockScheduleBase);
+        });
+
+        it('should create a schedule and register a cron job', async () => {
+            const result = await service.create(userId, dto);
+
+            expect(result.id).toBe(mockScheduleBase.id);
+            expect(cryptoService.encrypt).toHaveBeenCalledWith(
+                JSON.stringify({username: 'user1', password: 'pass1'})
+            );
+            expect(schedulerRegistry.addCronJob).toHaveBeenCalledWith(
+                `sync-${mockScheduleBase.id}`,
+                expect.anything()
+            );
+        });
+
+        it('should throw BadRequestException for unknown bankId', async () => {
+            vi.mocked(scraperRegistry.findByBankId).mockReturnValue(undefined);
+
+            await expect(service.create(userId, dto)).rejects.toThrow(BadRequestException);
+            await expect(service.create(userId, dto)).rejects.toThrow('Unknown bankId');
+        });
+
+        it('should throw NotFoundException when accountId does not belong to user', async () => {
+            vi.mocked(prisma.account.findFirst).mockResolvedValue(null);
+
+            await expect(service.create(userId, dto)).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw BadRequestException for invalid cron expression', async () => {
+            await expect(service.create(userId, {...dto, cron: 'not-a-cron'})).rejects.toThrow(
+                BadRequestException
+            );
+            await expect(service.create(userId, {...dto, cron: 'not-a-cron'})).rejects.toThrow(
+                'Invalid cron expression'
+            );
+        });
+
+        it('should throw ConflictException on P2002 unique constraint', async () => {
+            const p2002 = new PrismaClientKnownRequestError('Unique constraint', {
+                code: 'P2002',
+                clientVersion: '7.0.0'
+            });
+            vi.mocked(prisma.syncSchedule.create).mockRejectedValue(p2002);
+
+            await expect(service.create(userId, dto)).rejects.toThrow(ConflictException);
+        });
+
+        it('should use default lookbackDays of 3 when not provided', async () => {
+            await service.create(userId, dto);
+
+            expect(prisma.syncSchedule.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({lookbackDays: 3})
+                })
+            );
+        });
+
+        it('should use custom lookbackDays when provided', async () => {
+            await service.create(userId, {...dto, lookbackDays: 7});
+
+            expect(prisma.syncSchedule.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({lookbackDays: 7})
+                })
+            );
+        });
+
+        it('should rethrow non-P2002 errors from prisma.syncSchedule.create', async () => {
+            const dbError = new PrismaClientKnownRequestError('FK violation', {
+                code: 'P2003',
+                clientVersion: '7.0.0'
+            });
+            vi.mocked(prisma.syncSchedule.create).mockRejectedValue(dbError);
+
+            await expect(service.create(userId, dto)).rejects.toThrow(dbError);
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // update
+    // -------------------------------------------------------------------------
+
+    describe('update', () => {
+        beforeEach(() => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockScheduleBase);
+            vi.mocked(prisma.syncSchedule.update).mockResolvedValue(mockScheduleBase);
+        });
+
+        it('should update the cron expression and re-register cron job', async () => {
+            const updated = {...mockScheduleBase, cron: '0 20 * * *'};
+            vi.mocked(prisma.syncSchedule.update).mockResolvedValue(updated);
+
+            const result = await service.update(userId, mockScheduleBase.id, {cron: '0 20 * * *'});
+
+            expect(result.cron).toBe('0 20 * * *');
+            expect(schedulerRegistry.deleteCronJob).toHaveBeenCalled();
+            expect(schedulerRegistry.addCronJob).toHaveBeenCalled();
+        });
+
+        it('should throw BadRequestException for invalid cron in update', async () => {
+            await expect(
+                service.update(userId, mockScheduleBase.id, {cron: 'bad-cron'})
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw NotFoundException when schedule not found', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(null);
+
+            await expect(service.update(userId, 'not-found', {})).rejects.toThrow(
+                NotFoundException
+            );
+        });
+
+        it('should re-encrypt credentials when password is provided', async () => {
+            await service.update(userId, mockScheduleBase.id, {password: 'newpass'});
+
+            expect(cryptoService.decrypt).toHaveBeenCalled();
+            expect(cryptoService.encrypt).toHaveBeenCalledWith(
+                JSON.stringify({username: 'user1', password: 'newpass'})
+            );
+        });
+
+        it('should re-encrypt credentials when only username is updated', async () => {
+            await service.update(userId, mockScheduleBase.id, {username: 'newuser'});
+
+            expect(cryptoService.decrypt).toHaveBeenCalled();
+            expect(cryptoService.encrypt).toHaveBeenCalledWith(
+                JSON.stringify({username: 'newuser', password: 'pass1'})
+            );
+        });
+
+        it('should not re-register cron job when cron is not changed', async () => {
+            await service.update(userId, mockScheduleBase.id, {lookbackDays: 7});
+
+            expect(schedulerRegistry.deleteCronJob).not.toHaveBeenCalled();
+            expect(schedulerRegistry.addCronJob).not.toHaveBeenCalled();
+        });
+
+        it('should not re-register cron job when cron changes but schedule is disabled', async () => {
+            const disabled = {...mockScheduleBase, enabled: false};
+            vi.mocked(prisma.syncSchedule.update).mockResolvedValue(disabled);
+
+            await service.update(userId, mockScheduleBase.id, {cron: '0 20 * * *'});
+
+            expect(schedulerRegistry.deleteCronJob).toHaveBeenCalled();
+            expect(schedulerRegistry.addCronJob).not.toHaveBeenCalled();
+        });
+
+        it('should throw NotFoundException on P2025 race condition in update', async () => {
+            const p2025 = new PrismaClientKnownRequestError('Not found', {
+                code: 'P2025',
+                clientVersion: '7.0.0'
+            });
+            vi.mocked(prisma.syncSchedule.update).mockRejectedValue(p2025);
+
+            await expect(
+                service.update(userId, mockScheduleBase.id, {lookbackDays: 7})
+            ).rejects.toThrow(NotFoundException);
+        });
+
+        it('should rethrow non-P2025 errors from prisma.syncSchedule.update', async () => {
+            const dbError = new Error('Database connection lost');
+            vi.mocked(prisma.syncSchedule.update).mockRejectedValue(dbError);
+
+            await expect(
+                service.update(userId, mockScheduleBase.id, {lookbackDays: 7})
+            ).rejects.toThrow(dbError);
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // remove
+    // -------------------------------------------------------------------------
+
+    describe('remove', () => {
+        beforeEach(() => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockScheduleBase);
+            vi.mocked(prisma.syncSchedule.delete).mockResolvedValue(mockScheduleBase);
+        });
+
+        it('should delete the schedule and remove the cron job', async () => {
+            await service.remove(userId, mockScheduleBase.id);
+
+            expect(prisma.syncSchedule.delete).toHaveBeenCalled();
+            expect(schedulerRegistry.deleteCronJob).toHaveBeenCalledWith(
+                `sync-${mockScheduleBase.id}`
+            );
+        });
+
+        it('should throw NotFoundException when schedule not found', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(null);
+
+            await expect(service.remove(userId, 'not-found')).rejects.toThrow(NotFoundException);
+        });
+
+        it('should silently handle missing cron job when deleting a disabled schedule', async () => {
+            vi.mocked(schedulerRegistry.deleteCronJob).mockImplementation(() => {
+                throw new Error('Cron job not found');
+            });
+
+            await expect(service.remove(userId, mockScheduleBase.id)).resolves.not.toThrow();
+        });
+
+        it('should rethrow non-P2025 errors from prisma.syncSchedule.delete', async () => {
+            const dbError = new Error('Database connection lost');
+            vi.mocked(prisma.syncSchedule.delete).mockRejectedValue(dbError);
+
+            await expect(service.remove(userId, mockScheduleBase.id)).rejects.toThrow(dbError);
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // assertOwnership
+    // -------------------------------------------------------------------------
+
+    describe('assertOwnership', () => {
+        it('should not throw when owner is correct', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockScheduleBase);
+
+            await expect(
+                service.assertOwnership(userId, mockScheduleBase.id)
+            ).resolves.not.toThrow();
+        });
+
+        it('should throw NotFoundException when schedule not found', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(null);
+
+            await expect(service.assertOwnership(userId, 'not-found')).rejects.toThrow(
+                NotFoundException
+            );
+        });
+
+        it('should throw ForbiddenException when user does not own the schedule', async () => {
+            vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue({
+                ...mockScheduleBase,
+                userId: 'other-user'
+            });
+
+            await expect(service.assertOwnership(userId, mockScheduleBase.id)).rejects.toThrow(
+                ForbiddenException
+            );
+        });
+    });
+});

@@ -1,0 +1,68 @@
+import {
+    describe,
+    it,
+    expect
+} from 'vitest';
+import {ScraperRegistry} from '#scraper/scraper.registry.js';
+import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
+
+const makeScraper = (bankId: string): BankScraper => ({
+    bankId,
+    displayName: `${bankId} Bank`,
+    requiresMfaOnEveryRun: false,
+    maxLookbackDays: 90,
+    pendingTransactionsIncluded: true,
+    login: (): Promise<void> => Promise.resolve(),
+    scrapeTransactions: (): Promise<never[]> => Promise.resolve([])
+});
+
+describe('ScraperRegistry', () => {
+    it('should initialise an empty registry when no scrapers are provided', () => {
+        const registry = new ScraperRegistry(undefined);
+
+        expect(registry.listAll()).toHaveLength(0);
+        expect(registry.has('cibc')).toBe(false);
+        expect(registry.findByBankId('cibc')).toBeUndefined();
+    });
+
+    it('should initialise with an empty array', () => {
+        const registry = new ScraperRegistry([]);
+
+        expect(registry.listAll()).toHaveLength(0);
+    });
+
+    it('should register provided scrapers and find them by bankId', () => {
+        const cibc = makeScraper('cibc');
+        const td = makeScraper('td');
+        const registry = new ScraperRegistry([cibc, td]);
+
+        expect(registry.has('cibc')).toBe(true);
+        expect(registry.has('td')).toBe(true);
+        expect(registry.has('rbc')).toBe(false);
+        expect(registry.findByBankId('cibc')).toBe(cibc);
+        expect(registry.findByBankId('td')).toBe(td);
+        expect(registry.findByBankId('rbc')).toBeUndefined();
+    });
+
+    it('should return serialisable ScraperInfo objects from listAll()', () => {
+        const scraper = makeScraper('cibc');
+        const registry = new ScraperRegistry([scraper]);
+        const list = registry.listAll();
+
+        expect(list).toHaveLength(1);
+        expect(list[0]).toEqual({
+            bankId: 'cibc',
+            displayName: 'cibc Bank',
+            requiresMfaOnEveryRun: false,
+            maxLookbackDays: 90,
+            pendingTransactionsIncluded: true
+        });
+    });
+
+    it('should handle multiple scrapers in listAll()', () => {
+        const scrapers = ['cibc', 'td', 'rbc'].map(makeScraper);
+        const registry = new ScraperRegistry(scrapers);
+
+        expect(registry.listAll()).toHaveLength(3);
+    });
+});
