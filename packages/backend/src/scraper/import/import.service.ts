@@ -247,7 +247,7 @@ export class ImportService {
 
 
         // Validate required headers are present (catches files uploaded without a header row)
-        const fields = (result.meta.fields ?? []) as string[];
+        const fields = (result.meta.fields ?? []);
         const REQUIRED_HEADERS = ['date', 'description', 'amount'];
         const missingHeaders = REQUIRED_HEADERS.filter(h => !fields.includes(h));
         if (missingHeaders.length > 0) {

@@ -1,5 +1,9 @@
-import {Controller, Get} from '@nestjs/common';
-import {ApiTags, ApiOperation, ApiResponse} from '@nestjs/swagger';
+import {
+    Controller, Get
+} from '@nestjs/common';
+import {
+    ApiTags, ApiOperation, ApiResponse
+} from '@nestjs/swagger';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {ScraperInfo} from '#scraper/interfaces/bank-scraper.interface.js';
 
