@@ -18,7 +18,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **4** | Transactions Module | Transactions UI | ✅ Complete |
 | **5** | Categories Module | Categories UI | ✅ Complete |
 | **6** | Accounts Module | Accounts UI | ✅ Complete |
-| **7** | Transaction Import & Automated Sync | Import & Sync UI | ⬜ Not Started |
+| **7** | Transaction Import & Automated Sync | Import & Sync UI | ⬜ In Progress |
 | **8** | Budgets Module *(optional)* | Dashboard & Analytics | ⬜ Not Started |
 | **9** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
 | **10** | MCP Server | MCP App UIs | ⬜ Not Started |
@@ -291,12 +291,86 @@ Implementation plan: [`test-plan/accounts/implementation-plan.md`](../test-plan/
 
 Phase 6 (Accounts) is complete — backend and frontend both shipped and QA-verified (741 frontend tests, 0 type errors, 0 lint warnings, 18/18 Playwright TCs passing).
 
+Implementation plan: [`test-plan/import-sync/implementation-plan.md`](../test-plan/import-sync/implementation-plan.md)
+
 **Recommended next actions:**
-1. `@planner` — Plan Phase 7: Transaction Import & Automated Sync (CSV/OFX file upload, scraper sync schedules, SSE live status, MFA modal). Research existing transactions module patterns.
-2. After plan review → `@backend-dev` — Implement `TransactionImport` + `SyncSchedule` Prisma models + migration.
-3. `@test-writer` — Backend unit tests for import parsing service and sync scheduler.
-4. `@backend-tester` — Live API tests for import and sync endpoints.
-5. After Swagger is stable → `npm run generate:api` in `packages/frontend`, then `@frontend-dev`.
+
+1. `@backend-dev` — **Step 1**: Add `ImportJob`, `SyncSchedule`, `SyncJob` Prisma models + new enums (`ImportStatus`, `SyncStatus`, `FileType`, `SyncFrequency`) + relation fields on `User` and `Account`. Run migration `add_import_sync_module`. Commit: `feat(backend): add import/sync Prisma models and migration`.
+2. `@backend-dev` — **Step 2**: Implement `CryptoService` (AES-256-GCM) in `src/scraper/sync/crypto.service.ts`. Add `CREDENTIALS_ENCRYPTION_KEY` to `.env.example`. Commit: `feat(backend): add CryptoService for credential encryption`.
+3. `@backend-dev` — **Step 3**: Implement `ImportService` + `ImportController` (`POST /scraper/import/upload`, `GET /scraper/import`, `GET /scraper/import/:id`). Add `papaparse` + `ofx-js` dependencies. Commit: `feat(backend): add ImportJob service with CSV/OFX parsing`.
+4. `@backend-dev` — **Step 4**: Implement `SyncScheduleService` + `SyncScheduleController` (CRUD at `/scraper/sync/schedules`). Encrypt credentials on create/update; omit from response DTO. Commit: `feat(backend): add SyncSchedule service and controller`.
+5. `@backend-dev` — **Step 5**: Implement `SyncJobService` + `SyncWorkerService` (stub strategy pattern; `TdScraperStrategy` returns mock data). State machine: idle → running → mfa_required → completed/failed. Commit: `feat(backend): add SyncJob service and scraper worker stub`.
+6. `@backend-dev` — **Step 6**: Implement `SyncSseController` (`GET /scraper/sync/jobs/:id/stream`) using `@Sse()` + RxJS Observable. Commit: `feat(backend): add SSE streaming endpoint for sync job status`.
+7. `@backend-dev` — **Step 7**: Create `ScraperModule`, register all controllers/services, wire `MulterModule`. Register `ScraperModule` in `app.module.ts`. Commit: `feat(backend): register ScraperModule in app.module.ts`.
+8. `@test-writer` — Backend unit tests for all scraper services and controllers (30+ cases).
+9. `@backend-tester` — Live API tests per TC-01–TC-30 in the implementation plan.
+10. `@code-reviewer` — Backend review.
+11. Run `npm run generate:api` in `packages/frontend`.
+12. `@frontend-dev` — Replace `ScraperPage` stub; implement `FileImportDropzone`, `ImportJobList`, `SyncScheduleList`, `SyncScheduleForm`/`Modal`, `SyncStatusPanel`, `MfaModal`, `useSyncStream`. Add `MfaPage` + `/mfa` route.
+13. **Cross-feature Step A** — Verify imported transactions appear in `TransactionsPage` with correct `accountId` filter (smoke-test only; no code change expected).
+14. **Cross-feature Step B** — Verify `AccountsPage` `currentBalance` reflects newly imported transactions (smoke-test only; no code change expected).
+15. `@test-writer` — Frontend unit tests.
+16. `@code-reviewer` — Frontend review.
+17. `@frontend-tester` — Playwright E2E per Section 10 of the implementation plan.
+
+---
+
+## Future Enhancements (Post-Phase 10)
+
+These are not phases — they have no backend/frontend deliverables in this repo. They are standalone tools or infrastructure improvements that would benefit the project and the broader agent workflow.
+
+---
+
+### Desktop OS MCP Server
+
+**Status:** Not started  
+**Blocking:** Phase 7 web push notification test (currently manual — see `test-plan/import-sync/implementation-plan.md` Section 10)  
+**Design notes:** [`docs/desktop-mcp-server.md`](desktop-mcp-server.md)
+
+#### Problem
+
+Playwright MCP only controls the browser viewport. OS-level surfaces — notification toast bubbles, system dialogs, tray icons, cross-app flows — are invisible to it. This forces some tests to remain manual (e.g. confirming the Phase 7 push notification appears and deep-links to `/mfa`).
+
+#### Solution
+
+A standalone MCP server that exposes OS automation tools to any MCP-capable agent:
+
+| Tool | Description |
+|---|---|
+| `desktop_screenshot()` | Full desktop or specific window capture |
+| `desktop_click(x, y)` | OS-level mouse injection |
+| `desktop_send_keys(text)` | OS-level keyboard injection |
+| `desktop_find_window(title)` | Enumerate and locate open windows |
+| `desktop_read_notification()` | Read buffered OS notifications (WinRT / UNUserNotificationCenter) |
+| `desktop_ocr_region(x,y,w,h)` | Extract text from a screen region |
+| `desktop_get_accessibility_tree(hwnd)` | UIA (Windows) / AXUIElement (macOS) tree |
+
+#### Platform backends
+
+- **Windows**: `pywin32` + `winrt` (`UserNotificationListener`) + `SendInput`
+- **macOS**: `pyobjc` + `CGEvent` + `UNUserNotificationCenter` + Apple Vision OCR
+
+#### How it unblocks Phase 7
+
+Once available and registered in `.vscode/mcp.json`, the `frontend-tester` agent can:
+1. Call `desktop_read_notification()` → gets the buffered WinRT notification payload (instant, event-driven — no polling race with the 5s toast dismiss window)
+2. Assert title/body content
+3. Call `desktop_click(x, y)` → clicks the toast
+4. Playwright resumes — asserts navigation to `/mfa?jobId=…`
+
+The manual checklist in `test-plan/import-sync/implementation-plan.md` Section 10 would be replaced with automated steps once this server exists.
+
+#### Key design decision: event buffering
+
+The MCP server runs a background OS watcher thread that subscribes to notification events natively (instant, event-driven). The LLM polls `read_notification()` at leisure — no sub-second reaction time needed. See [`docs/desktop-mcp-server.md`](desktop-mcp-server.md) for full architecture notes.
+
+#### Recommended handoff when ready
+
+```
+@backend-dev Build the Desktop OS MCP server per docs/desktop-mcp-server.md.
+Implement as a standalone Node.js or Python MCP server with Windows backend first.
+Register it in .vscode/mcp.json alongside the Playwright MCP.
+```
 
 ---
 
