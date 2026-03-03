@@ -28,6 +28,8 @@ describe('UsersController', () => {
         timezone: 'UTC',
         currency: 'USD',
         role: 'USER',
+        notifyPush: true,
+        notifyEmail: true,
         createdAt: new Date('2024-01-01'),
         updatedAt: new Date('2024-01-01')
     };
@@ -42,6 +44,8 @@ describe('UsersController', () => {
         timezone: mockUser.timezone,
         currency: mockUser.currency,
         role: mockUser.role,
+        notifyPush: mockUser.notifyPush,
+        notifyEmail: mockUser.notifyEmail,
         createdAt: mockUser.createdAt,
         updatedAt: mockUser.updatedAt
     };

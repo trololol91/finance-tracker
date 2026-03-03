@@ -37,6 +37,12 @@ export class UserResponseDto {
     @ApiProperty({description: 'Last update timestamp', example: '2026-02-16T12:00:00.000Z'})
     updatedAt!: Date;
 
+    @ApiProperty({description: 'Receive push notifications for MFA alerts', example: true})
+    notifyPush!: boolean;
+
+    @ApiProperty({description: 'Receive email notifications for MFA alerts', example: true})
+    notifyEmail!: boolean;
+
     static fromEntity(user: User): UserResponseDto {
         const {passwordHash: _passwordHash, deletedAt: _deletedAt, ...rest} = user;
         return rest;

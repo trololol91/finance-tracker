@@ -24,6 +24,8 @@ describe('OwnershipGuard', () => {
         timezone: 'UTC',
         currency: 'USD',
         role: 'USER',
+        notifyPush: true,
+        notifyEmail: true,
         createdAt: new Date(),
         updatedAt: new Date()
     };

@@ -33,6 +33,24 @@ enum AccountType {
   other
 }
 
+enum ImportStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum SyncRunStatus {
+  success
+  failed
+  mfa_required
+}
+
+enum FileType {
+  csv
+  ofx
+}
+
 model User {
   id             String    @id @default(uuid()) @db.Uuid
   email          String    @unique
@@ -60,6 +78,13 @@ model User {
   transactions   Transaction[]
   categories     Category[]
   accounts       Account[]
+  importJobs     ImportJob[]
+  syncSchedules  SyncSchedule[]
+  syncJobs       SyncJob[]
+
+  // Notification preferences for scraper MFA alerts
+  notifyPush     Boolean  @default(true)  @map("notify_push")
+  notifyEmail    Boolean  @default(true)  @map("notify_email")
 
   @@map("users")
 }
@@ -86,6 +111,9 @@ model Transaction {
 
   // State
   isActive        Boolean         @default(true) @map("is_active")
+
+  // OFX / scraper dedup key (bank-assigned FITID or sha256 syntheticId)
+  fitid           String?
 
   // Timestamps
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
@@ -150,9 +178,96 @@ model Account {
   // Relations
   user           User        @relation(fields: [userId], references: [id])
   transactions   Transaction[]
+  importJobs     ImportJob[]
+  syncSchedules  SyncSchedule[]
 
   @@unique([userId, name])
   @@index([userId])
   @@index([userId, isActive])
   @@map("accounts")
+}
+
+model ImportJob {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  accountId      String?      @map("account_id") @db.Uuid
+  source         String       @default("file")
+
+  filename       String
+  fileType       FileType     @map("file_type")
+  status         ImportStatus @default(pending)
+
+  rowCount       Int          @default(0) @map("row_count")
+  importedCount  Int          @default(0) @map("imported_count")
+  skippedCount   Int          @default(0) @map("skipped_count")
+  errorMessage   String?      @map("error_message")
+
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @updatedAt      @map("updated_at") @db.Timestamptz
+
+  user           User         @relation(fields: [userId], references: [id])
+  account        Account?     @relation(fields: [accountId], references: [id])
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("import_jobs")
+}
+
+model SyncSchedule {
+  id              String         @id @default(uuid()) @db.Uuid
+  userId          String         @map("user_id") @db.Uuid
+  accountId       String         @map("account_id") @db.Uuid
+
+  bankId          String         @map("bank_id")
+  credentialsEnc  String         @map("credentials_enc")
+  cron            String         @default("0 8 * * *")
+  enabled         Boolean        @default(true)
+
+  lastRunAt            DateTime?      @map("last_run_at")              @db.Timestamptz
+  lastRunStatus        SyncRunStatus? @map("last_run_status")
+  lastSuccessfulSyncAt DateTime?      @map("last_successful_sync_at")  @db.Timestamptz
+  lookbackDays         Int            @default(3)                      @map("lookback_days")
+
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @updatedAt      @map("updated_at") @db.Timestamptz
+
+  user            User           @relation(fields: [userId], references: [id])
+  account         Account        @relation(fields: [accountId], references: [id])
+  syncJobs        SyncJob[]
+
+  @@unique([userId, accountId])
+  @@index([userId])
+  @@index([userId, enabled])
+  @@map("sync_schedules")
+}
+
+model SyncJob {
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  syncScheduleId   String        @map("sync_schedule_id") @db.Uuid
+
+  triggeredBy      String        @default("cron")     @map("triggered_by")
+  requestStartDate DateTime?     @map("request_start_date") @db.Timestamptz
+  requestEndDate   DateTime?     @map("request_end_date")   @db.Timestamptz
+
+  status           String        @default("pending")
+  message          String?
+  mfaChallenge     String?       @map("mfa_challenge")
+  importedCount    Int           @default(0) @map("imported_count")
+  skippedCount     Int           @default(0) @map("skipped_count")
+  errorMessage     String?       @map("error_message")
+
+  startedAt        DateTime?     @map("started_at")   @db.Timestamptz
+  completedAt      DateTime?     @map("completed_at") @db.Timestamptz
+
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt      @map("updated_at") @db.Timestamptz
+
+  user             User          @relation(fields: [userId], references: [id])
+  syncSchedule     SyncSchedule  @relation(fields: [syncScheduleId], references: [id])
+
+  @@index([userId])
+  @@index([syncScheduleId])
+  @@index([userId, status])
+  @@map("sync_jobs")
 }

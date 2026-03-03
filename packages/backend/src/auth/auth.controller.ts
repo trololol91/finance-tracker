@@ -79,6 +79,8 @@ export class AuthController {
             currency: user.currency,
             role: user.role,
             isActive: user.isActive,
+            notifyPush: user.notifyPush,
+            notifyEmail: user.notifyEmail,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };

@@ -45,6 +45,7 @@ const makeTransaction = (overrides: Partial<Transaction> = {}): Transaction => (
     date: new Date('2026-02-15T10:00:00.000Z'),
     originalDate: new Date('2026-02-15T10:00:00.000Z'),
     isActive: true,
+    fitid: null,
     createdAt: new Date('2026-02-15T10:00:00.000Z'),
     updatedAt: new Date('2026-02-15T10:00:00.000Z'),
     ...overrides
@@ -62,6 +63,8 @@ const mockCurrentUser: User = {
     timezone: 'UTC',
     currency: 'USD',
     role: 'USER',
+    notifyPush: true,
+    notifyEmail: true,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01')
 };
