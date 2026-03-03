@@ -4,7 +4,7 @@ import {
     Optional
 } from '@nestjs/common';
 import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
-import {ScraperInfoDto} from '#scraper/scraper-info.dto.js';
+import type {ScraperInfoDto} from '#scraper/scraper-info.dto.js';
 
 /** NestJS multi-provider injection token for BankScraper implementations. */
 export const BANK_SCRAPER = 'BANK_SCRAPER';
