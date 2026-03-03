@@ -370,6 +370,7 @@ describe('SyncScheduleService', () => {
         beforeEach(() => {
             vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockScheduleBase);
             vi.mocked(prisma.syncSchedule.delete).mockResolvedValue(mockScheduleBase);
+            vi.mocked(prisma.syncJob.deleteMany).mockResolvedValue({count: 0});
         });
 
         it('should delete the schedule and remove the cron job', async () => {
@@ -403,6 +404,15 @@ describe('SyncScheduleService', () => {
             vi.mocked(prisma.syncSchedule.delete).mockRejectedValue(dbError);
 
             await expect(service.remove(userId, mockScheduleBase.id)).rejects.toThrow(dbError);
+        });
+
+        it('should rethrow errors thrown by prisma.syncJob.deleteMany', async () => {
+            const dbError = new Error('DB connection lost during child delete');
+            vi.mocked(prisma.syncJob.deleteMany).mockRejectedValue(dbError);
+
+            await expect(service.remove(userId, mockScheduleBase.id)).rejects.toThrow(dbError);
+            // syncSchedule.delete must not be called if deleteMany already threw
+            expect(prisma.syncSchedule.delete).not.toHaveBeenCalled();
         });
     });
 
