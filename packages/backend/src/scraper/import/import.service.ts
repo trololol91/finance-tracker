@@ -245,6 +245,16 @@ export class ImportService {
             );
         }
 
+
+        // Validate required headers are present (catches files uploaded without a header row)
+        const fields = (result.meta.fields ?? []) as string[];
+        const REQUIRED_HEADERS = ['date', 'description', 'amount'];
+        const missingHeaders = REQUIRED_HEADERS.filter(h => !fields.includes(h));
+        if (missingHeaders.length > 0) {
+            throw new BadRequestException(
+                `CSV is missing required column(s): ${missingHeaders.join(', ')}. Expected header row: date,description,amount,type`
+            );
+        }
         const rows: ParsedTransaction[] = [];
         for (const row of result.data) {
             if (!row.date || !row.description || row.amount === undefined) {

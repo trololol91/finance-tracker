@@ -66,9 +66,11 @@ describe('SyncScheduleService', () => {
             },
             account: {
                 findFirst: vi.fn()
+            },
+            syncJob: {
+                deleteMany: vi.fn()
             }
         } as unknown as PrismaService;
-
         scraperRegistry = {
             findByBankId: vi.fn(),
             has: vi.fn(),

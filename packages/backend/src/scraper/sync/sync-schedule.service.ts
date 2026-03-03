@@ -198,6 +198,10 @@ export class SyncScheduleService {
         }
 
         this.removeCronJob(id);
+        // Delete child SyncJob records first to avoid FK constraint violation
+        // (SyncJob.syncSchedule relation has no onDelete: Cascade in schema)
+        await this.prisma.syncJob.deleteMany({where: {syncScheduleId: id}});
+
 
         try {
             await this.prisma.syncSchedule.delete({where: {id}});
