@@ -9,6 +9,7 @@ import {UsersModule} from '#users/users.module.js';
 import {AuthModule} from '#auth/auth.module.js';
 import {CategoriesModule} from '#categories/categories.module.js';
 import {AccountsModule} from '#accounts/accounts.module.js';
+import {ScraperModule} from '#scraper/scraper.module.js';
 
 @Module({
     imports: [
@@ -22,7 +23,8 @@ import {AccountsModule} from '#accounts/accounts.module.js';
         AuthModule,
         TransactionsModule,
         CategoriesModule,
-        AccountsModule
+        AccountsModule,
+        ScraperModule
     ],
     controllers: [AppController],
     providers: [AppService]
