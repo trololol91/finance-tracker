@@ -6,26 +6,26 @@ import {ApiProperty} from '@nestjs/swagger';
  */
 export class ScraperInfoDto {
     @ApiProperty({example: 'cibc', description: 'Unique bank identifier'})
-    bankId!: string;
+    public bankId!: string;
 
     @ApiProperty({example: 'CIBC', description: 'Human-readable bank name'})
-    displayName!: string;
+    public displayName!: string;
 
     @ApiProperty({
         example: true,
         description: 'Whether an MFA challenge is required on every scraper run'
     })
-    requiresMfaOnEveryRun!: boolean;
+    public requiresMfaOnEveryRun!: boolean;
 
     @ApiProperty({
         example: 90,
         description: 'Maximum number of days in the past the scraper can retrieve'
     })
-    maxLookbackDays!: number;
+    public maxLookbackDays!: number;
 
     @ApiProperty({
         example: false,
         description: 'Whether the scraper returns pending (un-posted) transactions'
     })
-    pendingTransactionsIncluded!: boolean;
+    public pendingTransactionsIncluded!: boolean;
 }
