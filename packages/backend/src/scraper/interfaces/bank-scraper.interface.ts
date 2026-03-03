@@ -74,3 +74,26 @@ export interface ScraperInfo {
     maxLookbackDays: number;
     pendingTransactionsIncluded: boolean;
 }
+
+/**
+ * Input passed to the scraper worker thread via `workerData`.
+ * All sensitive values (credentials) are decrypted in the main process
+ * before being passed here. The worker should never touch the database.
+ */
+export interface ScraperWorkerInput {
+    bankId: string;
+    credentials: {username: string, password: string};
+    startDate: string;   // ISO 8601 UTC
+    endDate: string;     // ISO 8601 UTC
+    accountId: string;
+    jobId: string;
+    userId: string;
+}
+
+/**
+ * Messages posted by the scraper worker thread to the main process.
+ */
+export type WorkerMessage =
+    | {type: 'status', status: string, message: string}
+    | {type: 'mfa_required', prompt: string}
+    | {type: 'result', transactions: RawTransaction[]};

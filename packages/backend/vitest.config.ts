@@ -23,7 +23,10 @@ export default defineConfig({
                 '**/*.module.ts',
                 '**/index.ts',
                 '**/*.dto.ts',
-                '**/*.entity.ts'
+                '**/*.entity.ts',
+                // Scraper stubs and worker thread entry point are not unit-testable
+                'src/scraper/banks/**',
+                'src/scraper/scraper.worker.ts'
             ],
             thresholds: {
                 lines: 90,
