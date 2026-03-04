@@ -25,7 +25,10 @@ import {
 } from 'rxjs';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
-import type {User} from '#generated/prisma/client.js';
+import type {
+    User,
+    SyncJob
+} from '#generated/prisma/client.js';
 import {PrismaService} from '#database/prisma.service.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
@@ -91,7 +94,12 @@ export class SyncJobController {
     @ApiParam({name: 'id', description: 'Session (SyncJob) UUID', type: String})
     @ApiResponse({status: 200, description: 'SSE stream (text/event-stream)'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
-    @ApiResponse({status: 404, description: 'Session not found or not owned by user'})
+    @ApiResponse({
+        status: 404,
+        description:
+            'Session not found, not owned by user, or server restarted mid-sync ' +
+            '(mfa_required / running state cannot be resumed — start a new sync run).'
+    })
     public async stream(
         @Param('id', new ParseUUIDPipe({version: '4'})) sessionId: string,
         @CurrentUser() currentUser: User
@@ -180,7 +188,7 @@ export class SyncJobController {
     private async assertJobOwner(
         sessionId: string,
         userId: string
-    ): Promise<NonNullable<Awaited<ReturnType<typeof this.prisma.syncJob.findUnique>>>> {
+    ): Promise<SyncJob> {
         const job = await this.prisma.syncJob.findUnique({where: {id: sessionId}});
         if (!job || job.userId !== userId) {
             throw new NotFoundException(`Sync session ${sessionId} not found`);

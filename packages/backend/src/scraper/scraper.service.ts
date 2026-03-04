@@ -197,8 +197,16 @@ export class ScraperService {
 
         // Register resolver: when user submits code, post it back to the worker.
         // The worker is suspended on `parentPort.once('message')`.
+        // Guard against the case where the timeout fires and terminates the worker
+        // before the user submits the MFA code — postMessage on a dead worker throws.
         this.sessionStore.setMfaResolver(sessionId, (code: string) => {
-            worker.postMessage({type: 'mfa_code', code});
+            try {
+                worker.postMessage({type: 'mfa_code', code});
+            } catch {
+                this.logger.warn(
+                    `MFA code submitted for terminated worker (job ${jobId}) — ignoring`
+                );
+            }
         });
     }
 
@@ -213,6 +221,7 @@ export class ScraperService {
         //   await this.importService.bulkInsert(schedule.userId, schedule.accountId, transactions);
         const importedCount = transactions.length;
         const skippedCount = 0;
+        const now = new Date();
 
         await this.prisma.syncJob.update({
             where: {id: jobId},
@@ -226,9 +235,9 @@ export class ScraperService {
         await this.prisma.syncSchedule.update({
             where: {id: schedule.id},
             data: {
-                lastRunAt: new Date(),
+                lastRunAt: now,
                 lastRunStatus: SyncRunStatus.success,
-                lastSuccessfulSyncAt: new Date()
+                lastSuccessfulSyncAt: now
             }
         });
 
