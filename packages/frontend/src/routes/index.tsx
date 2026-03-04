@@ -16,6 +16,7 @@ const BudgetsPage = lazy(() => import('@pages/BudgetsPage.tsx'));
 const ReportsPage = lazy(() => import('@pages/ReportsPage.tsx'));
 const ScraperPage = lazy(() => import('@pages/ScraperPage.tsx'));
 const ProfilePage = lazy(() => import('@pages/ProfilePage.tsx'));
+const MfaPage = lazy(() => import('@pages/MfaPage.tsx'));
 const NotFoundPage = lazy(() => import('@pages/NotFoundPage.tsx'));
 
 export const router = createBrowserRouter([
@@ -96,6 +97,14 @@ export const router = createBrowserRouter([
         element: (
             <PrivateRoute>
                 <ScraperPage />
+            </PrivateRoute>
+        )
+    },
+    {
+        path: APP_ROUTES.MFA,
+        element: (
+            <PrivateRoute>
+                <MfaPage />
             </PrivateRoute>
         )
     },

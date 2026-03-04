@@ -1,0 +1,116 @@
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+@media (max-width: 480px) {
+    .row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+}
+
+.required {
+    color: var(--color-danger);
+}
+
+.input,
+.select {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background-color: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input:focus,
+.select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+
+.input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.select {
+    cursor: pointer;
+}
+
+.select:disabled,
+.input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.inputError {
+    border-color: var(--color-danger);
+}
+
+.error {
+    font-size: var(--font-size-xs);
+    color: var(--color-danger);
+}
+
+.hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: var(--space-2);
+}
+
+.submitBtn {
+    padding: var(--space-2) var(--space-6);
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.submitBtn:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.submitBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

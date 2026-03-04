@@ -1,0 +1,191 @@
+.tableWrapper {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    background-color: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+
+.thActions {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.row {
+    border-bottom: 1px solid var(--color-border);
+    transition: background-color var(--transition-fast);
+}
+
+.row:last-child {
+    border-bottom: none;
+}
+
+.row:hover {
+    background-color: var(--color-surface-hover);
+}
+
+.td {
+    padding: var(--space-3) var(--space-4);
+    color: var(--color-text-primary);
+    vertical-align: middle;
+}
+
+.tdActions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.bankName {
+    display: block;
+    font-weight: var(--font-weight-medium);
+}
+
+.disabledBadge {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 1px var(--space-2);
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-alt);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+}
+
+.cron {
+    font-family: monospace;
+    font-size: var(--font-size-xs);
+    background-color: var(--color-surface-alt);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+}
+
+.statusBadge {
+    display: inline-block;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: capitalize;
+}
+
+.statusBadge.success {
+    background-color: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+.statusBadge.failed {
+    background-color: var(--color-danger-50);
+    color: var(--color-danger-text);
+}
+
+.statusBadge.running {
+    background-color: var(--color-primary-100);
+    color: var(--color-primary);
+}
+
+.triggerBtn {
+    padding: var(--space-1) var(--space-3);
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    margin-right: var(--space-2);
+}
+
+.triggerBtn:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.triggerBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.editBtn,
+.deleteBtn {
+    padding: var(--space-1) var(--space-3);
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+    margin-right: var(--space-1);
+}
+
+.editBtn {
+    color: var(--color-text-secondary);
+}
+
+.editBtn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.deleteBtn {
+    color: var(--color-danger);
+    border-color: var(--color-danger-border);
+}
+
+.deleteBtn:hover {
+    background-color: var(--color-danger-50);
+}
+
+.centered {
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+}
+
+.message {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.messageError {
+    color: var(--color-danger);
+}
+
+@media (max-width: 767px) {
+    .hideOnMobile {
+        display: none;
+    }
+}
+
+@media (max-width: 1023px) {
+    .hideOnTablet {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .tdActions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-1);
+    }
+
+    .triggerBtn,
+    .editBtn,
+    .deleteBtn {
+        margin-right: 0;
+    }
+}

@@ -33,5 +33,6 @@ export const APP_ROUTES = {
     ACCOUNTS: '/accounts',
     BUDGETS: '/budgets',
     REPORTS: '/reports',
-    SCRAPER: '/scraper'
+    SCRAPER: '/scraper',
+    MFA: '/mfa'
 } as const;

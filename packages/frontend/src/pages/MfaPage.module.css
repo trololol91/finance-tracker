@@ -1,0 +1,41 @@
+.page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-background);
+    padding: var(--space-8);
+}
+
+.inner {
+    width: 100%;
+    max-width: 32rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    text-align: center;
+}
+
+.title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.waiting {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.success {
+    font-size: var(--font-size-sm);
+    color: var(--color-success);
+    font-weight: var(--font-weight-medium);
+}
+
+.error {
+    font-size: var(--font-size-sm);
+    color: var(--color-danger);
+}

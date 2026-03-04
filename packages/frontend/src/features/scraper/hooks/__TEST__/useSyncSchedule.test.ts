@@ -1,0 +1,398 @@
+import {
+    describe, it, expect, vi, beforeEach
+} from 'vitest';
+import {
+    renderHook, act
+} from '@testing-library/react';
+import {
+    QueryClient, QueryClientProvider
+} from '@tanstack/react-query';
+import React from 'react';
+import {useSyncSchedule} from '@features/scraper/hooks/useSyncSchedule.js';
+import type {SyncScheduleResponseDto} from '@/api/model/syncScheduleResponseDto.js';
+
+vi.mock('@/api/sync-schedules/sync-schedules.js', () => ({
+    useSyncScheduleControllerFindAll: vi.fn(),
+    useSyncScheduleControllerCreate: vi.fn(),
+    useSyncScheduleControllerUpdate: vi.fn(),
+    useSyncScheduleControllerRemove: vi.fn(),
+    getSyncScheduleControllerFindAllQueryKey: vi.fn(() => ['/sync-schedules'])
+}));
+
+import {
+    useSyncScheduleControllerFindAll,
+    useSyncScheduleControllerCreate,
+    useSyncScheduleControllerUpdate,
+    useSyncScheduleControllerRemove
+} from '@/api/sync-schedules/sync-schedules.js';
+
+type FindAllReturn = ReturnType<typeof useSyncScheduleControllerFindAll>;
+type CreateReturn = ReturnType<typeof useSyncScheduleControllerCreate>;
+type UpdateReturn = ReturnType<typeof useSyncScheduleControllerUpdate>;
+type RemoveReturn = ReturnType<typeof useSyncScheduleControllerRemove>;
+
+const makeFindAll = (schedules: SyncScheduleResponseDto[] = []): FindAllReturn =>
+    ({data: schedules, isLoading: false, isError: false}) as unknown as FindAllReturn;
+
+const makeCreate = (mutate = vi.fn(), isPending = false): CreateReturn =>
+    ({mutate, isPending}) as unknown as CreateReturn;
+
+const makeUpdate = (mutate = vi.fn(), isPending = false): UpdateReturn =>
+    ({mutate, isPending}) as unknown as UpdateReturn;
+
+const makeRemove = (mutate = vi.fn(), isPending = false): RemoveReturn =>
+    ({mutate, isPending}) as unknown as RemoveReturn;
+
+const mockFindAll = vi.mocked(useSyncScheduleControllerFindAll);
+const mockCreate = vi.mocked(useSyncScheduleControllerCreate);
+const mockUpdate = vi.mocked(useSyncScheduleControllerUpdate);
+const mockRemove = vi.mocked(useSyncScheduleControllerRemove);
+
+const createWrapper = (): (({children}: {children: React.ReactNode}) => React.JSX.Element) => {
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    return ({children}: {children: React.ReactNode}) =>
+        React.createElement(QueryClientProvider, {client: qc}, children);
+};
+
+const fakeEvent = (): React.FormEvent =>
+    ({preventDefault: vi.fn()}) as unknown as React.FormEvent;
+
+const makeSchedule = (
+    overrides: Partial<SyncScheduleResponseDto> = {}
+): SyncScheduleResponseDto => ({
+    id: 'sched-1',
+    accountId: 'acc-1',
+    bankId: 'td',
+    displayName: 'TD Chequing',
+    cron: '0 8 * * *',
+    lookbackDays: 7,
+    enabled: true,
+    requiresMfaOnEveryRun: false,
+    maxLookbackDays: 90,
+    pendingTransactionsIncluded: false,
+    lastRunAt: null,
+    lastRunStatus: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides
+});
+
+describe('useSyncSchedule', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockFindAll.mockReturnValue(makeFindAll());
+        mockCreate.mockReturnValue(makeCreate());
+        mockUpdate.mockReturnValue(makeUpdate());
+        mockRemove.mockReturnValue(makeRemove());
+    });
+
+    describe('initial state', () => {
+        it('returns empty schedules list initially', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            expect(result.current.schedules).toEqual([]);
+        });
+
+        it('returns modalMode as null initially', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            expect(result.current.modalMode).toBeNull();
+        });
+
+        it('passes through isLoading from query', () => {
+            mockFindAll.mockReturnValue(
+                {data: undefined, isLoading: true, isError: false} as unknown as FindAllReturn
+            );
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            expect(result.current.isLoading).toBe(true);
+        });
+
+        it('passes through isError from query', () => {
+            mockFindAll.mockReturnValue(
+                {data: undefined, isLoading: false, isError: true} as unknown as FindAllReturn
+            );
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            expect(result.current.isError).toBe(true);
+        });
+    });
+
+    describe('modal state', () => {
+        it('openCreate sets modalMode to "create"', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openCreate(); });
+            expect(result.current.modalMode).toBe('create');
+        });
+
+        it('openCreate resets form values', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openCreate(); });
+            expect(result.current.formValues.accountId).toBe('');
+            expect(result.current.formValues.bankId).toBe('');
+        });
+
+        it('openEdit sets modalMode to "edit"', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule()); });
+            expect(result.current.modalMode).toBe('edit');
+        });
+
+        it('openEdit populates form with schedule values', () => {
+            const schedule = makeSchedule({
+                accountId: 'acc-2',
+                bankId: 'cibc',
+                cron: '0 9 * * 1',
+                lookbackDays: 14
+            });
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(schedule); });
+            expect(result.current.formValues.accountId).toBe('acc-2');
+            expect(result.current.formValues.bankId).toBe('cibc');
+            expect(result.current.formValues.cron).toBe('0 9 * * 1');
+            expect(result.current.formValues.lookbackDays).toBe('14');
+        });
+
+        it('openEdit sets editTarget', () => {
+            const schedule = makeSchedule({id: 'sched-99'});
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(schedule); });
+            expect(result.current.editTarget?.id).toBe('sched-99');
+        });
+
+        it('closeModal sets modalMode to null', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openCreate(); });
+            act(() => { result.current.closeModal(); });
+            expect(result.current.modalMode).toBeNull();
+        });
+
+        it('closeModal clears editTarget', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule()); });
+            act(() => { result.current.closeModal(); });
+            expect(result.current.editTarget).toBeNull();
+        });
+    });
+
+    describe('handleFieldChange', () => {
+        it('updates a string field', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.handleFieldChange('cron', '0 9 * * *'); });
+            expect(result.current.formValues.cron).toBe('0 9 * * *');
+        });
+
+        it('updates a boolean field', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.handleFieldChange('enabled', false); });
+            expect(result.current.formValues.enabled).toBe(false);
+        });
+
+        it('clears error for the changed field', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            // Trigger a validation error first
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.accountId).toBeDefined();
+            // Clear by changing the field
+            act(() => { result.current.handleFieldChange('accountId', 'acc-1'); });
+            expect(result.current.errors.accountId).toBeUndefined();
+        });
+    });
+
+    describe('handleSubmit', () => {
+        it('shows validation errors when required fields are empty', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.accountId).toBeDefined();
+            expect(result.current.errors.bankId).toBeDefined();
+            expect(result.current.errors.username).toBeDefined();
+            expect(result.current.errors.password).toBeDefined();
+        });
+
+        it('validates lookbackDays range (too low)', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'a');
+                result.current.handleFieldChange('bankId', 'b');
+                result.current.handleFieldChange('username', 'u');
+                result.current.handleFieldChange('password', 'p');
+                result.current.handleFieldChange('lookbackDays', '0');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.lookbackDays).toBeDefined();
+        });
+
+        it('validates lookbackDays range (too high)', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'a');
+                result.current.handleFieldChange('bankId', 'b');
+                result.current.handleFieldChange('username', 'u');
+                result.current.handleFieldChange('password', 'p');
+                result.current.handleFieldChange('lookbackDays', '400');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.lookbackDays).toBeDefined();
+        });
+
+        it('calls create mutation when form is valid in create mode', () => {
+            const mutate = vi.fn();
+            mockCreate.mockReturnValue(makeCreate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleFieldChange('username', 'user123');
+                result.current.handleFieldChange('password', 'pass123');
+                result.current.handleFieldChange('cron', '0 8 * * *');
+                result.current.handleFieldChange('lookbackDays', '7');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(mutate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        accountId: 'acc-1',
+                        bankId: 'td',
+                        username: 'user123'
+                    })
+                }),
+                expect.any(Object)
+            );
+        });
+
+        it('closes modal via onSuccess callback after create', () => {
+            const mutate = vi.fn((_, cbs: {onSuccess: () => void}) => { cbs.onSuccess(); });
+            mockCreate.mockReturnValue(makeCreate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openCreate(); });
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleFieldChange('username', 'user');
+                result.current.handleFieldChange('password', 'pass');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.modalMode).toBeNull();
+            expect(result.current.editTarget).toBeNull();
+        });
+
+        it('shows cron error via onError callback after create', () => {
+            const mutate = vi.fn(
+                (_, cbs: {onError: (e: unknown) => void}) => {
+                    cbs.onError({message: 'Cron invalid'});
+                }
+            );
+            mockCreate.mockReturnValue(makeCreate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleFieldChange('username', 'user');
+                result.current.handleFieldChange('password', 'pass');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.cron).toBe('Cron invalid');
+        });
+
+        it('shows fallback error when onError has no message', () => {
+            const mutate = vi.fn(
+                (_, cbs: {onError: (e: unknown) => void}) => { cbs.onError({}); }
+            );
+            mockCreate.mockReturnValue(makeCreate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleFieldChange('username', 'user');
+                result.current.handleFieldChange('password', 'pass');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.cron).toContain('create');
+        });
+
+        it('calls update mutation when form is valid in edit mode', () => {
+            const mutate = vi.fn();
+            mockUpdate.mockReturnValue(makeUpdate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule({id: 'sched-5'})); });
+            act(() => {
+                result.current.handleFieldChange('username', 'newuser');
+                result.current.handleFieldChange('password', 'newpass');
+                result.current.handleFieldChange('cron', '0 8 * * *');
+                result.current.handleFieldChange('lookbackDays', '7');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(mutate).toHaveBeenCalledWith(
+                expect.objectContaining({id: 'sched-5'}),
+                expect.any(Object)
+            );
+        });
+
+        it('closes modal via onSuccess callback after update', () => {
+            const mutate = vi.fn((_, cbs: {onSuccess: () => void}) => { cbs.onSuccess(); });
+            mockUpdate.mockReturnValue(makeUpdate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule()); });
+            // openEdit sets username/password to '', which fails validation — fill them in
+            act(() => {
+                result.current.handleFieldChange('username', 'someuser');
+                result.current.handleFieldChange('password', 'somepass');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.modalMode).toBeNull();
+        });
+
+        it('sends non-empty username/password in update mutation data', () => {
+            const mutate = vi.fn();
+            mockUpdate.mockReturnValue(makeUpdate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule({id: 'sched-u'})); });
+            act(() => {
+                result.current.handleFieldChange('username', 'newuser');
+                result.current.handleFieldChange('password', 'newpass');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            interface UpdateArg {id: string, data: {username?: string, password?: string}}
+            const firstArg = mutate.mock.calls[0][0] as UpdateArg;
+            expect(firstArg.data.username).toBe('newuser');
+            expect(firstArg.data.password).toBe('newpass');
+        });
+    });
+
+    describe('handleDelete', () => {
+        it('calls remove mutation with schedule id', () => {
+            const mutate = vi.fn();
+            mockRemove.mockReturnValue(makeRemove(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.handleDelete('sched-1'); });
+            expect(mutate).toHaveBeenCalledWith(
+                {id: 'sched-1'},
+                expect.any(Object)
+            );
+        });
+
+        it('logs error via delete onError callback', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            const mutate = vi.fn(
+                (_, cbs: {onError: (e: unknown) => void}) => {
+                    cbs.onError(new Error('delete failed'));
+                }
+            );
+            mockRemove.mockReturnValue(makeRemove(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.handleDelete('sched-1'); });
+            expect(consoleSpy).toHaveBeenCalled();
+            consoleSpy.mockRestore();
+        });
+    });
+
+    describe('isSubmitting', () => {
+        it('reflects create mutation isPending', () => {
+            mockCreate.mockReturnValue(makeCreate(vi.fn(), true));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            expect(result.current.isSubmitting).toBe(true);
+        });
+
+        it('reflects update mutation isPending', () => {
+            mockUpdate.mockReturnValue(makeUpdate(vi.fn(), true));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            expect(result.current.isSubmitting).toBe(true);
+        });
+    });
+});

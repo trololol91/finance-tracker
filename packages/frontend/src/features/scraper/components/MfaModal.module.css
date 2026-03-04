@@ -1,0 +1,188 @@
+.modal {
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    padding: 0;
+    width: min(92vw, 32rem);
+    max-height: 92vh;
+    overflow-y: auto;
+    background-color: var(--color-surface);
+    margin: auto;
+}
+
+.modal::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    background-color: var(--color-surface);
+    z-index: 1;
+}
+
+.title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    line-height: 1;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast);
+}
+
+.closeBtn:hover {
+    color: var(--color-text-primary);
+}
+
+.body {
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.challenge {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface-alt);
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+}
+
+.required {
+    color: var(--color-danger);
+}
+
+.input {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background-color: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+
+.input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.inputError {
+    border-color: var(--color-danger);
+}
+
+.error {
+    font-size: var(--font-size-xs);
+    color: var(--color-danger);
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.cancelBtn {
+    padding: var(--space-2) var(--space-4);
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.cancelBtn:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.submitBtn {
+    padding: var(--space-2) var(--space-6);
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.submitBtn:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.submitBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+    .modal {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        transform: none;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 1rem 1rem 0 0;
+        max-height: 90vh;
+        margin: 0;
+    }
+
+    .actions {
+        flex-direction: column-reverse;
+    }
+
+    .submitBtn,
+    .cancelBtn {
+        width: 100%;
+        text-align: center;
+    }
+}
