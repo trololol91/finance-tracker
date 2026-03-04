@@ -132,8 +132,10 @@ describe('useSyncStream', () => {
             });
         });
 
-        it('processes a running event with message', async () => {
-            const block = 'event:status\ndata:{"message":"Fetching rows"}\n\n';
+        it('processes a running event with message (NestJS wire format — no event: line)', async () => {
+            // NestJS @Sse() does not emit an `event:` line by default;
+            // the status and message live entirely inside the JSON payload.
+            const block = 'id:1\ndata:{"status":"logging_in","message":"Fetching rows"}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -147,9 +149,11 @@ describe('useSyncStream', () => {
             expect(result.current.event.message).toBe('Fetching rows');
         });
 
-        it('processes a completed event', async () => {
+        it('processes a completed event (NestJS wire format — no event: line)', async () => {
+            // Matches the exact format emitted by ScraperService.handleResult() and
+            // the BUG-004 race-condition replay path in SyncJobController.stream().
             const block =
-                'event:complete\ndata:{"importedCount":10,"skippedCount":2}\n\n';
+                'id:1\ndata:{"status":"complete","importedCount":10,"skippedCount":2}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -162,9 +166,9 @@ describe('useSyncStream', () => {
             expect(result.current.event.importedCount).toBe(10);
         });
 
-        it('processes a failed event', async () => {
+        it('processes a failed event (NestJS wire format — no event: line)', async () => {
             const block =
-                'event:failed\ndata:{"errorMessage":"Auth error"}\n\n';
+                'id:1\ndata:{"status":"failed","errorMessage":"Auth error"}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -177,9 +181,9 @@ describe('useSyncStream', () => {
             expect(result.current.event.errorMessage).toBe('Auth error');
         });
 
-        it('processes an mfa_required event', async () => {
+        it('processes an mfa_required event (NestJS wire format — no event: line)', async () => {
             const block =
-                'event:mfa\ndata:{"mfaChallenge":"Enter OTP"}\n\n';
+                'id:1\ndata:{"status":"mfa_required","mfaChallenge":"Enter OTP"}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -193,7 +197,7 @@ describe('useSyncStream', () => {
         });
 
         it('handles malformed SSE data without crashing', async () => {
-            const block = 'event:status\ndata:NOT_JSON\n\n';
+            const block = 'data:NOT_JSON\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -205,7 +209,8 @@ describe('useSyncStream', () => {
         });
 
         it('processes a running event WITHOUT a message (message → undefined)', async () => {
-            const block = 'event:status\ndata:{"progress":50}\n\n';
+            // p.status is present but p.message is absent → message: undefined
+            const block = 'data:{"status":"scraping"}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -224,7 +229,7 @@ describe('useSyncStream', () => {
         });
 
         it('processes an mfa event WITHOUT mfaChallenge (mfaChallenge → undefined)', async () => {
-            const block = 'event:mfa\ndata:{"prompt":"Enter code"}\n\n';
+            const block = 'data:{"status":"mfa_required","prompt":"Enter code"}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -239,7 +244,7 @@ describe('useSyncStream', () => {
         });
 
         it('processes a complete event WITHOUT counts (counts → undefined)', async () => {
-            const block = 'event:complete\ndata:{"summary":"done"}\n\n';
+            const block = 'data:{"status":"complete","summary":"done"}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -252,8 +257,8 @@ describe('useSyncStream', () => {
         });
 
         it('handles SSE block lines that are neither event: nor data: (unknown fields)', async () => {
-            // Line with 'id:' prefix, which isn't handled — exercises the else-else path
-            const block = 'event:status\nid:123\ndata:{"message":"hi"}\n\n';
+            // Line with 'id:' prefix — ignored; status in payload drives parsing
+            const block = 'id:123\ndata:{"status":"logging_in","message":"hi"}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -265,8 +270,8 @@ describe('useSyncStream', () => {
         });
 
         it('returns null for block with no data field', async () => {
-            // event: only, no data: → parseSseBlock returns null → state unchanged
-            const block = 'event:status\n\n';
+            // no data: line → parseSseBlock returns null → state unchanged
+            const block = 'id:1\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -314,7 +319,7 @@ describe('useSyncStream', () => {
 
         it('skips empty blocks in the SSE stream', async () => {
             // Extra \n\n creates an empty block after split
-            const block = 'event:status\ndata:{"message":"Running"}\n\n\n\n';
+            const block = 'data:{"status":"scraping","message":"Running"}\n\n\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 
@@ -327,7 +332,7 @@ describe('useSyncStream', () => {
         });
 
         it('handles failed event with no errorMessage string gracefully', async () => {
-            const block = 'event:failed\ndata:{"errorMessage":123}\n\n';
+            const block = 'data:{"status":"failed","errorMessage":123}\n\n';
             const reader = makeMockReader([block]);
             mockFetch.mockResolvedValue({ok: true, body: {getReader: () => reader}});
 

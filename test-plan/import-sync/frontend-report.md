@@ -226,3 +226,37 @@ Screenshot: `screenshots/tc-rl03-mobile-modal.png`. Modal fits within 390×844 v
 4. **TC-19 (confirm cancel)**: Playwright's `page.on('dialog', d => d.dismiss())` handler was not registered before the action in this run. For future runs, register the handler before clicking — use `page.once('dialog', ...)` or the MCP `browser_handle_dialog` tool immediately after the click.
 
 5. **Keyboard tab order**: Tab-through of all modal fields was not fully verified. Add dedicated TC for tabbing through New Schedule form fields in the next regression run.
+
+---
+
+## Re-test: BUG-004 — SSE Race Condition
+
+**Date**: 2026-03-04  
+**Scope**: TC-16 re-executed after two-part fix  
+**Commits**: `b82edc6` (backend), current commit (frontend)
+
+### Root Cause (complete analysis)
+
+The original backend fix (`b82edc6`) resolved the 404 by returning a cold `of(...)` observable when the job was already terminal. However, TC-16 still failed because of a second, independent bug in the frontend SSE parser.
+
+NestJS `@Sse()` does **not** emit an `event:` line by default — it emits only `id: N\ndata: {...}\n\n`. The old `parseSseBlock` dispatched on `eventType` from the `event:` line (`case 'status'`, `case 'complete'`, etc.), so every event resolved to the `default:` case and returned `null`. No events were ever parsed. The panel was permanently stuck on the initial "Running…" state set synchronously before the fetch.
+
+### Fixes Applied
+
+| File | Change |
+|------|--------|
+| `packages/backend/src/scraper/sync/sync-job.controller.ts` | When `hasSession` is false and job is terminal, return `of(terminal event)` instead of 404 *(commit `b82edc6`)* |
+| `packages/frontend/src/features/scraper/hooks/useSyncStream.ts` | `parseSseBlock` now dispatches on `p.status` from the JSON payload instead of the `event:` line; all progress statuses map to `running`; `complete`/`failed`/`mfa_required` map to their terminal types |
+
+### Re-test Result
+
+#### ✅ TC-16 (re-test): "▶ Run" button — SyncStatusPanel transitions to completed state
+- Clicked ▶ Run on "TD Canada Trust / 0 8 * * *" schedule
+- `POST /sync-schedules/:id/run-now` → 201 Created  
+- SyncStatusPanel appeared with "Running…" then transitioned to **"Sync completed — IMPORTED: 0 / SKIPPED: 0"**
+- Schedule row updated to show **Success** badge and last-run timestamp
+- Console errors: **none**
+- Screenshot: `screenshots/tc16-retest-bug004-fixed.png`
+
+**Verdict**: ✅ PASS — TC-16 promoted from ⚠️ Partial to ✅ Pass
+

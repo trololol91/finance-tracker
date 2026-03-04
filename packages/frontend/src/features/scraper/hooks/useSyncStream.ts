@@ -23,42 +23,50 @@ const IDLE_EVENT: SyncStreamEvent = {status: 'idle'};
 /**
  * Parse one raw SSE block (event type + data) into a SyncStreamEvent.
  * Returns null for unknown or malformed events.
+ *
+ * NestJS @Sse() does not emit an `event:` line by default, so blocks arrive
+ * as `id: N\ndata: {...}\n\n` with no event-type line.  We always dispatch
+ * on the `status` field inside the JSON payload so the parser works whether
+ * or not an explicit `event:` type is present.
  */
 const parseSseBlock = (block: string): SyncStreamEvent | null => {
-    let eventType = 'message';
     let dataStr = '';
     for (const line of block.split('\n')) {
-        if (line.startsWith('event:')) eventType = line.slice(6).trim();
-        else if (line.startsWith('data:')) dataStr = line.slice(5).trim();
+        if (line.startsWith('data:')) dataStr = line.slice(5).trim();
     }
     if (dataStr === '') return null;
     try {
         const p = JSON.parse(dataStr) as Record<string, unknown>;
-        switch (eventType) {
-            case 'status':
-                return {
-                    status: 'running',
-                    message: typeof p.message === 'string' ? p.message : undefined
-                };
-            case 'mfa':
-                return {
-                    status: 'mfa_required',
-                    mfaChallenge: typeof p.mfaChallenge === 'string' ? p.mfaChallenge : undefined
-                };
-            case 'complete':
-                return {
-                    status: 'completed',
-                    importedCount: typeof p.importedCount === 'number' ? p.importedCount : undefined,
-                    skippedCount: typeof p.skippedCount === 'number' ? p.skippedCount : undefined
-                };
-            case 'failed':
-                return {
-                    status: 'failed',
-                    errorMessage: typeof p.errorMessage === 'string' ? p.errorMessage : undefined
-                };
-            default:
-                return null;
+        const status = typeof p.status === 'string' ? p.status : '';
+
+        if (status === 'complete') {
+            return {
+                status: 'completed',
+                importedCount: typeof p.importedCount === 'number' ? p.importedCount : undefined,
+                skippedCount: typeof p.skippedCount === 'number' ? p.skippedCount : undefined
+            };
         }
+        if (status === 'failed') {
+            return {
+                status: 'failed',
+                errorMessage: typeof p.errorMessage === 'string' ? p.errorMessage : undefined
+            };
+        }
+        if (status === 'mfa_required') {
+            return {
+                status: 'mfa_required',
+                mfaChallenge: typeof p.mfaChallenge === 'string' ? p.mfaChallenge : undefined
+            };
+        }
+        if (status !== '') {
+            // 'pending', 'logging_in', 'scraping', and other progress statuses
+            // all map to 'running' on the frontend
+            return {
+                status: 'running',
+                message: typeof p.message === 'string' ? p.message : undefined
+            };
+        }
+        return null;
     } catch {
         return null;
     }
