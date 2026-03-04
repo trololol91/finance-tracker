@@ -260,3 +260,25 @@ NestJS `@Sse()` does **not** emit an `event:` line by default — it emits only 
 
 **Verdict**: ✅ PASS — TC-16 promoted from ⚠️ Partial to ✅ Pass
 
+---
+
+## Re-test 2: BUG-004 Confirmation Run
+
+**Date**: 2026-03-04  
+**Scope**: TC-16 re-executed a second time to confirm fixes remain stable  
+**Trigger**: User requested a second confirmation retest
+
+### Re-test Result
+
+#### ✅ TC-16 (retest 2): "▶ Run" button — SyncStatusPanel transitions to completed state
+- Created fresh TD Canada Trust schedule via "+ New Schedule" dialog
+- Clicked ▶ Run
+- `POST /sync-schedules/:id/run-now` → 201 Created
+- `GET /sync-schedules/:id/stream` → ERR_ABORTED (first reconnect, expected) then 200 OK (replay from DB)
+- SyncStatusPanel immediately showed **"Sync completed — IMPORTED: 0 / SKIPPED: 0"** — no hang
+- Console errors: **none** (0 of 3 logged messages at error level)
+- Test schedule deleted via Delete → confirm dialog → cleaned up
+- Screenshot: `screenshots/tc16-retest2-bug004-fixed.png`
+
+**Verdict**: ✅ PASS — BUG-004 fix confirmed stable across two independent retest runs
+
