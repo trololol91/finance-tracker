@@ -28,6 +28,12 @@ class ApiClient {
                 if (token) {
                     config.headers.Authorization = `Bearer ${token}`;
                 }
+                // When sending FormData (file uploads), remove the default
+                // Content-Type so Axios can set multipart/form-data with the
+                // correct boundary automatically.
+                if (config.data instanceof FormData) {
+                    delete config.headers['Content-Type'];
+                }
                 return config;
             },
             (error) => {

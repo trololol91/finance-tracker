@@ -29,12 +29,13 @@ const EMPTY_FORM: SyncScheduleFormValues = {
     enabled: true
 };
 
-const validateForm = (values: SyncScheduleFormValues): SyncScheduleFormErrors => {
+const validateForm = (values: SyncScheduleFormValues, isEdit: boolean): SyncScheduleFormErrors => {
     const errors: SyncScheduleFormErrors = {};
     if (values.accountId.trim() === '') errors.accountId = 'Account is required';
     if (values.bankId.trim() === '') errors.bankId = 'Bank is required';
-    if (values.username.trim() === '') errors.username = 'Username is required';
-    if (values.password.trim() === '') errors.password = 'Password is required';
+    // In edit mode username/password are optional — leave blank keeps them unchanged
+    if (!isEdit && values.username.trim() === '') errors.username = 'Username is required';
+    if (!isEdit && values.password.trim() === '') errors.password = 'Password is required';
     if (values.cron.trim() === '') errors.cron = 'Cron expression is required';
     const days = parseInt(values.lookbackDays, 10);
     if (isNaN(days) || days < 1 || days > 365) {
@@ -124,7 +125,7 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
     const handleSubmit = useCallback(
         (e: React.FormEvent): void => {
             e.preventDefault();
-            const validationErrors = validateForm(formValues);
+            const validationErrors = validateForm(formValues, editTarget !== null);
             if (Object.keys(validationErrors).length > 0) {
                 setErrors(validationErrors);
                 return;
