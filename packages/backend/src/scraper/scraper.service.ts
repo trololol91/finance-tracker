@@ -202,9 +202,10 @@ export class ScraperService {
         this.sessionStore.setMfaResolver(sessionId, (code: string) => {
             try {
                 worker.postMessage({type: 'mfa_code', code});
-            } catch {
+            } catch (postErr: unknown) {
                 this.logger.warn(
-                    `MFA code submitted for terminated worker (job ${jobId}) — ignoring`
+                    `MFA code submitted for terminated worker (job ${jobId}) — ignoring: ` +
+                    (postErr instanceof Error ? postErr.message : String(postErr))
                 );
             }
         });
@@ -259,6 +260,8 @@ export class ScraperService {
             err.stack
         );
 
+        const now = new Date();
+
         await this.prisma.syncJob.update({
             where: {id: jobId},
             data: {status: SyncJobStatus.failed, errorMessage: err.message}
@@ -266,7 +269,7 @@ export class ScraperService {
 
         await this.prisma.syncSchedule.update({
             where: {id: schedule.id},
-            data: {lastRunAt: new Date(), lastRunStatus: SyncRunStatus.failed}
+            data: {lastRunAt: now, lastRunStatus: SyncRunStatus.failed}
         });
 
         this.sessionStore.emit(sessionId, {
