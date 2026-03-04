@@ -167,15 +167,75 @@ describe('SyncJobController', () => {
             );
         });
 
-        it('should throw NotFoundException when session is not active', async () => {
+        it('should throw NotFoundException when session is not active and job is not terminal', async () => {
+            // status 'running' with no in-memory session — abnormal state, still 404
             vi.mocked(prisma.syncJob.findUnique).mockResolvedValue(
-                mockSyncJob
+                mockSyncJob // status: 'running'
             );
             vi.mocked(sessionStore.hasSession).mockReturnValue(false);
 
             await expect(controller.stream(SESSION_ID, mockUser)).rejects.toThrow(
                 NotFoundException
             );
+        });
+
+        it('should replay complete event when session already cleaned up and job is complete (race condition)', async () => {
+            // Race: stub scraper finished before frontend connected to /stream
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue({
+                ...mockSyncJob,
+                status: 'complete',
+                importedCount: 3,
+                skippedCount: 1
+            } as typeof mockSyncJob);
+            vi.mocked(sessionStore.hasSession).mockReturnValue(false);
+
+            const result = await controller.stream(SESSION_ID, mockUser);
+
+            // Should NOT call getObservable — session is gone
+            expect(sessionStore.getObservable).not.toHaveBeenCalled();
+
+            // The returned observable should emit the terminal complete event
+            await new Promise<void>((resolve) => {
+                const events: MessageEvent[] = [];
+                result.subscribe({
+                    next: (e) => events.push(e),
+                    complete: () => {
+                        expect(events).toHaveLength(1);
+                        const payload = JSON.parse(events[0].data as string) as Record<string, unknown>;
+                        expect(payload.status).toBe('complete');
+                        expect(payload.importedCount).toBe(3);
+                        expect(payload.skippedCount).toBe(1);
+                        resolve();
+                    }
+                });
+            });
+        });
+
+        it('should replay failed event when session already cleaned up and job failed (race condition)', async () => {
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue({
+                ...mockSyncJob,
+                status: 'failed',
+                errorMessage: 'Login rejected'
+            } as typeof mockSyncJob);
+            vi.mocked(sessionStore.hasSession).mockReturnValue(false);
+
+            const result = await controller.stream(SESSION_ID, mockUser);
+
+            expect(sessionStore.getObservable).not.toHaveBeenCalled();
+
+            await new Promise<void>((resolve) => {
+                const events: MessageEvent[] = [];
+                result.subscribe({
+                    next: (e) => events.push(e),
+                    complete: () => {
+                        expect(events).toHaveLength(1);
+                        const payload = JSON.parse(events[0].data as string) as Record<string, unknown>;
+                        expect(payload.status).toBe('failed');
+                        expect(payload.errorMessage).toBe('Login rejected');
+                        resolve();
+                    }
+                });
+            });
         });
 
         it('should return observable when job is owned and session is active', async () => {

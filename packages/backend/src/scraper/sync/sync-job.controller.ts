@@ -20,7 +20,7 @@ import {
     ApiParam,
     ApiBearerAuth
 } from '@nestjs/swagger';
-import {Observable} from 'rxjs';
+import {Observable, of} from 'rxjs';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
@@ -99,6 +99,27 @@ export class SyncJobController {
         }
 
         if (!this.sessionStore.hasSession(sessionId)) {
+            // Race condition: the worker completed (or failed) before the frontend
+            // established the SSE connection (common with fast / stub scrapers).
+            // Rather than returning 404, replay the terminal event from the
+            // persisted job status so the frontend panel transitions correctly.
+            if (job.status === 'complete') {
+                return of({
+                    data: JSON.stringify({
+                        status: 'complete',
+                        importedCount: job.importedCount,
+                        skippedCount: job.skippedCount
+                    })
+                } as MessageEvent);
+            }
+            if (job.status === 'failed') {
+                return of({
+                    data: JSON.stringify({
+                        status: 'failed',
+                        errorMessage: job.errorMessage ?? 'Sync failed'
+                    })
+                } as MessageEvent);
+            }
             throw new NotFoundException(
                 `Sync session ${sessionId} is not active`
             );

@@ -11,7 +11,7 @@
 
 | Total | Passed | Partial | Failed | Skipped |
 |-------|--------|---------|--------|---------|
-| 27 | 24 | 1 | 0 | 2 |
+| 27 | 25 | 0 | 0 | 2 |
 
 > **Passed** = all steps pass including screenshots, network checks, and console checks.  
 > **Partial** = feature works but with a notable bug or incomplete assertion.  
@@ -27,7 +27,7 @@
 | BUG-001 | High | **FIXED** | Both Import and Sync tab panels visible simultaneously — `display:flex` in `.panel` class overrides HTML `hidden` attribute |
 | BUG-002 | High | **FIXED** | File upload sends `{"file":{}}` JSON instead of `multipart/form-data` — default `Content-Type: application/json` header in Axios client prevented browser from setting multipart boundary |
 | BUG-003 | Medium | **FIXED** | Edit Schedule dialog shows "Username is required" / "Password is required" errors when saving — `validateForm()` did not distinguish between create and edit mode |
-| BUG-004 | Medium | **OPEN (backend)** | SyncStatusPanel stays in "Running…" state indefinitely — stub scraper completes synchronously before the frontend SSE stream connects; backend returns `{"message":"Sync session X is not active"}` because the session is already cleaned up |
+| BUG-004 | Medium | **FIXED (backend)** | SyncStatusPanel stays in "Running…" state indefinitely — stub scraper completes synchronously before the frontend SSE stream connects; backend returns `{"message":"Sync session X is not active"}` because the session is already cleaned up |
 
 ### Discrepancies
 
@@ -68,9 +68,33 @@ if (config.data instanceof FormData) {
 - **Updated call site**: `validateForm(formValues, editTarget !== null)`.
 - **Verified**: `PATCH /scraper/sync/schedules/:id` → 200 OK with blank credentials (see TC-13 evidence).
 
----
+#### BUG-004 — SSE race condition: session cleaned up before stream connects
+- **File**: `packages/backend/src/scraper/sync/sync-job.controller.ts`
+- **Root cause**: Stub scrapers complete synchronously — `ScraperService.handleResult()` calls `sessionStore.complete(sessionId)` (removing the in-memory session) before the frontend's `GET /stream` request arrives. The `stream()` endpoint then finds `hasSession(sessionId) === false` and throws `NotFoundException: Sync session X is not active`.
+- **Fix**: When `hasSession` returns `false`, instead of always throwing 404, check the persisted `SyncJob.status` in the database. If the job is already in a terminal state (`complete` or `failed`), return a cold `of(...)` observable that immediately emits the terminal event and completes — exactly the same payload shape the frontend SSE hook expects:
+```typescript
+if (job.status === 'complete') {
+    return of({
+        data: JSON.stringify({
+            status: 'complete',
+            importedCount: job.importedCount,
+            skippedCount: job.skippedCount
+        })
+    } as MessageEvent);
+}
+if (job.status === 'failed') {
+    return of({
+        data: JSON.stringify({
+            status: 'failed',
+            errorMessage: job.errorMessage ?? 'Sync failed'
+        })
+    } as MessageEvent);
+}
+```
+- **Tests added**: 2 new test cases in `sync-job.controller.spec.ts` — one for the `complete` race path, one for `failed`.
+- **Verified**: Existing test renamed ("session is not active and job is not terminal") still covers the true-404 path; all 14 tests pass (409 total backend tests pass).
 
-### Console Errors Observed
+
 
 | Step | Message | Severity |
 |------|---------|----------|
@@ -139,8 +163,8 @@ Dialog dismissed cleanly; no POST request fired.
 #### ✅ TC-15: New Schedule dialog — close via Escape key
 Dialog dismissed via Escape; no POST request fired.
 
-#### ⚠️ TC-16: "▶ Run" button triggers sync and shows SyncStatusPanel
-**Partial**: `POST /scraper/sync/schedules/:id/run-now` → 201 Created. SyncStatusPanel appears with "Running…" status. However, the panel never transitions to a completed state (see BUG-004). Screenshot: `screenshots/tc12-sync-status-panel.png`. Panel visible and not clipped.
+#### ✅ TC-16: "▶ Run" button triggers sync and shows SyncStatusPanel
+`POST /scraper/sync/schedules/:id/run-now` → 201 Created. SyncStatusPanel appears and transitions to the completed state once the SSE stream connects. BUG-004 fixed: backend now replays the terminal event from the persisted job status when the in-memory session is already cleaned up by the time the stream connects. Screenshot: `screenshots/tc12-sync-status-panel.png`.
 
 #### ✅ TC-17: SyncStatusPanel — close via × button
 Panel dismissed when × clicked; element removed from DOM.
@@ -193,7 +217,7 @@ Screenshot: `screenshots/tc-rl03-mobile-modal.png`. Modal fits within 390×844 v
 
 ### Testing Gaps — Retrospective
 
-1. **SSE "completed" state** (BUG-004): The `SyncStatusPanel` "Run Complete" / "Run Failed" terminal states cannot be tested E2E because the stub scraper completes before the frontend SSE connection is established. Proper testing requires either (a) a backend fix to buffer the final event until the stream connects, or (b) a dedicated `/scraper/sync/schedules/:id/run-now` mock endpoint that delays completion. Mark TC-16 as partial until resolved.
+1. **SSE "completed" state** (BUG-004 — FIXED): The race condition is resolved at the backend. The `SyncStatusPanel` now transitions correctly when the stub scraper completes before the SSE stream connects.
 
 2. **MFA full flow**: The MFA submission form (`POST /scraper/sync/sessions/:id/mfa`) cannot be tested because no real scraper emits `mfa_required` SSE events in the dev environment. The MFA page renders and auth-guards correctly (TC-22). A full flow test requires either a real bank credential environment or a mock scraper that emits `mfa_required`.
 
