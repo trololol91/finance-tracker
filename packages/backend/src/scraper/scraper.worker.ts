@@ -41,12 +41,47 @@ parentPort.postMessage({
 
 /**
  * Phase 7 stub: return empty transactions immediately.
- * In Phase 8 this becomes:
- *   1. launch(chromium)
- *   2. scraper.login(page, input.credentials)
- *   3. [optional MFA bridge]
- *   4. transactions = await scraper.scrapeTransactions(page, options)
- *   5. parentPort.postMessage({ type: 'result', transactions })
+ *
+ * Phase 8 implementation (replace the two lines below with this block):
+ *
+ *   import { chromium } from 'playwright';
+ *   import { MfaRequiredError } from '#scraper/banks/cibc.scraper.js'; // or plugin registry
+ *
+ *   const browser = await chromium.launch({ headless: true });
+ *   const page    = await browser.newPage();
+ *
+ *   try {
+ *       // 1. Resolve the correct BankScraper for this bankId from ScraperRegistry.
+ *       //    (Registry is populated at startup by ScraperModule / plugin-loader.)
+ *       const scraper = registry.get(input.bankId);
+ *
+ *       // 2. Attempt login — throws MfaRequiredError if bank shows OTP screen.
+ *       try {
+ *           await scraper.login(page, input.credentials);
+ *       } catch (err) {
+ *           if (!(err instanceof MfaRequiredError)) throw err;
+ *
+ *           // 3. Signal the main thread and suspend until the user submits the code.
+ *           parentPort!.postMessage({ type: 'mfa_required', prompt: err.prompt });
+ *           const { code } = await new Promise<{ code: string }>(r =>
+ *               parentPort!.once('message', r)
+ *           );
+ *
+ *           // 4. Submit the MFA code — page is still on the OTP screen.
+ *           await scraper.submitMfa(page, code);
+ *       }
+ *
+ *       // 5. Scrape — only reached once the session is fully authenticated.
+ *       const transactions = await scraper.scrapeTransactions(page, {
+ *           startDate:      new Date(input.startDate),
+ *           endDate:        new Date(input.endDate),
+ *           includePending: true,
+ *       });
+ *
+ *       parentPort!.postMessage({ type: 'result', transactions });
+ *   } finally {
+ *       await browser.close();
+ *   }
  */
 const transactions: RawTransaction[] = [];
 parentPort.postMessage({type: 'result', transactions});

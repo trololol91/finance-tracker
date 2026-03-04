@@ -18,10 +18,11 @@ Detailed implementation notes live in the package-level roadmaps:
 | **4** | Transactions Module | Transactions UI | ✅ Complete |
 | **5** | Categories Module | Categories UI | ✅ Complete |
 | **6** | Accounts Module | Accounts UI | ✅ Complete |
-| **7** | Transaction Import & Automated Sync | Import & Sync UI | ⬜ In Progress |
-| **8** | Budgets Module *(optional)* | Dashboard & Analytics | ⬜ Not Started |
-| **9** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
+| **7** | Transaction Import & Automated Sync | Import & Sync UI | 🟨 Partially Complete |
+| **8** | Phase 7 carry-overs | — | ⬜ Not Started |
+| **9** | — | Dashboard & UX Redesign (sidebar, Settings, navigation, layout) | ⬜ Not Started |
 | **10** | MCP Server | MCP App UIs | ⬜ Not Started |
+| **11** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
 
 ---
 
@@ -50,9 +51,14 @@ Backend Phase 7 (Import/Sync) ───────► Frontend Phase 7 (Import 
         ├─ MFA worker bridge                   ├─ MfaModal (in-app)
         └─ Web Push + email notifications      └─ /mfa page + service worker
                                                 
-Backend Phase 8 (Budgets) ───────────► Frontend Phase 8 (Dashboard/Analytics)
-Backend Phase 9 (Reports) ───────────► Frontend Phase 9 (Analytics Views)
-Backend Phase 10 (MCP Server) ───────► Frontend Phase N (MCP App UIs)
+Backend Phase 8 (Carry-overs)
+                                       Phase 9 (Dashboard & UX Redesign)
+                                        ├─ Main dashboard / home page
+                                        ├─ Sidebar navigation
+                                        ├─ Settings page
+                                        └─ Feature placement / IA decisions
+Backend Phase 10 (MCP Server) ───────► Frontend Phase 10 (MCP App UIs)
+Backend Phase 11 (Reports) ──────────► Frontend Phase 11 (Analytics Views)
 ```
 
 > **Rule:** Frontend can start 1–2 days after the corresponding backend phase reaches a stable Swagger spec. Use MSW mocks in the meantime.
@@ -287,37 +293,78 @@ Implementation plan: [`test-plan/accounts/implementation-plan.md`](../test-plan/
 16. ✅ `@frontend-dev` — frontend committed (commit `55043c0`): 35 files, 698 tests.
 17. ✅ Phase 6 fully complete — Playwright E2E done; test quality fixes committed (`1548783`); 741 tests passing.
 
-## Current Focus: Phase 7 — Transaction Import & Automated Sync
+## Current Focus: Phase 7 — Transaction Import & Automated Sync (Partially Complete)
 
-Phase 6 (Accounts) is complete — backend and frontend both shipped and QA-verified (741 frontend tests, 0 type errors, 0 lint warnings, 18/18 Playwright TCs passing).
+Phase 7 core is complete — all backend services/controllers, the worker thread, SSE streaming, and the full frontend are shipped and QA-verified. The four remaining items listed below carry over to Phase 8.
 
 Implementation plan: [`test-plan/import-sync/implementation-plan.md`](../test-plan/import-sync/implementation-plan.md)
 
-**Recommended next actions:**
+**Phase 7 completed work:**
 
-1. `@backend-dev` — **Step 1**: Add `ImportJob`, `SyncSchedule`, `SyncJob` Prisma models + new enums (`ImportStatus`, `SyncStatus`, `FileType`, `SyncFrequency`) + relation fields on `User` and `Account`. Run migration `add_import_sync_module`. Commit: `feat(backend): add import/sync Prisma models and migration`.
-2. `@backend-dev` — **Step 2**: Implement `CryptoService` (AES-256-GCM) in `src/scraper/sync/crypto.service.ts`. Add `CREDENTIALS_ENCRYPTION_KEY` to `.env.example`. Commit: `feat(backend): add CryptoService for credential encryption`.
-3. `@backend-dev` — **Step 3**: Implement `ImportService` + `ImportController` (`POST /scraper/import/upload`, `GET /scraper/import`, `GET /scraper/import/:id`). Add `papaparse` + `ofx-js` dependencies. Commit: `feat(backend): add ImportJob service with CSV/OFX parsing`.
-4. `@backend-dev` — **Step 4**: Implement `SyncScheduleService` + `SyncScheduleController` (CRUD at `/scraper/sync/schedules`). Encrypt credentials on create/update; omit from response DTO. Commit: `feat(backend): add SyncSchedule service and controller`.
-5. `@backend-dev` — **Step 5**: Implement `SyncJobService` + `SyncWorkerService` (stub strategy pattern; `TdScraperStrategy` returns mock data). State machine: idle → running → mfa_required → completed/failed. Commit: `feat(backend): add SyncJob service and scraper worker stub`.
-6. `@backend-dev` — **Step 6**: Implement `SyncSseController` (`GET /scraper/sync/jobs/:id/stream`) using `@Sse()` + RxJS Observable. Commit: `feat(backend): add SSE streaming endpoint for sync job status`.
-7. `@backend-dev` — **Step 7**: Create `ScraperModule`, register all controllers/services, wire `MulterModule`. Register `ScraperModule` in `app.module.ts`. Commit: `feat(backend): register ScraperModule in app.module.ts`.
-8. `@test-writer` — Backend unit tests for all scraper services and controllers (30+ cases).
-9. `@backend-tester` — Live API tests per TC-01–TC-30 in the implementation plan.
-10. `@code-reviewer` — Backend review.
-11. Run `npm run generate:api` in `packages/frontend`.
-12. `@frontend-dev` — Replace `ScraperPage` stub; implement `FileImportDropzone`, `ImportJobList`, `SyncScheduleList`, `SyncScheduleForm`/`Modal`, `SyncStatusPanel`, `MfaModal`, `useSyncStream`. Add `MfaPage` + `/mfa` route.
-13. **Cross-feature Step A** — Verify imported transactions appear in `TransactionsPage` with correct `accountId` filter (smoke-test only; no code change expected).
-14. **Cross-feature Step B** — Verify `AccountsPage` `currentBalance` reflects newly imported transactions (smoke-test only; no code change expected).
-15. `@test-writer` — Frontend unit tests.
-16. `@code-reviewer` — Frontend review.
-17. `@frontend-tester` — Playwright E2E per Section 10 of the implementation plan.
+1. ✅ Prisma schema + migration (ImportJob, SyncSchedule, SyncJob, enums)
+2. ✅ CryptoService (AES-256-GCM)
+3. ✅ ImportService + ImportController (CSV/OFX parsing, dedup, bulk insert)
+4. ✅ SyncScheduleService + SyncScheduleController (CRUD, cron via SchedulerRegistry, credential encryption)
+5. ✅ SyncSessionStore + scraper worker thread + ScraperService orchestrator
+6. ✅ SSE + MFA controller (`sync-job.controller.ts`)
+7. ✅ ScraperModule registered in `app.module.ts`
+8. ✅ SyncJobStatus/SyncRunStatus constants (`sync-job-status.ts`)
+9. ✅ Frontend: all components (FileImportDropzone, ImportJobList, SyncScheduleList/Form/Modal, SyncStatusPanel, MfaModal)
+10. ✅ Frontend: all hooks (useImportJob, useSyncSchedule, useSyncJob, useSyncStream)
+11. ✅ Frontend: ScraperPage (two-tab layout) + MfaPage (`/mfa` route)
+12. ✅ Backend unit tests (415 passing), Playwright E2E (BUG-004 fixed and confirmed)
+
+**Phase 7 carry-overs → Phase 8 (see below):**
+- `scraper.scheduler.ts` — startup cron re-registration (no prerequisites)
+- `scraper.plugin-loader.ts` — external plugin loading (no prerequisites)
+- `push/` module — Web Push + email for MFA alerts (implementation: no prerequisites; E2E testing blocked on Desktop MCP server)
+- Admin endpoints — `/admin/scrapers/reload` and `/admin/scrapers/install` (prerequisite: plugin-loader)
 
 ---
 
-## Future Enhancements (Post-Phase 10)
+## Current Focus: Phase 8 — Phase 7 Carry-overs
+
+Phase 8 completes the four deferred Phase 7 items. The carry-overs are small, self-contained, and have no schema migrations.
+
+**Recommended next actions — Phase 7 carry-overs (complete first):**
+
+1. `@backend-dev` — **Carry-over A** (no prerequisites): Implement `scraper.scheduler.ts` — an `OnModuleInit` lifecycle hook that loads all `SyncSchedule` records with `enabled: true` from the DB on server startup and re-registers their cron jobs via `SchedulerRegistry`. This closes the gap where a server restart silently drops all scheduled syncs. Commit: `feat(scraper): re-register enabled cron jobs on module init`.
+2. `@backend-dev` — **Carry-over B** (no prerequisites): Implement `scraper.plugin-loader.ts` — scans `SCRAPER_PLUGIN_DIR` for `BankScraper` implementations, loads them via dynamic `import()`, and registers them into `ScraperRegistry`. Called at startup and by the admin reload endpoint. Commit: `feat(scraper): add plugin-loader for external bank scrapers`.
+3. `@backend-dev` — **Carry-over C** (prerequisite: carry-over B): Implement admin endpoints `POST /admin/scrapers/reload` and `POST /admin/scrapers/install` (ADMIN role only). Commit: `feat(scraper): add admin plugin reload and install endpoints`.
+4. `@backend-dev` — **Carry-over D** (no code prerequisites; E2E testing requires Desktop MCP server): Implement `push/` module — `POST /push/subscribe`, `DELETE /push/subscribe`, Web Push VAPID `sendNotification`, nodemailer email fallback. Wire MFA notification call into `ScraperService.handleMfaRequired()`. Add `VAPID_*` and `SMTP_*` vars to `.env.example`. Commit: `feat(scraper): add Web Push + email MFA notifications`.
+   > **Testing note**: Automated E2E verification of OS-level notification bubbles requires the Desktop MCP server (see Future Enhancements). The manual checklist in `test-plan/import-sync/implementation-plan.md` Section 10 remains the verification method until then.
+
+---
+
+## Upcoming: Phase 9 — Dashboard & UX Redesign
+
+Phase 9 is frontend-only (no new backend modules). The goal is a cohesive, navigable app shell: a proper home/dashboard page, a persistent sidebar, a Settings page, and an information-architecture pass to decide where each existing feature lives.
+
+**Scope areas to resolve during planning:**
+
+1. **Main dashboard / home page** — a `/dashboard` (or `/`) route that acts as the app’s home screen after login. Could be a summary view of recent transactions, account balances, and quick-action shortcuts — or it could be the existing Transactions page promoted to that role with dashboard widgets added around it. This is a key IA decision to make during planning.
+2. **Sidebar navigation** — replace or augment the current top-nav with a persistent sidebar that lists all primary sections (Dashboard, Transactions, Accounts, Categories, Sync, Settings). Must be responsive (collapsible on small viewports).
+3. **Settings page** — `/settings` route grouping user-level preferences: profile, password change, notification preferences, connected accounts, and any future preference categories.
+4. **Feature placement / information architecture** — decide which pages are primary sidebar items vs. nested under Settings or a parent section. Document the final IA map in the implementation plan.
+
+**Recommended next action:**
+
+1. `@planner` — Plan Phase 9: Dashboard & UX Redesign. Research the current routing structure in `packages/frontend/src/routes/`, the existing nav component, and all current pages. Decide whether the Transactions page becomes the dashboard or a new `/dashboard` route is introduced. Produce a full IA decision map and implementation plan in `test-plan/dashboard-ux/implementation-plan.md`.
+
+---
+
+## Future Enhancements (Post-Phase 11)
 
 These are not phases — they have no backend/frontend deliverables in this repo. They are standalone tools or infrastructure improvements that would benefit the project and the broader agent workflow.
+
+---
+
+### Budgets Module *(deferred)*
+
+**Status:** Deferred from Phase 8  
+**Complexity:** Medium — requires new Prisma models (`Budget`, `BudgetCategory`), a budgets backend module (CRUD + period rollup queries), and a frontend dashboard with spend-vs-budget visualizations.
+
+When prioritized, invoke `@planner` to produce a full implementation plan following the standard agent workflow. The backend should be modeled after the `categories/` module; the frontend will diverge from the standard list+form pattern due to the charting/analytics requirements.
 
 ---
 

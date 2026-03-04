@@ -2,7 +2,30 @@
 
 **Date**: 2026-03-01  
 **Planner**: planner agent  
-**Status**: ⬜ Not Started
+**Status**: 🟨 Partially Complete — backend core + full frontend done; deferred items below
+
+### Completion summary (as of 2026-03-04)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Prisma schema + migration | ✅ Done | ImportJob, SyncSchedule, SyncJob, all enums |
+| CryptoService | ✅ Done | AES-256-GCM, unit tested |
+| Import service + controller | ✅ Done | CSV/OFX parsing, dedup, bulk insert |
+| Sync schedule service + controller | ✅ Done | CRUD, cron registration via SchedulerRegistry, credential encryption |
+| SyncSessionStore | ✅ Done | RxJS Subject bridge, MFA callbacks |
+| Scraper worker thread | ✅ Done | Phase 7b stub (returns `[]`); full architecture in place |
+| ScraperService (orchestrator) | ✅ Done | Worker spawn, SSE wiring, timeout |
+| SSE + MFA controller | ✅ Done | `sync-job.controller.ts` |
+| ScraperModule registration | ✅ Done | Registered in `app.module.ts` |
+| SyncJobStatus / SyncRunStatus constants | ✅ Done | `sync-job-status.ts` — no magic strings |
+| Frontend — all components | ✅ Done | FileImportDropzone, ImportJobList, SyncScheduleList/Form/Modal, SyncStatusPanel, MfaModal |
+| Frontend — all hooks | ✅ Done | useImportJob, useSyncSchedule, useSyncJob, useSyncStream |
+| Frontend — ScraperPage | ✅ Done | Two-tab (Import / Sync) layout |
+| Frontend — MfaPage | ✅ Done | `/mfa?scheduleId=…` deep-link page |
+| `scraper.scheduler.ts` (startup re-registration) | 🔜 Phase 8 | No prerequisites — simple `OnModuleInit` that re-registers cron jobs from DB on startup |
+| `scraper.plugin-loader.ts` | 🔜 Phase 8 | No prerequisites — loads scrapers from `SCRAPER_PLUGIN_DIR` Docker volume |
+| `push/` module (Web Push + email) | 🔜 Phase 8 (impl); E2E testing deferred | Implementation: no prerequisites. **Automated E2E testing** of push notification bubbles requires the Desktop MCP server (post-Phase-10) — manual checklist remains. |
+| Admin endpoints (`/admin/scrapers/*`) | 🔜 Phase 8 | **Prerequisite**: `scraper.plugin-loader.ts` must be implemented first (these endpoints trigger plugin reload/install) |
 
 ---
 
@@ -617,14 +640,14 @@ data: { "status": "failed", "errorMessage": "Login failed: invalid credentials" 
 
 The following steps are ordered to be committed separately per the roadmap's "commit per task" rule.
 
-### Step 1 — Prisma schema + migration *(copy: no; build from scratch)*
+### Step 1 — ✅ Prisma schema + migration *(copy: no; build from scratch)*
 - Add enums and three new models to `prisma/schema.prisma`
 - Add relation fields to `User` and `Account`
 - Run `npx prisma migrate dev --name add_import_sync_module`
 - Run `npx prisma generate`
 - **Commit**: `feat(backend): add import/sync Prisma models and migration`
 
-### Step 2 — `CryptoService` *(copy: no; build from scratch)*
+### Step 2 — ✅ `CryptoService` *(copy: no; build from scratch)*
 - `packages/backend/src/scraper/crypto/crypto.service.ts`
 - Methods: `encrypt(plaintext: string): string`, `decrypt(ciphertext: string): string`
 - Uses Node `crypto` module, AES-256-GCM, key from `ConfigService`
@@ -632,7 +655,7 @@ The following steps are ordered to be committed separately per the roadmap's "co
 - Unit test: encrypt → decrypt roundtrip, wrong key throws
 - **Commit**: `feat(backend): add CryptoService for credential encryption`
 
-### Step 3 — Import service + controller *(copy skeleton from accounts; service logic built from scratch)*
+### Step 3 — ✅ Import service + controller *(copy skeleton from accounts; service logic built from scratch)*
 - `import.service.ts`:
   - `upload(userId, file, accountId?)`: create `ImportJob` record (status=pending), parse CSV/OFX, bulk-upsert transactions with dedup, update job to completed/failed
   - CSV parsing: use `papaparse` (add dependency) — header row expected: `date,description,amount,type`
@@ -644,7 +667,9 @@ The following steps are ordered to be committed separately per the roadmap's "co
 - Unit tests: mock PrismaService, test parse + insert + skip logic
 - **Commit**: `feat(backend): add ImportJob service with CSV/OFX parsing`
 
-### Step 4 — Sync schedule service + controller *(copy skeleton from accounts; diverges at credential handling)*
+### Step 4 — ✅ Sync schedule service + controller *(copy skeleton from accounts; diverges at credential handling)*
+
+> **Implementation note**: No standalone `scraper.scheduler.ts` was created. Cron job management (add/update/delete) is handled inline in `sync-schedule.service.ts` via `SchedulerRegistry`. **Gap**: cron jobs are not re-registered on server restart — existing enabled schedules' crons are silent until next save/update. Track as follow-up.
 - `sync-schedule.service.ts`:
   - Standard CRUD (findAll, findOne, create, update, remove)
   - `create`: validate `accountId` belongs to user; validate `bankId` exists in the scraper registry; encrypt credentials with `CryptoService`; validate `cron` expression with `cron-validator`; register dynamic cron job with `SchedulerRegistry`
@@ -655,7 +680,9 @@ The following steps are ordered to be committed separately per the roadmap's "co
 - Unit tests: CRUD happy paths + ownership guard + credential never in response
 - **Commit**: `feat(backend): add SyncSchedule service and controller`
 
-### Step 5 — SyncSessionStore + scraper worker + SyncJobService *(copy: no; built from scratch)*
+### Step 5 — ✅ SyncSessionStore + scraper worker + SyncJobService *(copy: no; built from scratch)*
+
+> **Implementation note**: No standalone `SyncJobService` class — the orchestration logic lives in `ScraperService` (`scraper.service.ts`), which follows the same responsibility boundary. Push notifications (`push/` module) are **not** wired — MFA notifications are SSE-only in Phase 7.
 - `sync-session.store.ts`:
   - In-memory `Map<sessionId, { subject: Subject<MessageEvent>; mfaResolver: ((code: string) => void) | null }>`
   - Methods: `createSession(sessionId)`, `emit(sessionId, event)`, `resolveMfa(sessionId, code)`, `complete(sessionId)`, `getObservable(sessionId): Observable<MessageEvent>`
@@ -675,7 +702,7 @@ The following steps are ordered to be committed separately per the roadmap's "co
 - Unit tests: `sync-job mock tests` in `sync/__TEST__/sync-schedule.service.spec.ts`; state machine transitions (idle→running, running→mfa_required, mfa_required→running→complete, running→failed)
 - **Commit**: `feat(backend): add SyncSessionStore, scraper worker thread, and SyncJobService`
 
-### Step 6 — SSE controller *(copy: no; built from scratch)*
+### Step 6 — ✅ SSE controller *(copy: no; built from scratch)*
 - `sync-job.controller.ts` (SSE + trigger + mfa-response endpoints):
   - `@Get(':id/stream')`, `@Sse()` decorator
   - Subscribe to the per-job `Subject` from `SyncJobService`
@@ -686,7 +713,7 @@ The following steps are ordered to be committed separately per the roadmap's "co
 - Unit test: mock Subject emissions → verify SSE output sequence
 - **Commit**: `feat(backend): add SSE streaming endpoint for sync job status`
 
-### Step 7 — `ScraperModule` registration
+### Step 7 — ✅ `ScraperModule` registration
 - `scraper.module.ts`: wire all controllers + services; import `MulterModule` for file uploads; import `DatabaseModule`
 - Register `ScraperModule` in `app.module.ts`
 - Add `#scraper/*` imports to `tsconfig.json` paths if not already present (already in `package.json` imports)
@@ -694,9 +721,9 @@ The following steps are ordered to be committed separately per the roadmap's "co
 
 ---
 
-## 6. Frontend Structure
+## 6. ✅ Frontend Structure — Complete
 
-The frontend already has:
+The frontend already has (and all items below are now implemented):
 - Route `/scraper` registered in `src/routes/index.tsx`
 - `ScraperPage` stub at `src/pages/ScraperPage.tsx`
 - Empty feature directories: `src/features/scraper/{components,hooks,types}/`
