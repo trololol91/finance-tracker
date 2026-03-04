@@ -1,5 +1,5 @@
 import React, {
-    useRef, useEffect, useCallback
+    useRef, useEffect, useCallback, useId
 } from 'react';
 import {SyncScheduleForm} from '@features/scraper/components/SyncScheduleForm.js';
 import type {
@@ -17,8 +17,6 @@ interface SyncScheduleModalProps {
     onSubmit: (e: React.FormEvent) => void;
 }
 
-const HEADING_ID = 'sync-schedule-modal-title';
-
 export const SyncScheduleModal = ({
     mode,
     values,
@@ -28,6 +26,7 @@ export const SyncScheduleModal = ({
     onChange,
     onSubmit
 }: SyncScheduleModalProps): React.JSX.Element | null => {
+    const headingId = useId();
     const dialogRef = useRef<HTMLDialogElement>(null);
     const firstFieldRef = useRef<HTMLSelectElement | null>(null);
     const triggerRef = useRef<Element | null>(null);
@@ -113,12 +112,12 @@ export const SyncScheduleModal = ({
             ref={dialogRef}
             className={styles.modal}
             aria-modal="true"
-            aria-labelledby={HEADING_ID}
+            aria-labelledby={headingId}
             onClick={handleBackdropClick}
         >
             <div className={styles.content}>
                 <div className={styles.header}>
-                    <h2 id={HEADING_ID} className={styles.title}>{title}</h2>
+                    <h2 id={headingId} className={styles.title}>{title}</h2>
                     <button
                         type="button"
                         className={styles.closeBtn}

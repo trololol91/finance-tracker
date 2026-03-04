@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from '@features/scraper/components/ScraperErrorBoundary.module.css';
 
 interface ScraperErrorBoundaryState {
     hasError: boolean;
@@ -32,24 +33,16 @@ export class ScraperErrorBoundary extends React.Component<
     public render(): React.ReactNode {
         if (this.state.hasError) {
             return (
-                <div role="alert" style={{padding: '2rem', textAlign: 'center'}}>
-                    <p style={{color: 'var(--color-danger)', marginBottom: '0.5rem', fontWeight: 600}}>
+                <div role="alert" className={styles.fallback}>
+                    <p className={styles.title}>
                         Something went wrong in the Scraper section.
                     </p>
-                    <p style={{color: 'var(--color-text-secondary)', fontSize: '0.875rem'}}>
+                    <p className={styles.message}>
                         {this.state.message}
                     </p>
                     <button
                         type="button"
-                        style={{
-                            marginTop: '1rem',
-                            padding: '0.5rem 1rem',
-                            background: 'var(--color-primary)',
-                            color: 'var(--color-text-inverse)',
-                            border: 'none',
-                            borderRadius: '0.375rem',
-                            cursor: 'pointer'
-                        }}
+                        className={styles.retryBtn}
                         onClick={() => { this.setState({hasError: false, message: ''}); }}
                     >
                         Retry

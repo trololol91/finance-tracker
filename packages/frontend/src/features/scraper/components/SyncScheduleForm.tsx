@@ -170,6 +170,8 @@ export const SyncScheduleForm = ({
                         type="number"
                         min={1}
                         max={365}
+                        required
+                        aria-required="true"
                         className={`${styles.input}${errors.lookbackDays !== undefined ? ` ${styles.inputError}` : ''}`}
                         value={values.lookbackDays}
                         onChange={(e) => { onChange('lookbackDays', e.target.value); }}

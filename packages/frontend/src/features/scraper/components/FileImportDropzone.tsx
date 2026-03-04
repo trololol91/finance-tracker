@@ -9,7 +9,6 @@ const MAX_FILE_SIZE_MB = 10;
 interface FileImportDropzoneProps {
     onFile: (file: File) => void;
     isUploading: boolean;
-    accountId?: string;
 }
 
 const isFileSizeValid = (file: File): boolean =>

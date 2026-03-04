@@ -24,7 +24,6 @@ const makeStream = (overrides: Partial<UseSyncStreamResult> = {}): UseSyncStream
 
 const defaultProps = {
     sessionId: 'session-abc',
-    scheduleId: 'sched-1',
     onMfaRequired: vi.fn(),
     onComplete: vi.fn(),
     onClose: vi.fn()

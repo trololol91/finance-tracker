@@ -4,7 +4,6 @@ import styles from '@features/scraper/components/SyncStatusPanel.module.css';
 
 interface SyncStatusPanelProps {
     sessionId: string | null;
-    scheduleId: string;
     onMfaRequired: (challenge: string) => void;
     onComplete: () => void;
     onClose: () => void;
@@ -12,7 +11,6 @@ interface SyncStatusPanelProps {
 
 export const SyncStatusPanel = ({
     sessionId,
-    scheduleId: _scheduleId,
     onMfaRequired,
     onComplete,
     onClose
@@ -47,7 +45,6 @@ export const SyncStatusPanel = ({
         <div
             className={styles.panel}
             role="status"
-            aria-live="polite"
             aria-label="Sync status"
         >
             <div className={styles.header}>

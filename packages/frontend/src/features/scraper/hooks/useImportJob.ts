@@ -1,6 +1,7 @@
 /**
  * useImportJob — wraps Orval-generated import hooks with convenient defaults.
  */
+import {useCallback} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     useImportControllerUpload,
@@ -25,30 +26,33 @@ export const useImportJob = (): UseImportJobReturn => {
 
     const uploadMutation = useImportControllerUpload();
 
-    const upload = (file: File, accountId?: string): Promise<ImportJobResponseDto> => {
-        return new Promise((resolve, reject) => {
-            uploadMutation.mutate(
-                {
-                    data: {
-                        file,
-                        accountId: accountId !== undefined && accountId !== '' ? accountId : undefined
-                    }
-                },
-                {
-                    onSuccess: (result) => {
-                        void queryClient.invalidateQueries({
-                            queryKey: getImportControllerFindAllQueryKey()
-                        });
-                        resolve(result);
+    const upload = useCallback(
+        (file: File, accountId?: string): Promise<ImportJobResponseDto> => {
+            return new Promise((resolve, reject) => {
+                uploadMutation.mutate(
+                    {
+                        data: {
+                            file,
+                            accountId: accountId !== undefined && accountId !== '' ? accountId : undefined
+                        }
                     },
-                    onError: (err) => {
-                        console.error('[useImportJob] upload', err);
-                        reject(new Error(String(err)));
+                    {
+                        onSuccess: (result) => {
+                            void queryClient.invalidateQueries({
+                                queryKey: getImportControllerFindAllQueryKey()
+                            });
+                            resolve(result);
+                        },
+                        onError: (err) => {
+                            console.error('[useImportJob] upload', err);
+                            reject(new Error(String(err)));
+                        }
                     }
-                }
-            );
-        });
-    };
+                );
+            });
+        },
+        [uploadMutation, queryClient]
+    );
 
     return {
         jobs,

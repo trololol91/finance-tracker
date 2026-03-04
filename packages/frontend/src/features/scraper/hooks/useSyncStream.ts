@@ -91,11 +91,10 @@ export const useSyncStream = (sessionId: string | null): UseSyncStreamResult => 
         const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) ?? '';
         const url = `${env.API_BASE_URL}/sync-schedules/${sessionId}/stream`;
 
-        /* eslint-disable react-hooks/set-state-in-effect -- pre-fetch state init */
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous pre-fetch init
         setEvent({status: 'running'});
         setIsConnected(false);
         setError(null);
-        /* eslint-enable react-hooks/set-state-in-effect */
 
         const run = async (): Promise<void> => {
             try {

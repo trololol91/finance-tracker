@@ -204,7 +204,6 @@ const ScraperPageInner = (): React.JSX.Element => {
                         <section className={styles.section} aria-label="Live sync status">
                             <SyncStatusPanel
                                 sessionId={sessionId}
-                                scheduleId={activeScheduleId}
                                 onMfaRequired={handleMfaRequired}
                                 onComplete={handleSyncComplete}
                                 onClose={handleClosePanel}

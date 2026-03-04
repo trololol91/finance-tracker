@@ -1,5 +1,5 @@
 import React, {
-    useRef, useEffect, useCallback, useState
+    useRef, useEffect, useCallback, useState, useId
 } from 'react';
 import styles from '@features/scraper/components/MfaModal.module.css';
 
@@ -11,8 +11,6 @@ interface MfaModalProps {
     onCancel: () => void;
 }
 
-const HEADING_ID = 'mfa-modal-title';
-
 export const MfaModal = ({
     isOpen,
     challenge,
@@ -20,6 +18,7 @@ export const MfaModal = ({
     onSubmit,
     onCancel
 }: MfaModalProps): React.JSX.Element | null => {
+    const headingId = useId();
     const dialogRef = useRef<HTMLDialogElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const triggerRef = useRef<Element | null>(null);
@@ -118,12 +117,12 @@ export const MfaModal = ({
             ref={dialogRef}
             className={styles.modal}
             aria-modal="true"
-            aria-labelledby={HEADING_ID}
+            aria-labelledby={headingId}
             onClick={handleBackdropClick}
         >
             <div className={styles.content}>
                 <div className={styles.header}>
-                    <h2 id={HEADING_ID} className={styles.title}>MFA Required</h2>
+                    <h2 id={headingId} className={styles.title}>MFA Required</h2>
                     <button
                         type="button"
                         className={styles.closeBtn}
