@@ -216,6 +216,14 @@ describe('SyncScheduleForm', () => {
             );
             expect(screen.getByText('Must be 1–365')).toBeInTheDocument();
         });
+
+        it('marks lookback days as required in both create and edit mode', () => {
+            const {rerender} = render(<SyncScheduleForm {...defaultProps} />);
+            expect(screen.getByLabelText(/lookback days/i)).toHaveAttribute('required');
+
+            rerender(<SyncScheduleForm {...defaultProps} editMode={true} />);
+            expect(screen.getByLabelText(/lookback days/i)).toHaveAttribute('required');
+        });
     });
 
     describe('submitting state', () => {

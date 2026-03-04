@@ -26,6 +26,11 @@ export const useImportJob = (): UseImportJobReturn => {
 
     const uploadMutation = useImportControllerUpload();
 
+    // NOTE: dep is the full mutation object rather than uploadMutation.mutate because
+    // the React Compiler ESLint plugin (react-hooks/preserve-manual-memoization)
+    // requires deps to be at least as broad as what the callback body references.
+    // upload will re-memoize when mutation state changes (e.g. isPending), which
+    // is inconsequential for the current consumers (a one-shot dropzone handler).
     const upload = useCallback(
         (file: File, accountId?: string): Promise<ImportJobResponseDto> => {
             return new Promise((resolve, reject) => {
