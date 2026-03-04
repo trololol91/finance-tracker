@@ -15,7 +15,8 @@ import type {RawTransaction} from '#scraper/interfaces/bank-scraper.interface.js
 
 const workerHandlers = vi.hoisted(() => ({
     message: undefined as ((msg: unknown) => void) | undefined,
-    error: undefined as ((err: Error) => void) | undefined
+    error: undefined as ((err: Error) => void) | undefined,
+    terminate: vi.fn()
 }));
 
 vi.mock('worker_threads', () => ({
@@ -30,7 +31,7 @@ vi.mock('worker_threads', () => ({
             }
         }
         public postMessage(_msg: unknown): void { /* no-op */ }
-        public terminate(): void { /* no-op */ }
+        public terminate(): void { workerHandlers.terminate(); }
     }
 }));
 
@@ -86,6 +87,7 @@ describe('ScraperService', () => {
     beforeEach(() => {
         workerHandlers.message = undefined;
         workerHandlers.error = undefined;
+        workerHandlers.terminate.mockReset();
 
         prisma = {
             syncSchedule: {
@@ -200,6 +202,7 @@ describe('ScraperService', () => {
             );
             expect(sessionStore.hasSession(sessionId)).toBe(false);
         });
+
     });
 
     // -------------------------------------------------------------------------

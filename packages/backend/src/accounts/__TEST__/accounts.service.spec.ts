@@ -309,6 +309,14 @@ describe('AccountsService', () => {
 
             await expect(service.update(userId, accId, {currency: 'USD'})).rejects.toThrow(ConflictException);
         });
+
+        it('rethrows non-P2002 errors from prisma.account.update unchanged', async () => {
+            vi.mocked(prisma.account.findFirst).mockResolvedValue(makeAccount());
+            const genericError = new Error('Connection timeout');
+            vi.mocked(prisma.account.update).mockRejectedValue(genericError);
+
+            await expect(service.update(userId, accId, {currency: 'USD'})).rejects.toStrictEqual(genericError);
+        });
     });
 
     // -------------------------------------------------------------------------
