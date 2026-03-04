@@ -91,7 +91,9 @@ export const useSyncStream = (sessionId: string | null): UseSyncStreamResult => 
         const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) ?? '';
         const url = `${env.API_BASE_URL}/sync-schedules/${sessionId}/stream`;
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronous pre-fetch init
+        // Synchronous pre-fetch init before await; only setEvent triggers the
+        // react-hooks/set-state-in-effect rule — setIsConnected/setError do not.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setEvent({status: 'running'});
         setIsConnected(false);
         setError(null);

@@ -163,7 +163,7 @@ export const SyncScheduleForm = ({
                 </div>
                 <div className={styles.field}>
                     <label className={styles.label} htmlFor="ss-lookback">
-                        Lookback days
+                        Lookback days <span aria-hidden="true" className={styles.required}>*</span>
                     </label>
                     <input
                         id="ss-lookback"
