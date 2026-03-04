@@ -24,6 +24,7 @@ import type {
     ScraperWorkerInput,
     RawTransaction
 } from '#scraper/interfaces/bank-scraper.interface.js';
+import {SyncJobStatus} from '#scraper/sync-job-status.js';
 
 const input = workerData as ScraperWorkerInput;
 
@@ -34,7 +35,7 @@ if (!parentPort) {
 // Post initial status
 parentPort.postMessage({
     type: 'status',
-    status: 'logging_in',
+    status: SyncJobStatus.loggingIn,
     message: `Connecting to ${input.bankId}...`
 });
 

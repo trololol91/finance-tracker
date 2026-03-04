@@ -20,13 +20,16 @@ import {
     ApiParam,
     ApiBearerAuth
 } from '@nestjs/swagger';
-import {Observable, of} from 'rxjs';
+import {
+    Observable, of
+} from 'rxjs';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 import {PrismaService} from '#database/prisma.service.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
+import {SyncJobStatus} from '#scraper/sync-job-status.js';
 import {RunSyncNowDto} from '#scraper/sync/dto/run-sync-now.dto.js';
 import {MfaResponseDto} from '#scraper/sync/dto/mfa-response.dto.js';
 
@@ -93,29 +96,31 @@ export class SyncJobController {
         @Param('id', new ParseUUIDPipe({version: '4'})) sessionId: string,
         @CurrentUser() currentUser: User
     ): Promise<Observable<MessageEvent>> {
-        const job = await this.prisma.syncJob.findUnique({where: {id: sessionId}});
-        if (!job || job.userId !== currentUser.id) {
-            throw new NotFoundException(`Sync session ${sessionId} not found`);
-        }
+        const job = await this.assertJobOwner(sessionId, currentUser.id);
 
         if (!this.sessionStore.hasSession(sessionId)) {
             // Race condition: the worker completed (or failed) before the frontend
             // established the SSE connection (common with fast / stub scrapers).
             // Rather than returning 404, replay the terminal event from the
             // persisted job status so the frontend panel transitions correctly.
-            if (job.status === 'complete') {
+            //
+            // Note: mfa_required / running / logging_in with no in-memory session
+            // means the server restarted mid-sync. There is no way to resume an
+            // MFA challenge without the worker thread, so 404 is intentional —
+            // the client must start a new sync run.
+            if (job.status === SyncJobStatus.complete) {
                 return of({
                     data: JSON.stringify({
-                        status: 'complete',
+                        status: SyncJobStatus.complete,
                         importedCount: job.importedCount,
                         skippedCount: job.skippedCount
                     })
                 } as MessageEvent);
             }
-            if (job.status === 'failed') {
+            if (job.status === SyncJobStatus.failed) {
                 return of({
                     data: JSON.stringify({
-                        status: 'failed',
+                        status: SyncJobStatus.failed,
                         errorMessage: job.errorMessage ?? 'Sync failed'
                     })
                 } as MessageEvent);
@@ -151,10 +156,7 @@ export class SyncJobController {
         @Body() dto: MfaResponseDto,
         @CurrentUser() currentUser: User
     ): Promise<{ok: true}> {
-        const job = await this.prisma.syncJob.findUnique({where: {id: sessionId}});
-        if (!job || job.userId !== currentUser.id) {
-            throw new NotFoundException(`Sync session ${sessionId} not found`);
-        }
+        await this.assertJobOwner(sessionId, currentUser.id);
 
         if (!this.sessionStore.hasPendingMfa(sessionId)) {
             throw new BadRequestException(
@@ -164,5 +166,25 @@ export class SyncJobController {
 
         this.sessionStore.resolveMfa(sessionId, dto.code);
         return {ok: true};
+    }
+
+    // ---------------------------------------------------------------------------
+    // Private helpers
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Look up a SyncJob by id and verify it belongs to the requesting user.
+     * Throws NotFoundException for both missing jobs and ownership mismatches
+     * to avoid leaking whether a session exists for another user.
+     */
+    private async assertJobOwner(
+        sessionId: string,
+        userId: string
+    ): Promise<NonNullable<Awaited<ReturnType<typeof this.prisma.syncJob.findUnique>>>> {
+        const job = await this.prisma.syncJob.findUnique({where: {id: sessionId}});
+        if (!job || job.userId !== userId) {
+            throw new NotFoundException(`Sync session ${sessionId} not found`);
+        }
+        return job;
     }
 }

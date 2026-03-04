@@ -95,7 +95,6 @@ describe('SyncJobController', () => {
         } as unknown as PrismaService;
 
         controller = new SyncJobController(scraperService, sessionStore, prisma);
-        vi.clearAllMocks();
     });
 
     // -------------------------------------------------------------------------
@@ -195,16 +194,17 @@ describe('SyncJobController', () => {
             expect(sessionStore.getObservable).not.toHaveBeenCalled();
 
             // The returned observable should emit the terminal complete event
-            await new Promise<void>((resolve) => {
+            await new Promise<void>((resolve, reject) => {
                 const events: MessageEvent[] = [];
                 result.subscribe({
                     next: (e) => events.push(e),
+                    error: (err: unknown) => { reject(err as Error); },
                     complete: () => {
                         expect(events).toHaveLength(1);
-                        const payload = JSON.parse(events[0].data as string) as Record<string, unknown>;
-                        expect(payload.status).toBe('complete');
-                        expect(payload.importedCount).toBe(3);
-                        expect(payload.skippedCount).toBe(1);
+                        const raw = JSON.parse(events[0].data as string) as Record<string, unknown>;
+                        expect(raw.status).toBe('complete');
+                        expect(raw.importedCount).toBe(3);
+                        expect(raw.skippedCount).toBe(1);
                         resolve();
                     }
                 });
@@ -216,6 +216,35 @@ describe('SyncJobController', () => {
                 ...mockSyncJob,
                 status: 'failed',
                 errorMessage: 'Login rejected'
+            } as unknown as typeof mockSyncJob);
+            vi.mocked(sessionStore.hasSession).mockReturnValue(false);
+
+            const result = await controller.stream(SESSION_ID, mockUser);
+
+            expect(sessionStore.getObservable).not.toHaveBeenCalled();
+
+            await new Promise<void>((resolve, reject) => {
+                const events: MessageEvent[] = [];
+                result.subscribe({
+                    next: (e) => events.push(e),
+                    error: (err: unknown) => { reject(err as Error); },
+                    complete: () => {
+                        expect(events).toHaveLength(1);
+                        const raw = JSON.parse(events[0].data as string) as Record<string, unknown>;
+                        expect(raw.status).toBe('failed');
+                        expect(raw.errorMessage).toBe('Login rejected');
+                        resolve();
+                    }
+                });
+            });
+        });
+
+        it('should use fallback error message "Sync failed" when job errorMessage is null (race condition)', async () => {
+            // Exercises the `job.errorMessage ?? 'Sync failed'` null-coalescing branch
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue({
+                ...mockSyncJob,
+                status: 'failed',
+                errorMessage: null
             } as typeof mockSyncJob);
             vi.mocked(sessionStore.hasSession).mockReturnValue(false);
 
@@ -223,15 +252,16 @@ describe('SyncJobController', () => {
 
             expect(sessionStore.getObservable).not.toHaveBeenCalled();
 
-            await new Promise<void>((resolve) => {
+            await new Promise<void>((resolve, reject) => {
                 const events: MessageEvent[] = [];
                 result.subscribe({
                     next: (e) => events.push(e),
+                    error: (err: unknown) => { reject(err as Error); },
                     complete: () => {
                         expect(events).toHaveLength(1);
-                        const payload = JSON.parse(events[0].data as string) as Record<string, unknown>;
-                        expect(payload.status).toBe('failed');
-                        expect(payload.errorMessage).toBe('Login rejected');
+                        const raw = JSON.parse(events[0].data as string) as Record<string, unknown>;
+                        expect(raw.status).toBe('failed');
+                        expect(raw.errorMessage).toBe('Sync failed');
                         resolve();
                     }
                 });

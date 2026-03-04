@@ -10,6 +10,9 @@ import type {MessageEvent} from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
 import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
+import {
+    SyncJobStatus, SyncRunStatus
+} from '#scraper/sync-job-status.js';
 import type {SyncSchedule} from '#generated/prisma/client.js';
 import type {
     ScraperWorkerInput,
@@ -70,14 +73,14 @@ export class ScraperService {
                 userId,
                 syncScheduleId: scheduleId,
                 triggeredBy,
-                status: 'pending'
+                status: SyncJobStatus.pending
             }
         });
 
         const sessionId = job.id;
         this.sessionStore.createSession(sessionId);
         this.sessionStore.emit(sessionId, {
-            data: JSON.stringify({status: 'pending', message: 'Sync job queued'})
+            data: JSON.stringify({status: SyncJobStatus.pending, message: 'Sync job queued'})
         } as MessageEvent);
 
         // Spawn worker asynchronously — do not block the caller
@@ -98,11 +101,11 @@ export class ScraperService {
     ): Promise<void> {
         await this.prisma.syncJob.update({
             where: {id: jobId},
-            data: {status: 'logging_in'}
+            data: {status: SyncJobStatus.loggingIn}
         });
         this.sessionStore.emit(sessionId, {
             data: JSON.stringify({
-                status: 'logging_in',
+                status: SyncJobStatus.loggingIn,
                 message: `Connecting to ${schedule.bankId}...`
             })
         } as MessageEvent);
@@ -130,7 +133,7 @@ export class ScraperService {
         const workerPath = join(
             fileURLToPath(new URL('.', import.meta.url)), 'scraper.worker.js'
         );
-        /* v8 ignore next 2 */
+        /* v8 ignore next 5 */
         const worker = new Worker(workerPath, {workerData: workerInput});
         const timeout = setTimeout(() => {
             void worker.terminate();
@@ -185,11 +188,11 @@ export class ScraperService {
     ): Promise<void> {
         await this.prisma.syncJob.update({
             where: {id: jobId},
-            data: {status: 'mfa_required', mfaChallenge: prompt}
+            data: {status: SyncJobStatus.mfaRequired, mfaChallenge: prompt}
         });
 
         this.sessionStore.emit(sessionId, {
-            data: JSON.stringify({status: 'mfa_required', mfaChallenge: prompt})
+            data: JSON.stringify({status: SyncJobStatus.mfaRequired, mfaChallenge: prompt})
         } as MessageEvent);
 
         // Register resolver: when user submits code, post it back to the worker.
@@ -214,7 +217,7 @@ export class ScraperService {
         await this.prisma.syncJob.update({
             where: {id: jobId},
             data: {
-                status: 'complete',
+                status: SyncJobStatus.complete,
                 importedCount,
                 skippedCount
             }
@@ -224,13 +227,13 @@ export class ScraperService {
             where: {id: schedule.id},
             data: {
                 lastRunAt: new Date(),
-                lastRunStatus: 'success',
+                lastRunStatus: SyncRunStatus.success,
                 lastSuccessfulSyncAt: new Date()
             }
         });
 
         this.sessionStore.emit(sessionId, {
-            data: JSON.stringify({status: 'complete', importedCount, skippedCount})
+            data: JSON.stringify({status: SyncJobStatus.complete, importedCount, skippedCount})
         } as MessageEvent);
 
         this.sessionStore.complete(sessionId);
@@ -249,16 +252,16 @@ export class ScraperService {
 
         await this.prisma.syncJob.update({
             where: {id: jobId},
-            data: {status: 'failed', errorMessage: err.message}
+            data: {status: SyncJobStatus.failed, errorMessage: err.message}
         });
 
         await this.prisma.syncSchedule.update({
             where: {id: schedule.id},
-            data: {lastRunAt: new Date(), lastRunStatus: 'failed'}
+            data: {lastRunAt: new Date(), lastRunStatus: SyncRunStatus.failed}
         });
 
         this.sessionStore.emit(sessionId, {
-            data: JSON.stringify({status: 'failed', errorMessage: err.message})
+            data: JSON.stringify({status: SyncJobStatus.failed, errorMessage: err.message})
         } as MessageEvent);
 
         this.sessionStore.complete(sessionId);
