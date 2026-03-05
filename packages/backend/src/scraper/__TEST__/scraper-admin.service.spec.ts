@@ -78,6 +78,11 @@ describe('ScraperAdminService', () => {
             expect(() => service.sanitiseFilename('.hidden.js')).toThrow('Invalid plugin filename');
         });
 
+        it('should throw BadRequestException for a double-dot filename', () => {
+            expect(() => service.sanitiseFilename('..cibc.js')).toThrow(BadRequestException);
+            expect(() => service.sanitiseFilename('..cibc.js')).toThrow('Invalid plugin filename');
+        });
+
         it('should allow filenames with hyphens, dots, and digits', () => {
             expect(service.sanitiseFilename('my-bank-v2.1.js')).toBe('my-bank-v2.1.js');
         });
