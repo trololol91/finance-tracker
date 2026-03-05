@@ -68,6 +68,10 @@ describe('ScraperAdminService', () => {
             expect(() => service.sanitiseFilename('plugin.ts')).toThrow('Only .js plugin files');
         });
 
+        it('should normalise an uppercase extension to lowercase', () => {
+            expect(service.sanitiseFilename('CIBC.JS')).toBe('cibc.js');
+        });
+
         it('should throw BadRequestException for a filename with invalid characters', () => {
             expect(() => service.sanitiseFilename('bad file!.js')).toThrow(BadRequestException);
             expect(() => service.sanitiseFilename('bad file!.js')).toThrow('Invalid plugin filename');

@@ -72,8 +72,10 @@ export class ScraperAdminService {
      * @throws BadRequestException for invalid or unsafe filenames.
      */
     public sanitiseFilename(originalname: string): string {
-        // Strip any directory prefix an attacker might inject
-        const basename = originalname.replace(/^.*[\\/]/, '');
+        // Strip any directory prefix an attacker might inject, then normalise
+        // to lowercase so that 'CIBC.JS' and 'cibc.js' are treated the same
+        // and the written filename is always lowercase.
+        const basename = originalname.replace(/^.*[\\/]/, '').toLowerCase();
 
         if (!basename) {
             throw new BadRequestException('Plugin filename must not be empty');
