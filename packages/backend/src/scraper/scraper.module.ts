@@ -9,6 +9,7 @@ import {SyncJobController} from '#scraper/sync/sync-job.controller.js';
 import {ScraperController} from '#scraper/scraper.controller.js';
 import {ScraperAdminController} from '#scraper/scraper-admin.controller.js';
 import {ScraperAdminService} from '#scraper/scraper-admin.service.js';
+import {AdminGuard} from '#common/guards/admin.guard.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {ScraperScheduler} from '#scraper/scraper.scheduler.js';
 import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
@@ -33,7 +34,8 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
  *   - ScraperAdminController   — POST /admin/scrapers/reload, POST /admin/scrapers/install (ADMIN)
  *
  * Providers:
- *   - ImportService, SyncScheduleService, ScraperService, ScraperAdminService, ScraperRegistry
+ *   - ImportService, SyncScheduleService, ScraperService, ScraperAdminService
+ *   - AdminGuard, ScraperRegistry
  *   - ScraperScheduler (OnModuleInit — restores enabled cron jobs after restart)
  *   - ScraperPluginLoader (OnModuleInit — loads external .js plugins from SCRAPER_PLUGIN_DIR)
  *   - CryptoService (AES-256-GCM credential encryption)
@@ -57,6 +59,7 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
         SyncScheduleService,
         ScraperService,
         ScraperAdminService,
+        AdminGuard,
         ScraperScheduler,
         ScraperPluginLoader,
         ScraperRegistry,

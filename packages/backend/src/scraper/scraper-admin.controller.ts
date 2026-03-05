@@ -105,6 +105,8 @@ export class ScraperAdminController {
     @UseInterceptors(
         FileInterceptor('file', {
             limits: {fileSize: MAX_PLUGIN_SIZE_BYTES},
+            // Early rejection before multer buffers the file into memory.
+            // sanitiseFilename performs a second, more thorough validation.
             fileFilter: (_req, file, cb) => {
                 if (file.originalname.toLowerCase().endsWith('.js')) {
                     cb(null, true);
