@@ -18,11 +18,19 @@
 | SSE + MFA controller | ✅ Done | `sync-job.controller.ts` |
 | ScraperModule registration | ✅ Done | Registered in `app.module.ts` |
 | SyncJobStatus / SyncRunStatus constants | ✅ Done | `sync-job-status.ts` — no magic strings |
+| `GET /scrapers` endpoint | ✅ Done | `scraper.controller.ts` — public endpoint, lists built-in + plugin scrapers; fixes BUG-03 |
+| BUG-01: malformed CSV returns `completed` | ✅ Fixed | `parseCsv` now throws `BadRequestException` on PapaParse errors; job lands in `failed` state |
+| BUG-02: DELETE 500 with child SyncJobs | ✅ Fixed | `SyncScheduleService.remove()` calls `syncJob.deleteMany` before `syncSchedule.delete` |
+| BUG-04: SSE race condition (stub scraper) | ✅ Fixed | Backend replays terminal event from DB when session is already cleaned up; frontend SSE parser dispatches on `p.status` |
+| Backend unit test coverage | ✅ Done | 426 tests passing; 98.39% stmts / 92.37% branch / 96.98% funcs / 98.71% lines; v8 ignores audited and removed where testable |
 | Frontend — all components | ✅ Done | FileImportDropzone, ImportJobList, SyncScheduleList/Form/Modal, SyncStatusPanel, MfaModal |
 | Frontend — all hooks | ✅ Done | useImportJob, useSyncSchedule, useSyncJob, useSyncStream |
 | Frontend — ScraperPage | ✅ Done | Two-tab (Import / Sync) layout |
 | Frontend — MfaPage | ✅ Done | `/mfa?scheduleId=…` deep-link page |
-| `scraper.scheduler.ts` (startup re-registration) | 🔜 Phase 8 | No prerequisites — simple `OnModuleInit` that re-registers cron jobs from DB on startup |
+| Backend API tests (manual curl) | ✅ Done | 27/30 TC pass; TC-24/26 skipped (stub scraper); see `backend-report.md` |
+| Frontend E2E tests (Playwright) | ✅ Done | 25/27 TC pass; 2 skipped; see `frontend-report.md` |
+| DISC-001: file size mismatch (5 MB vs 10 MB) | 🔶 Open | Frontend shows "max 10 MB"; backend rejects at 5 MB with HTTP 413 — misleading UX; fix: align `MAX_FILE_SIZE_BYTES` constant or update error handling |
+| `scraper.scheduler.ts` (startup re-registration) | ✅ Done | `ScraperScheduler` (OnModuleInit) queries `syncSchedule WHERE enabled=true` and re-registers each cron job in `SchedulerRegistry` on startup. 7 unit tests. Commit: `fe212ee` |
 | `scraper.plugin-loader.ts` | 🔜 Phase 8 | No prerequisites — loads scrapers from `SCRAPER_PLUGIN_DIR` Docker volume |
 | `push/` module (Web Push + email) | 🔜 Phase 8 (impl); E2E testing deferred | Implementation: no prerequisites. **Automated E2E testing** of push notification bubbles requires the Desktop MCP server (post-Phase-10) — manual checklist remains. |
 | Admin endpoints (`/admin/scrapers/*`) | 🔜 Phase 8 | **Prerequisite**: `scraper.plugin-loader.ts` must be implemented first (these endpoints trigger plugin reload/install) |
@@ -669,7 +677,7 @@ The following steps are ordered to be committed separately per the roadmap's "co
 
 ### Step 4 — ✅ Sync schedule service + controller *(copy skeleton from accounts; diverges at credential handling)*
 
-> **Implementation note**: No standalone `scraper.scheduler.ts` was created. Cron job management (add/update/delete) is handled inline in `sync-schedule.service.ts` via `SchedulerRegistry`. **Gap**: cron jobs are not re-registered on server restart — existing enabled schedules' crons are silent until next save/update. Track as follow-up.
+> **Implementation note**: No standalone `scraper.scheduler.ts` was created initially. Cron job management (add/update/delete) is handled inline in `sync-schedule.service.ts` via `SchedulerRegistry`. ~~**Gap**: cron jobs are not re-registered on server restart~~ — **fixed in Phase 8 Carry-over A**: `scraper.scheduler.ts` (`ScraperScheduler` service, commit `fe212ee`) now re-registers all `enabled=true` schedules on `OnModuleInit`.
 - `sync-schedule.service.ts`:
   - Standard CRUD (findAll, findOne, create, update, remove)
   - `create`: validate `accountId` belongs to user; validate `bankId` exists in the scraper registry; encrypt credentials with `CryptoService`; validate `cron` expression with `cron-validator`; register dynamic cron job with `SchedulerRegistry`

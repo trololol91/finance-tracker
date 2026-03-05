@@ -19,7 +19,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **5** | Categories Module | Categories UI | ✅ Complete |
 | **6** | Accounts Module | Accounts UI | ✅ Complete |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | 🟨 Partially Complete |
-| **8** | Phase 7 carry-overs | — | ⬜ Not Started |
+| **8** | Phase 7 carry-overs | — | 🟨 In Progress (1/4 done) |
 | **9** | — | Dashboard & UX Redesign (sidebar, Settings, navigation, layout) | ⬜ Not Started |
 | **10** | MCP Server | MCP App UIs | ⬜ Not Started |
 | **11** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
@@ -309,13 +309,20 @@ Implementation plan: [`test-plan/import-sync/implementation-plan.md`](../test-pl
 6. ✅ SSE + MFA controller (`sync-job.controller.ts`)
 7. ✅ ScraperModule registered in `app.module.ts`
 8. ✅ SyncJobStatus/SyncRunStatus constants (`sync-job-status.ts`)
-9. ✅ Frontend: all components (FileImportDropzone, ImportJobList, SyncScheduleList/Form/Modal, SyncStatusPanel, MfaModal)
-10. ✅ Frontend: all hooks (useImportJob, useSyncSchedule, useSyncJob, useSyncStream)
-11. ✅ Frontend: ScraperPage (two-tab layout) + MfaPage (`/mfa` route)
-12. ✅ Backend unit tests (415 passing), Playwright E2E (BUG-004 fixed and confirmed)
+9. ✅ `GET /scrapers` public endpoint (`scraper.controller.ts`) — lists built-in + plugin scrapers; fixes BUG-03
+10. ✅ BUG-01 fixed: malformed CSV now correctly lands in `failed` state with `errorMessage`
+11. ✅ BUG-02 fixed: `SyncScheduleService.remove()` deletes child `SyncJob` rows before deleting the schedule (fixes 500 on DELETE)
+12. ✅ BUG-04 fixed: SSE race condition resolved — backend replays terminal event from DB; frontend SSE parser dispatches on `p.status`
+13. ✅ Frontend: all components (FileImportDropzone, ImportJobList, SyncScheduleList/Form/Modal, SyncStatusPanel, MfaModal)
+14. ✅ Frontend: all hooks (useImportJob, useSyncSchedule, useSyncJob, useSyncStream)
+15. ✅ Frontend: ScraperPage (two-tab layout) + MfaPage (`/mfa` route)
+16. ✅ Backend unit tests (426 passing, 98.39% stmt / 92.37% branch coverage; v8 ignores audited); Playwright E2E (25/27 TC pass)
+
+**Phase 7 open minor issue:**
+- 🔶 DISC-001: Frontend `FileImportDropzone` displays "max 10 MB" but backend rejects at 5 MB (HTTP 413). Fix: align frontend constant to 5 MB and update the helper text. No backend change needed.
 
 **Phase 7 carry-overs → Phase 8 (see below):**
-- `scraper.scheduler.ts` — startup cron re-registration (no prerequisites)
+- ✅ `scraper.scheduler.ts` — startup cron re-registration (done, commit `fe212ee`)
 - `scraper.plugin-loader.ts` — external plugin loading (no prerequisites)
 - `push/` module — Web Push + email for MFA alerts (implementation: no prerequisites; E2E testing blocked on Desktop MCP server)
 - Admin endpoints — `/admin/scrapers/reload` and `/admin/scrapers/install` (prerequisite: plugin-loader)
@@ -328,7 +335,7 @@ Phase 8 completes the four deferred Phase 7 items. The carry-overs are small, se
 
 **Recommended next actions — Phase 7 carry-overs (complete first):**
 
-1. `@backend-dev` — **Carry-over A** (no prerequisites): Implement `scraper.scheduler.ts` — an `OnModuleInit` lifecycle hook that loads all `SyncSchedule` records with `enabled: true` from the DB on server startup and re-registers their cron jobs via `SchedulerRegistry`. This closes the gap where a server restart silently drops all scheduled syncs. Commit: `feat(scraper): re-register enabled cron jobs on module init`.
+1. ✅ `@backend-dev` — **Carry-over A**: `scraper.scheduler.ts` implemented — `ScraperScheduler` (OnModuleInit) queries `syncSchedule WHERE enabled=true` and re-registers each cron job in `SchedulerRegistry` on startup. 7 unit tests. Commit: `fe212ee`.
 2. `@backend-dev` — **Carry-over B** (no prerequisites): Implement `scraper.plugin-loader.ts` — scans `SCRAPER_PLUGIN_DIR` for `BankScraper` implementations, loads them via dynamic `import()`, and registers them into `ScraperRegistry`. Called at startup and by the admin reload endpoint. Commit: `feat(scraper): add plugin-loader for external bank scrapers`.
 3. `@backend-dev` — **Carry-over C** (prerequisite: carry-over B): Implement admin endpoints `POST /admin/scrapers/reload` and `POST /admin/scrapers/install` (ADMIN role only). Commit: `feat(scraper): add admin plugin reload and install endpoints`.
 4. `@backend-dev` — **Carry-over D** (no code prerequisites; E2E testing requires Desktop MCP server): Implement `push/` module — `POST /push/subscribe`, `DELETE /push/subscribe`, Web Push VAPID `sendNotification`, nodemailer email fallback. Wire MFA notification call into `ScraperService.handleMfaRequired()`. Add `VAPID_*` and `SMTP_*` vars to `.env.example`. Commit: `feat(scraper): add Web Push + email MFA notifications`.
