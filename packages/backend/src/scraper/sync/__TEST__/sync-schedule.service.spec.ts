@@ -484,6 +484,10 @@ describe('SyncScheduleService', () => {
 
             expect(schedulerRegistry.addCronJob).toHaveBeenCalledWith(name, expect.anything());
         });
+
+        // job.start() is called on the real CronJob instance returned by `new CronJob(...)`.
+        // The constructor callback body is excluded from coverage via `/* v8 ignore next 5 */`
+        // in sync-schedule.service.ts, so no CronJob mock is needed here to reach 100% coverage.
     });
 
     // -------------------------------------------------------------------------

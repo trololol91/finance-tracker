@@ -39,18 +39,14 @@ export class ScraperScheduler implements OnModuleInit {
         }
 
         for (const schedule of schedules) {
-            this.registerCronJob(schedule.id, schedule.cron);
+            this.syncScheduleService.reRegisterCronJob(schedule.id, schedule.cron);
+            this.logger.log(
+                `Registered cron job 'sync-${schedule.id}' with expression '${schedule.cron}'`
+            );
         }
 
         this.logger.log(
             `Restored ${schedules.length} enabled sync schedule cron job(s) on startup`
         );
-    }
-
-    private registerCronJob(scheduleId: string, cron: string): void {
-        // SyncScheduleService.reRegisterCronJob handles the atomic delete-then-add,
-        // so no SchedulerRegistry interaction is needed here.
-        this.syncScheduleService.reRegisterCronJob(scheduleId, cron);
-        this.logger.log(`Registered cron job 'sync-${scheduleId}' with expression '${cron}'`);
     }
 }
