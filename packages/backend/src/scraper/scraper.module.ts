@@ -9,6 +9,7 @@ import {SyncJobController} from '#scraper/sync/sync-job.controller.js';
 import {ScraperController} from '#scraper/scraper.controller.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {ScraperScheduler} from '#scraper/scraper.scheduler.js';
+import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
 import {
     ScraperRegistry,
     BANK_SCRAPER
@@ -31,6 +32,7 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
  * Providers:
  *   - ImportService, SyncScheduleService, ScraperService, ScraperRegistry
  *   - ScraperScheduler (OnModuleInit — restores enabled cron jobs after restart)
+ *   - ScraperPluginLoader (OnModuleInit — loads external .js plugins from SCRAPER_PLUGIN_DIR)
  *   - CryptoService (AES-256-GCM credential encryption)
  *   - SyncSessionStore (in-memory SSE sessions)
  *   - BANK_SCRAPER token: array of [CibcScraper, TdScraper] via factory provider
@@ -51,6 +53,7 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
         SyncScheduleService,
         ScraperService,
         ScraperScheduler,
+        ScraperPluginLoader,
         ScraperRegistry,
         CryptoService,
         SyncSessionStore,

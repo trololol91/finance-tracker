@@ -19,7 +19,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **5** | Categories Module | Categories UI | ✅ Complete |
 | **6** | Accounts Module | Accounts UI | ✅ Complete |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | 🟨 Partially Complete |
-| **8** | Phase 7 carry-overs | — | 🟨 In Progress (1/4 done) |
+| **8** | Phase 7 carry-overs | — | 🟨 In Progress (2/4 done) |
 | **9** | — | Dashboard & UX Redesign (sidebar, Settings, navigation, layout) | ⬜ Not Started |
 | **10** | MCP Server | MCP App UIs | ⬜ Not Started |
 | **11** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
@@ -323,7 +323,7 @@ Implementation plan: [`test-plan/import-sync/implementation-plan.md`](../test-pl
 
 **Phase 7 carry-overs → Phase 8 (see below):**
 - ✅ `scraper.scheduler.ts` — startup cron re-registration (done, commit `fe212ee`)
-- `scraper.plugin-loader.ts` — external plugin loading (no prerequisites)
+- ✅ `scraper.plugin-loader.ts` — external plugin loading (done)
 - `push/` module — Web Push + email for MFA alerts (implementation: no prerequisites; E2E testing blocked on Desktop MCP server)
 - Admin endpoints — `/admin/scrapers/reload` and `/admin/scrapers/install` (prerequisite: plugin-loader)
 
@@ -336,7 +336,7 @@ Phase 8 completes the four deferred Phase 7 items. The carry-overs are small, se
 **Recommended next actions — Phase 7 carry-overs (complete first):**
 
 1. ✅ `@backend-dev` — **Carry-over A**: `scraper.scheduler.ts` implemented — `ScraperScheduler` (OnModuleInit) queries `syncSchedule WHERE enabled=true` and re-registers each cron job in `SchedulerRegistry` on startup. 7 unit tests. Commit: `fe212ee`.
-2. `@backend-dev` — **Carry-over B** (no prerequisites): Implement `scraper.plugin-loader.ts` — scans `SCRAPER_PLUGIN_DIR` for `BankScraper` implementations, loads them via dynamic `import()`, and registers them into `ScraperRegistry`. Called at startup and by the admin reload endpoint. Commit: `feat(scraper): add plugin-loader for external bank scrapers`.
+2. ✅ `@backend-dev` — **Carry-over B**: `scraper.plugin-loader.ts` implemented — `ScraperPluginLoader` (OnModuleInit) scans `SCRAPER_PLUGIN_DIR` for `.js` files, dynamically imports each, validates the default export against `BankScraper`, and registers valid plugins into `ScraperRegistry`. `ScraperRegistry.register()` method added. 15 unit tests (12 plugin-loader + 3 registry).
 3. `@backend-dev` — **Carry-over C** (prerequisite: carry-over B): Implement admin endpoints `POST /admin/scrapers/reload` and `POST /admin/scrapers/install` (ADMIN role only). Commit: `feat(scraper): add admin plugin reload and install endpoints`.
 4. `@backend-dev` — **Carry-over D** (no code prerequisites; E2E testing requires Desktop MCP server): Implement `push/` module — `POST /push/subscribe`, `DELETE /push/subscribe`, Web Push VAPID `sendNotification`, nodemailer email fallback. Wire MFA notification call into `ScraperService.handleMfaRequired()`. Add `VAPID_*` and `SMTP_*` vars to `.env.example`. Commit: `feat(scraper): add Web Push + email MFA notifications`.
    > **Testing note**: Automated E2E verification of OS-level notification bubbles requires the Desktop MCP server (see Future Enhancements). The manual checklist in `test-plan/import-sync/implementation-plan.md` Section 10 remains the verification method until then.

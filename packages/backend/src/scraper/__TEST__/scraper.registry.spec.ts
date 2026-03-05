@@ -66,3 +66,33 @@ describe('ScraperRegistry', () => {
         expect(registry.listAll()).toHaveLength(3);
     });
 });
+
+describe('ScraperRegistry.register', () => {
+    it('should make a dynamically registered scraper findable by bankId', () => {
+        const registry = new ScraperRegistry([]);
+        const rbc = makeScraper('rbc');
+
+        registry.register(rbc);
+
+        expect(registry.has('rbc')).toBe(true);
+        expect(registry.findByBankId('rbc')).toBe(rbc);
+    });
+
+    it('should include dynamically registered scrapers in listAll()', () => {
+        const registry = new ScraperRegistry([makeScraper('cibc')]);
+        registry.register(makeScraper('rbc'));
+
+        expect(registry.listAll()).toHaveLength(2);
+    });
+
+    it('should overwrite an existing scraper when registering the same bankId', () => {
+        const original = makeScraper('cibc');
+        const replacement = makeScraper('cibc');
+        const registry = new ScraperRegistry([original]);
+
+        registry.register(replacement);
+
+        expect(registry.findByBankId('cibc')).toBe(replacement);
+        expect(registry.findByBankId('cibc')).not.toBe(original);
+    });
+});

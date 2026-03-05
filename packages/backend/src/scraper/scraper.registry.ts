@@ -44,4 +44,13 @@ export class ScraperRegistry {
             pendingTransactionsIncluded: s.pendingTransactionsIncluded
         }));
     }
+
+    /**
+     * Dynamically register a BankScraper instance.
+     * Called by ScraperPluginLoader after loading external plugin files.
+     * Overwrites any existing registration for the same bankId.
+     */
+    public register(scraper: BankScraper): void {
+        this.scraperMap.set(scraper.bankId, scraper);
+    }
 }
