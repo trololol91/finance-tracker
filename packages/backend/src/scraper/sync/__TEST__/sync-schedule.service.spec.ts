@@ -360,6 +360,18 @@ describe('SyncScheduleService', () => {
                 service.update(userId, mockScheduleBase.id, {lookbackDays: 7})
             ).rejects.toThrow(dbError);
         });
+
+        it('should use unknownScraperFallback in response when bankId leaves registry after update', async () => {
+            // Covers the `?? this.unknownScraperFallback(...)` branch (line 274) in update().
+            // All other update() tests have scraperRegistry.findByBankId returning mockScraper,
+            // so the ?? branch is never taken without this test.
+            vi.mocked(scraperRegistry.findByBankId).mockReturnValueOnce(undefined);
+
+            const result = await service.update(userId, mockScheduleBase.id, {lookbackDays: 7});
+
+            expect(result.displayName).toContain('Unknown');
+            expect(result.displayName).toContain('cibc');
+        });
     });
 
     // -------------------------------------------------------------------------
@@ -413,6 +425,51 @@ describe('SyncScheduleService', () => {
             await expect(service.remove(userId, mockScheduleBase.id)).rejects.toThrow(dbError);
             // syncSchedule.delete must not be called if deleteMany already threw
             expect(prisma.syncSchedule.delete).not.toHaveBeenCalled();
+        });
+
+        it('should throw NotFoundException when P2025 race condition occurs in syncSchedule.delete', async () => {
+            // Covers the catch(P2025) branch in remove() (line 211) — triggered when the
+            // schedule is deleted by another request between findFirst and delete.
+            const p2025 = new PrismaClientKnownRequestError('Record to delete not found', {
+                code: 'P2025',
+                clientVersion: '7.0.0'
+            });
+            vi.mocked(prisma.syncSchedule.delete).mockRejectedValue(p2025);
+
+            await expect(
+                service.remove(userId, mockScheduleBase.id)
+            ).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // unknownScraperFallback (private — accessed via type cast)
+    // -------------------------------------------------------------------------
+
+    describe('unknownScraperFallback', () => {
+        interface InternalService {
+            unknownScraperFallback: (bankId: string) => {
+                bankId: string;
+                displayName: string;
+                login: () => Promise<void>;
+                scrapeTransactions: () => Promise<never[]>;
+            };
+        }
+        // Use a consistent bankId throughout this block
+        const fallbackBankId = 'unknown-bank';
+
+        it('should return correct metadata and a login() stub that resolves without a value', async () => {
+            const svc = service as unknown as InternalService;
+            const fallback = svc.unknownScraperFallback(fallbackBankId);
+            expect(fallback.bankId).toBe(fallbackBankId);
+            expect(fallback.displayName).toBe(`Unknown (${fallbackBankId})`);
+            await expect(fallback.login()).resolves.toBeUndefined();
+        });
+
+        it('should return a scrapeTransactions() stub that resolves to an empty array', async () => {
+            const svc = service as unknown as InternalService;
+            const fallback = svc.unknownScraperFallback(fallbackBankId);
+            await expect(fallback.scrapeTransactions()).resolves.toEqual([]);
         });
     });
 

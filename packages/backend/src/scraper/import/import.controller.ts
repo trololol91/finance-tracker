@@ -55,6 +55,19 @@ export class ImportController {
         );
     }
 
+    /** Multer fileFilter callback — accepts CSV/OFX, rejects everything else. */
+    public static fileFilter(
+        _req: unknown,
+        file: {mimetype: string, originalname: string},
+        cb: (err: Error | null, accept: boolean) => void
+    ): void {
+        if (ImportController.isFileAllowed(file)) {
+            cb(null, true);
+        } else {
+            cb(new BadRequestException('Only CSV and OFX files are accepted'), false);
+        }
+    }
+
     /**
      * Upload a CSV or OFX file for import.
      * POST /scraper/import/upload
@@ -64,14 +77,8 @@ export class ImportController {
     @UseInterceptors(
         FileInterceptor('file', {
             limits: {fileSize: MAX_FILE_SIZE_BYTES},
-            /* v8 ignore next 6 */
-            fileFilter: (_req, file, cb) => {
-                if (ImportController.isFileAllowed(file)) {
-                    cb(null, true);
-                } else {
-                    cb(new BadRequestException('Only CSV and OFX files are accepted'), false);
-                }
-            }
+            // eslint-disable-next-line @typescript-eslint/unbound-method
+            fileFilter: ImportController.fileFilter
         })
     )
     @ApiConsumes('multipart/form-data')

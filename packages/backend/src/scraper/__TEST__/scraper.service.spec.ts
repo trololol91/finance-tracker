@@ -418,6 +418,33 @@ describe('ScraperService', () => {
                 code: '654321'
             });
         });
+
+        it('should log a warning and not throw when worker.postMessage throws a non-Error value', async () => {
+            // Covers the `String(postErr)` branch (line 206) — reached when the MFA
+            // code is submitted after the worker has already been terminated and the
+            // throw value is a primitive (e.g. a string), not an Error instance.
+            const svc = service as unknown as InternalService;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const warnSpy = vi.spyOn((service as any).logger, 'warn');
+            sessionStore.createSession('mfa-nonerror-job');
+            const brokenWorker: MockWorker = {
+                postMessage: vi.fn().mockImplementation(() => {
+                    // eslint-disable-next-line @typescript-eslint/only-throw-error
+                    throw 'worker already dead';
+                })
+            };
+
+            await svc.handleMfaRequired('mfa-nonerror-job', 'mfa-nonerror-job', 'Enter code', brokenWorker);
+
+            // Resolver fires postMessage → non-Error thrown → catch block logs and swallows
+            // The not.toThrow() wrapper confirms the catch block prevents propagation to the caller
+            expect(() => sessionStore.resolveMfa('mfa-nonerror-job', '999999')).not.toThrow();
+            expect(brokenWorker.postMessage).toHaveBeenCalledWith({type: 'mfa_code', code: '999999'});
+            // The non-Error primitive must be stringified in the warn message
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.stringContaining('worker already dead')
+            );
+        });
     });
 
     // -------------------------------------------------------------------------

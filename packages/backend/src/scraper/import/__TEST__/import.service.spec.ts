@@ -193,16 +193,29 @@ describe('ImportService', () => {
                 expect(result.importedCount).toBe(0);
             });
 
-            it('should mark job as failed on malformed CSV with no data', async () => {
-                const failedJob = {...mockJobBase, status: ImportStatus.failed, errorMessage: 'CSV parse error'};
+            it('should return a failed job with a CSV parse error for an empty file', async () => {
+                // Empty string → PapaParse returns {errors: [{UndetectableDelimiter}], data: []}
+                // → the errors.length > 0 && data.length === 0 guard fires → BadRequestException
+                // → caught by upload() → job marked failed with the error message.
+                const failedJob = {
+                    ...mockJobBase, status: ImportStatus.failed,
+                    errorMessage: 'CSV parse error: Unable to auto-detect delimiting character; defaulted to \',\''
+                };
                 vi.mocked(prisma.importJob.update).mockResolvedValue(failedJob);
 
                 const file = makeFile({buffer: Buffer.from('')});
-                await service.upload(userId, file);
+                const result = await service.upload(userId, file);
 
-                // Empty CSV → 0 rows, no error (just empty)
-                // update called with completed or 0 rows
-                expect(prisma.importJob.update).toHaveBeenCalled();
+                expect(result.status).toBe('failed');
+                expect(prisma.importJob.update).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({
+                            status: ImportStatus.failed,
+                            errorMessage: expect.stringContaining('CSV parse error')
+                        })
+                    })
+                );
+                expect(prisma.transaction.create).not.toHaveBeenCalled();
             });
 
             it('should use amount sign to determine type when CSV type column is unrecognised', async () => {
@@ -267,7 +280,7 @@ describe('ImportService', () => {
                 };
                 vi.mocked(prisma.importJob.update).mockResolvedValue(failedJob);
 
-                const singleRowCsv = 'date,description,amount,type\n2026-01-15,Coffee,-5.50,expense';
+                const singleRowCsv = 'date,description,amount,type\n2026-01-p15,Coffee,-5.50,expense';
                 const file = makeFile({buffer: Buffer.from(singleRowCsv)});
                 const result = await service.upload(userId, file);
 
@@ -275,16 +288,134 @@ describe('ImportService', () => {
             });
 
             it('should handle non-Error thrown during job completion', async () => {
-                const failedJob = {...mockJobBase, status: ImportStatus.failed, errorMessage: 'string error'};
+                const failedJob = {
+                    ...mockJobBase, status: ImportStatus.failed, errorMessage: 'string error'
+                };
                 vi.mocked(prisma.importJob.update)
-                    .mockRejectedValueOnce('string error')
-                    .mockResolvedValueOnce(failedJob);
+                    .mockRejectedValueOnce('string error')  // first call: throws non-Error
+                    .mockResolvedValueOnce(failedJob);      // second call: failure recovery
 
-                const singleRowCsv = 'date,description,amount,type\n2026-01-15,Coffee,-5.50,expense';
+                const singleRowCsv =
+                    'date,description,amount,type\n2026-01-15,Coffee,-5.50,expense';
                 const file = makeFile({buffer: Buffer.from(singleRowCsv)});
                 const result = await service.upload(userId, file);
 
                 expect(result.status).toBe('failed');
+                // Both update calls must have been made: the failing one and the recovery one
+                // 1: complete attempt (throws non-Error), 2: failure recovery (sets status=failed)
+                expect(prisma.importJob.update).toHaveBeenCalledTimes(2);
+                expect(prisma.importJob.update).toHaveBeenLastCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({
+                            status: ImportStatus.failed,
+                            errorMessage: expect.stringContaining('string error')
+                        })
+                    })
+                );
+            });
+
+            it('should mark job as failed when PapaParse returns errors with no data rows', async () => {
+                // Covers line 246: if (result.errors.length > 0 && result.data.length === 0)
+                // An unclosed quote forces PapaParse to return errors + zero data rows.
+                const failedJob = {
+                    ...mockJobBase,
+                    status: ImportStatus.failed,
+                    errorMessage: 'CSV parse error: Quotes'
+                };
+                vi.mocked(prisma.importJob.update).mockResolvedValue(failedJob);
+
+                const file = makeFile({buffer: Buffer.from('"unclosed')});
+                const result = await service.upload(userId, file);
+
+                expect(result.status).toBe('failed');
+                // The BadRequestException message must be captured as the job's errorMessage
+                expect(prisma.importJob.update).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({
+                            status: ImportStatus.failed,
+                            errorMessage: expect.stringContaining('CSV parse error')
+                        })
+                    })
+                );
+            });
+
+            it('should mark job as failed when required CSV headers are missing', async () => {
+                // Covers line 256: if (missingHeaders.length > 0) throw BadRequestException
+                // The service catches the exception and stores it on the job rather than
+                // re-throwing. A CSV with wrong column names is valid PapaParse input but
+                // missing required headers.
+                const csvMissingHeaders = 'name,code,value\nFoo,A,100.00';
+                const failedJob = {
+                    ...mockJobBase,
+                    status: ImportStatus.failed,
+                    errorMessage: 'CSV is missing required column(s): date, description, amount'
+                };
+                vi.mocked(prisma.importJob.update).mockResolvedValue(failedJob);
+
+                const file = makeFile({buffer: Buffer.from(csvMissingHeaders)});
+                const result = await service.upload(userId, file);
+
+                expect(result.status).toBe('failed');
+                expect(prisma.importJob.update).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({
+                            status: ImportStatus.failed,
+                            errorMessage: expect.stringContaining('CSV is missing required column(s)')
+                        })
+                    })
+                );
+            });
+
+            it('should skip CSV rows where date cannot be parsed (isNaN branch)', async () => {
+                // Covers the `if (isNaN(dateMs)) continue` branch in parseCsv
+                const csvWithBadDate = [
+                    'date,description,amount,type',
+                    'not-a-date,Coffee,-5.50,expense',
+                    '2026-01-16,Salary,3000.00,income'
+                ].join('\n');
+
+                const completedJob = {
+                    ...mockJobBase, status: ImportStatus.completed,
+                    rowCount: 1, importedCount: 1, skippedCount: 0
+                };
+                vi.mocked(prisma.importJob.update).mockResolvedValue(completedJob);
+
+                const file = makeFile({buffer: Buffer.from(csvWithBadDate)});
+                await service.upload(userId, file);
+
+                // Only the valid-date row should reach transaction.create
+                expect(prisma.transaction.create).toHaveBeenCalledTimes(1);
+                expect(prisma.transaction.create).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({description: 'Salary'})
+                    })
+                );
+            });
+
+            it('should skip CSV rows where amount cannot be parsed (isNaN branch)', async () => {
+                // Covers the `if (isNaN(amount)) continue` branch in parseCsv
+                const csvWithBadAmount = [
+                    'date,description,amount,type',
+                    '2026-01-15,Coffee,not-a-number,expense',
+                    '2026-01-16,Salary,3000.00,income'
+                ].join('\n');
+
+                const completedJob = {
+                    ...mockJobBase, status: ImportStatus.completed,
+                    rowCount: 1, importedCount: 1, skippedCount: 0
+                };
+                vi.mocked(prisma.importJob.update).mockResolvedValue(completedJob);
+
+                const file = makeFile({buffer: Buffer.from(csvWithBadAmount)});
+                await service.upload(userId, file);
+
+                // Only the valid-amount row should reach transaction.create
+                expect(prisma.transaction.create).toHaveBeenCalledTimes(1);
+                expect(prisma.transaction.create).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({description: 'Salary'})
+                    })
+                );
             });
         });
 

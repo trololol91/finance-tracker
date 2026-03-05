@@ -104,6 +104,24 @@ describe('ImportController', () => {
     });
 
     // -----------------------------------------------------------------------
+    // fileFilter (Multer callback)
+    // -----------------------------------------------------------------------
+
+    describe('fileFilter', () => {
+        it('should call cb(null, true) for an accepted file type', () => {
+            const cb = vi.fn();
+            ImportController.fileFilter({}, {mimetype: 'text/csv', originalname: 'data.csv'}, cb);
+            expect(cb).toHaveBeenCalledWith(null, true);
+        });
+
+        it('should call cb(BadRequestException, false) for a rejected file type', () => {
+            const cb = vi.fn();
+            ImportController.fileFilter({}, {mimetype: 'image/png', originalname: 'photo.png'}, cb);
+            expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
+        });
+    });
+
+    // -----------------------------------------------------------------------
     // upload
     // -----------------------------------------------------------------------
 

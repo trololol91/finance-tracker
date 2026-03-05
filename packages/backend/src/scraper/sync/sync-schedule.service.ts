@@ -269,7 +269,6 @@ export class SyncScheduleService {
             requiresMfaOnEveryRun: false,
             maxLookbackDays: 90,
             pendingTransactionsIncluded: false,
-            /* v8 ignore next 3 */
             login: (): Promise<void> => Promise.resolve(),
             scrapeTransactions: (): Promise<never[]> => Promise.resolve([])
         };

@@ -95,7 +95,8 @@ export class CibcScraper implements BankScraper {
      *     await p.waitForSelector('.account-summary, .mfa-challenge-message', { timeout: 15_000 });
      *
      *     if (await p.isVisible('.mfa-challenge-message')) {
-     *         const prompt = (await p.textContent('.mfa-challenge-message')) ?? 'Enter your security code';
+     *         const prompt =
+     *             (await p.textContent('.mfa-challenge-message')) ?? 'Enter your security code';
      *         // Leave the page on the MFA screen; the worker will call submitMfa()
      *         // once it receives the code from the main thread.
      *         throw new MfaRequiredError(prompt.trim());
@@ -130,7 +131,8 @@ export class CibcScraper implements BankScraper {
      *
      * Phase 8 implementation example:
      * ─────────────────────────────────────────────────────────────────────────
-     * public async scrapeTransactions(page: unknown, options: ScrapeOptions): Promise<RawTransaction[]> {
+     * public async scrapeTransactions(
+     *   page: unknown, options: ScrapeOptions): Promise<RawTransaction[]> {
      *     const p = page as import('playwright').Page;
      *
      *     await p.goto('https://www.cibc.com/en/personal-banking/accounts/activity.html');
@@ -143,9 +145,12 @@ export class CibcScraper implements BankScraper {
      *     const transactions: RawTransaction[] = [];
      *
      *     for (const row of rows) {
-     *         const date    = (await row.$eval('td:nth-child(1)', el => el.textContent ?? '')).trim();
-     *         const desc    = (await row.$eval('td:nth-child(2)', el => el.textContent ?? '')).trim();
-     *         const rawAmt  = (await row.$eval('td:nth-child(3)', el => el.textContent ?? '')).trim();
+     *         const date   = (await
+     *             row.$eval('td:nth-child(1)', el => el.textContent ?? '')).trim();
+     *         const desc   = (await
+     *             row.$eval('td:nth-child(2)', el => el.textContent ?? '')).trim();
+     *         const rawAmt = (await
+     *             row.$eval('td:nth-child(3)', el => el.textContent ?? '')).trim();
      *         const pending = (await row.getAttribute('class') ?? '').includes('pending');
      *
      *         if (!options.includePending && pending) continue;
