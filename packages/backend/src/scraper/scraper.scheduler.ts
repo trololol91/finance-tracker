@@ -3,7 +3,6 @@ import {
     Logger,
     OnModuleInit
 } from '@nestjs/common';
-import {SchedulerRegistry} from '@nestjs/schedule';
 import {PrismaService} from '#database/prisma.service.js';
 import {SyncScheduleService} from '#scraper/sync/sync-schedule.service.js';
 
@@ -15,8 +14,9 @@ import {SyncScheduleService} from '#scraper/sync/sync-schedule.service.js';
  * queries every SyncSchedule record with enabled=true and re-registers its
  * cron job so that schedules survive a server restart without user intervention.
  *
- * CronJob construction is delegated to SyncScheduleService.reRegisterCronJob to
- * avoid duplicating the job-creation logic in two places.
+ * CronJob construction and the stale-deletion guard are both delegated to
+ * SyncScheduleService.reRegisterCronJob, which owns the atomic delete-then-add
+ * logic. ScraperScheduler therefore has no direct SchedulerRegistry dependency.
  */
 @Injectable()
 export class ScraperScheduler implements OnModuleInit {
@@ -24,7 +24,6 @@ export class ScraperScheduler implements OnModuleInit {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly schedulerRegistry: SchedulerRegistry,
         private readonly syncScheduleService: SyncScheduleService
     ) {}
 
@@ -49,18 +48,9 @@ export class ScraperScheduler implements OnModuleInit {
     }
 
     private registerCronJob(scheduleId: string, cron: string): void {
-        const name = `sync-${scheduleId}`;
-
-        // Remove any stale registration from a previous module init (e.g. hot reload).
-        // SchedulerRegistry.deleteCronJob throws when the name is not registered.
-        try {
-            this.schedulerRegistry.deleteCronJob(name);
-        } catch {
-            // Expected on first startup — no job registered yet
-        }
-
-        // Delegate CronJob construction to SyncScheduleService to avoid duplication.
+        // SyncScheduleService.reRegisterCronJob handles the atomic delete-then-add,
+        // so no SchedulerRegistry interaction is needed here.
         this.syncScheduleService.reRegisterCronJob(scheduleId, cron);
-        this.logger.log(`Registered cron job '${name}' with expression '${cron}'`);
+        this.logger.log(`Registered cron job 'sync-${scheduleId}' with expression '${cron}'`);
     }
 }

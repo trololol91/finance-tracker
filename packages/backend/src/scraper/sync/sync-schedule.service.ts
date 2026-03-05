@@ -231,21 +231,34 @@ export class SyncScheduleService {
     }
 
     // ---------------------------------------------------------------------------
-    // Private helpers
+    // Helpers
     // ---------------------------------------------------------------------------
 
     /**
-     * Create and start a new cron job in SchedulerRegistry.
-     * Public so that ScraperScheduler can re-register jobs on server startup
-     * without duplicating the CronJob construction logic.
+     * Atomically ensure a cron job is registered in SchedulerRegistry.
+     *
+     * Removes any stale entry under the same key before adding the new one,
+     * so callers (including ScraperScheduler on startup) never need to manage
+     * the delete-then-add pair themselves.
+     *
+     * Public so that ScraperScheduler can re-register jobs on startup without
+     * duplicating CronJob construction logic.
      */
     public reRegisterCronJob(scheduleId: string, cron: string): void {
+        const name = `sync-${scheduleId}`;
+        // Remove any stale registration from a previous process run or hot reload.
+        // SchedulerRegistry throws when the name is absent — expected on first boot.
+        try {
+            this.schedulerRegistry.deleteCronJob(name);
+        } catch {
+            // No stale job present — first registration for this schedule
+        }
         /* v8 ignore next 6 */
         const job = new CronJob(cron, () => {
             this.logger.log(`[cron] sync schedule ${scheduleId} triggered`);
             // ScraperService.sync() will be called here in Step 5
         });
-        this.schedulerRegistry.addCronJob(`sync-${scheduleId}`, job);
+        this.schedulerRegistry.addCronJob(name, job);
         job.start();
     }
 

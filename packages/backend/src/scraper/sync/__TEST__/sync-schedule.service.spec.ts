@@ -443,6 +443,50 @@ describe('SyncScheduleService', () => {
     });
 
     // -------------------------------------------------------------------------
+    // reRegisterCronJob
+    // -------------------------------------------------------------------------
+
+    describe('reRegisterCronJob', () => {
+        const scheduleId = 'sched-uuid-1';
+        const cron = '0 8 * * *';
+        const name = `sync-${scheduleId}`;
+
+        it('should attempt to delete the stale job before adding the new one', () => {
+            service.reRegisterCronJob(scheduleId, cron);
+
+            const deleteOrder =
+                vi.mocked(schedulerRegistry.deleteCronJob).mock.invocationCallOrder[0];
+            const addOrder =
+                vi.mocked(schedulerRegistry.addCronJob).mock.invocationCallOrder[0];
+            expect(deleteOrder).toBeLessThan(addOrder);
+        });
+
+        it('should delete the stale job using the sync-{id} naming convention', () => {
+            service.reRegisterCronJob(scheduleId, cron);
+
+            expect(schedulerRegistry.deleteCronJob).toHaveBeenCalledWith(name);
+        });
+
+        it('should swallow a deletion error and still add the new job (first boot)', () => {
+            vi.mocked(schedulerRegistry.deleteCronJob).mockImplementation(() => {
+                throw new Error(`Cron job ${name} not found`);
+            });
+
+            // Must not throw
+            expect(() => { service.reRegisterCronJob(scheduleId, cron); }).not.toThrow();
+
+            // New job must still be registered despite the deletion failure
+            expect(schedulerRegistry.addCronJob).toHaveBeenCalledWith(name, expect.anything());
+        });
+
+        it('should register the new cron job under the sync-{id} key', () => {
+            service.reRegisterCronJob(scheduleId, cron);
+
+            expect(schedulerRegistry.addCronJob).toHaveBeenCalledWith(name, expect.anything());
+        });
+    });
+
+    // -------------------------------------------------------------------------
     // unknownScraperFallback (private — accessed via type cast)
     // -------------------------------------------------------------------------
 
