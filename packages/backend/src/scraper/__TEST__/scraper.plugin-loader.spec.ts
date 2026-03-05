@@ -238,6 +238,8 @@ describe('ScraperPluginLoader', () => {
             // Only the good plugin should be registered
             expect(mockRegistry.register).toHaveBeenCalledOnce();
             expect(mockRegistry.register).toHaveBeenCalledWith(good);
+            expect(loadModuleSpy).toHaveBeenNthCalledWith(1, expect.stringMatching(/^file:\/\//) );
+            expect(loadModuleSpy).toHaveBeenNthCalledWith(2, expect.stringMatching(/^file:\/\//) );
         });
     });
 });
