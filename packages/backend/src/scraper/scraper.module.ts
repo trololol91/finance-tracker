@@ -1,6 +1,7 @@
 import {Module} from '@nestjs/common';
 import {ScheduleModule} from '@nestjs/schedule';
 import {DatabaseModule} from '#database/database.module.js';
+import {AdminGuard} from '#common/guards/admin.guard.js';
 import {ImportController} from '#scraper/import/import.controller.js';
 import {ImportService} from '#scraper/import/import.service.js';
 import {SyncScheduleController} from '#scraper/sync/sync-schedule.controller.js';
@@ -9,7 +10,6 @@ import {SyncJobController} from '#scraper/sync/sync-job.controller.js';
 import {ScraperController} from '#scraper/scraper.controller.js';
 import {ScraperAdminController} from '#scraper/scraper-admin.controller.js';
 import {ScraperAdminService} from '#scraper/scraper-admin.service.js';
-import {AdminGuard} from '#common/guards/admin.guard.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {ScraperScheduler} from '#scraper/scraper.scheduler.js';
 import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
