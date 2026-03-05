@@ -83,8 +83,10 @@ export class ScraperAdminService {
             throw new BadRequestException('Only .js plugin files are accepted');
         }
 
-        // Allow only safe characters: word chars, hyphens, dots, digits
-        if (!/^[\w.-]+\.js$/.test(basename)) {
+        // Allow only safe characters: word chars, hyphens, dots, digits.
+        // First char must be a word char (letter, digit, underscore) to prevent
+        // leading-dot filenames such as '.hidden.js' or '..cibc.js'.
+        if (!/^\w[\w.-]*\.js$/.test(basename)) {
             throw new BadRequestException(
                 `Invalid plugin filename '${basename}' — use only letters, digits, hyphens, and dots`
             );

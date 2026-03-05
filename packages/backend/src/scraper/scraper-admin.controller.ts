@@ -70,7 +70,7 @@ export class ScraperAdminController {
      * immediately reload all plugins so the new scraper is active.
      */
     @Post('install')
-    @HttpCode(HttpStatus.OK)
+    @HttpCode(HttpStatus.CREATED)
     @ApiConsumes('multipart/form-data')
     @ApiBody({
         description: 'The .js plugin file to install',
@@ -95,7 +95,7 @@ export class ScraperAdminController {
             'Requires ADMIN role. Only .js files up to 10 MB are accepted.'
     })
     @ApiResponse({
-        status: 200,
+        status: 201,
         description: 'Plugin installed and registered successfully',
         type: InstallPluginResponseDto
     })
@@ -104,7 +104,14 @@ export class ScraperAdminController {
     @ApiResponse({status: 403, description: 'Caller is not an ADMIN user'})
     @UseInterceptors(
         FileInterceptor('file', {
-            limits: {fileSize: MAX_PLUGIN_SIZE_BYTES}
+            limits: {fileSize: MAX_PLUGIN_SIZE_BYTES},
+            fileFilter: (_req, file, cb) => {
+                if (file.originalname.toLowerCase().endsWith('.js')) {
+                    cb(null, true);
+                } else {
+                    cb(new BadRequestException('Only .js plugin files are accepted'), false);
+                }
+            }
         })
     )
     public async install(

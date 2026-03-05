@@ -33,7 +33,7 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
  *   - ScraperAdminController   — POST /admin/scrapers/reload, POST /admin/scrapers/install (ADMIN)
  *
  * Providers:
- *   - ImportService, SyncScheduleService, ScraperService, ScraperRegistry
+ *   - ImportService, SyncScheduleService, ScraperService, ScraperAdminService, ScraperRegistry
  *   - ScraperScheduler (OnModuleInit — restores enabled cron jobs after restart)
  *   - ScraperPluginLoader (OnModuleInit — loads external .js plugins from SCRAPER_PLUGIN_DIR)
  *   - CryptoService (AES-256-GCM credential encryption)
