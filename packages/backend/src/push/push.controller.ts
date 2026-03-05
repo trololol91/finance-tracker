@@ -9,6 +9,7 @@ import {
 import {
     ApiBearerAuth,
     ApiOperation,
+    ApiResponse,
     ApiTags
 } from '@nestjs/swagger';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
@@ -33,6 +34,9 @@ export class PushController {
     @Post('subscribe')
     @HttpCode(201)
     @ApiOperation({summary: 'Register a Web Push subscription'})
+    @ApiResponse({status: 201, description: 'Subscription registered successfully'})
+    @ApiResponse({status: 400, description: 'Invalid subscription payload'})
+    @ApiResponse({status: 401, description: 'Unauthorized'})
     public subscribe(
         @CurrentUser() user: User,
         @Body() dto: SubscribePushDto
@@ -47,13 +51,14 @@ export class PushController {
      * service worker unregisters a push subscription.
      */
     @Delete('subscribe')
-    @HttpCode(200)
+    @HttpCode(204)
     @ApiOperation({summary: 'Remove a Web Push subscription'})
+    @ApiResponse({status: 204, description: 'Subscription removed successfully'})
+    @ApiResponse({status: 401, description: 'Unauthorized'})
     public unsubscribe(
         @CurrentUser() user: User,
         @Body() dto: UnsubscribePushDto
-    ): {message: string} {
+    ): void {
         this.pushService.unsubscribe(user.id, dto.endpoint);
-        return {message: 'Unsubscribed from push notifications.'};
     }
 }

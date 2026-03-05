@@ -81,9 +81,9 @@ describe('PushController', () => {
             );
         });
 
-        it('returns a confirmation message', () => {
-            const result = controller.unsubscribe(makeUser(), makeUnsubscribeDto());
-            expect(result).toEqual({message: 'Unsubscribed from push notifications.'});
+        it('delegates to pushService.unsubscribe without returning a body', () => {
+            controller.unsubscribe(makeUser(), makeUnsubscribeDto());
+            expect(pushService.unsubscribe).toHaveBeenCalledTimes(1);
         });
     });
 });

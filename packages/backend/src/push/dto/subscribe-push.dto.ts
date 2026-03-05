@@ -8,7 +8,7 @@ import {
 import {Type} from 'class-transformer';
 import {ApiProperty} from '@nestjs/swagger';
 
-class PushSubscriptionKeysDto {
+export class PushSubscriptionKeysDto {
     @ApiProperty({description: 'P-256 Diffie-Hellman public key (base64url)'})
     @IsString()
     @IsNotEmpty()

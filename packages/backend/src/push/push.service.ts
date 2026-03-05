@@ -11,6 +11,14 @@ import {PrismaService} from '#database/prisma.service.js';
 import {PushSubscriptionStore} from '#push/push-subscription.store.js';
 import type {SubscribePushDto} from '#push/dto/subscribe-push.dto.js';
 
+/** Escape HTML special characters to prevent injection in email bodies. */
+const escapeHtml = (s: string): string =>
+    s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
 /**
  * Sends Web Push VAPID notifications and/or email alerts when a scraper
  * requires MFA input.  Notification channels are controlled per-user by
@@ -105,7 +113,7 @@ export class PushService {
 
     private initSmtp(): Transporter<SentMessageInfo> | null {
         const host = this.config.get<string>('SMTP_HOST');
-        const port = this.config.get<number>('SMTP_PORT');
+        const port = parseInt(this.config.get('SMTP_PORT') ?? '587', 10);
         const user = this.config.get<string>('SMTP_USER');
         const pass = this.config.get<string>('SMTP_PASS');
 
@@ -119,8 +127,9 @@ export class PushService {
 
         return nodemailer.createTransport({
             host,
-            port: port ?? 587,
+            port,
             secure: false,
+            requireTLS: true,
             auth: {user, pass}
         });
     }
@@ -191,7 +200,7 @@ export class PushService {
                 to,
                 subject: title,
                 text: `${body}\n\nAction required: ${url}`,
-                html: `<p>${body}</p><p><a href="${url}">Complete MFA</a></p>`
+                html: `<p>${escapeHtml(body)}</p><p><a href="${escapeHtml(url)}">Complete MFA</a></p>`
             });
         } catch (err: unknown) {
             this.logger.error(

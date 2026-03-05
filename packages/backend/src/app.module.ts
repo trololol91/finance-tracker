@@ -10,7 +10,6 @@ import {AuthModule} from '#auth/auth.module.js';
 import {CategoriesModule} from '#categories/categories.module.js';
 import {AccountsModule} from '#accounts/accounts.module.js';
 import {ScraperModule} from '#scraper/scraper.module.js';
-import {PushModule} from '#push/push.module.js';
 
 @Module({
     imports: [
@@ -25,8 +24,7 @@ import {PushModule} from '#push/push.module.js';
         TransactionsModule,
         CategoriesModule,
         AccountsModule,
-        ScraperModule,
-        PushModule
+        ScraperModule
     ],
     controllers: [AppController],
     providers: [AppService]
