@@ -26,6 +26,7 @@
             "#scraper/*": ["./scraper/*"],
             "#ai/*": ["./ai/*"],
             "#integrations/*": ["./integrations/*"],
+            "#push/*": ["./push/*"],
             "#generated/*": ["./generated/*"]
         },
         "incremental": true,

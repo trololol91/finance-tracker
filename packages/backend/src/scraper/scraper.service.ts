@@ -8,6 +8,7 @@ import {join} from 'path';
 import {fileURLToPath} from 'url';
 import type {MessageEvent} from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
+import {PushService} from '#push/push.service.js';
 import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
 import {
@@ -44,7 +45,8 @@ export class ScraperService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly cryptoService: CryptoService,
-        private readonly sessionStore: SyncSessionStore
+        private readonly sessionStore: SyncSessionStore,
+        private readonly pushService: PushService
     ) {}
 
     /**
@@ -172,7 +174,7 @@ export class ScraperService {
                 data: JSON.stringify({status: msg.status, message: msg.message})
             } as MessageEvent);
         } else if (msg.type === 'mfa_required') {
-            await this.handleMfaRequired(sessionId, jobId, msg.prompt, worker);
+            await this.handleMfaRequired(sessionId, jobId, msg.prompt, worker, schedule.userId);
         } else {
             await this.handleResult(
                 sessionId, jobId, schedule, msg.transactions
@@ -184,7 +186,8 @@ export class ScraperService {
         sessionId: string,
         jobId: string,
         prompt: string,
-        worker: Worker
+        worker: Worker,
+        userId: string
     ): Promise<void> {
         await this.prisma.syncJob.update({
             where: {id: jobId},
@@ -194,6 +197,13 @@ export class ScraperService {
         this.sessionStore.emit(sessionId, {
             data: JSON.stringify({status: SyncJobStatus.mfaRequired, mfaChallenge: prompt})
         } as MessageEvent);
+
+        void this.pushService.sendNotification(
+            userId,
+            'MFA Required',
+            prompt,
+            `/sync?jobId=${jobId}`
+        );
 
         // Register resolver: when user submits code, post it back to the worker.
         // The worker is suspended on `parentPort.once('message')`.

@@ -1,6 +1,7 @@
 import {Module} from '@nestjs/common';
 import {ScheduleModule} from '@nestjs/schedule';
 import {DatabaseModule} from '#database/database.module.js';
+import {PushModule} from '#push/push.module.js';
 import {AdminGuard} from '#common/guards/admin.guard.js';
 import {ImportController} from '#scraper/import/import.controller.js';
 import {ImportService} from '#scraper/import/import.service.js';
@@ -45,6 +46,7 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
 @Module({
     imports: [
         DatabaseModule,
+        PushModule,
         ScheduleModule.forRoot()
     ],
     controllers: [

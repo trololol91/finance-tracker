@@ -6,6 +6,7 @@ import {ScraperService} from '#scraper/scraper.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
 import type {PrismaService} from '#database/prisma.service.js';
 import type {CryptoService} from '#scraper/crypto/crypto.service.js';
+import type {PushService} from '#push/push.service.js';
 import type {SyncSchedule} from '#generated/prisma/client.js';
 import type {RawTransaction} from '#scraper/interfaces/bank-scraper.interface.js';
 
@@ -108,7 +109,10 @@ describe('ScraperService', () => {
         } as unknown as CryptoService;
 
         sessionStore = new SyncSessionStore();
-        service = new ScraperService(prisma, cryptoService, sessionStore);
+        const pushService = {
+            sendNotification: vi.fn().mockResolvedValue(undefined)
+        } as unknown as PushService;
+        service = new ScraperService(prisma, cryptoService, sessionStore, pushService);
 
         vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockSchedule);
         vi.mocked(prisma.syncJob.create).mockResolvedValue(mockJob);
@@ -380,7 +384,8 @@ describe('ScraperService', () => {
                 sessionId: string,
                 jobId: string,
                 prompt: string,
-                worker: MockWorker
+                worker: MockWorker,
+                userId: string
             ) => Promise<void>;
         }
 
@@ -391,7 +396,7 @@ describe('ScraperService', () => {
             sessionStore.getObservable('mfa-job').subscribe(e => received.push(e.data as string));
             const mockWorker: MockWorker = {postMessage: vi.fn()};
 
-            await svc.handleMfaRequired('mfa-job', 'mfa-job', 'Enter code', mockWorker);
+            await svc.handleMfaRequired('mfa-job', 'mfa-job', 'Enter code', mockWorker, 'user-1');
 
             expect(prisma.syncJob.update).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -410,7 +415,7 @@ describe('ScraperService', () => {
             sessionStore.createSession('mfa-job-2');
             const mockWorker: MockWorker = {postMessage: vi.fn()};
 
-            await svc.handleMfaRequired('mfa-job-2', 'mfa-job-2', 'code prompt', mockWorker);
+            await svc.handleMfaRequired('mfa-job-2', 'mfa-job-2', 'code prompt', mockWorker, 'user-1');
             sessionStore.resolveMfa('mfa-job-2', '654321');
 
             expect(mockWorker.postMessage).toHaveBeenCalledWith({
@@ -434,7 +439,7 @@ describe('ScraperService', () => {
                 })
             };
 
-            await svc.handleMfaRequired('mfa-nonerror-job', 'mfa-nonerror-job', 'Enter code', brokenWorker);
+            await svc.handleMfaRequired('mfa-nonerror-job', 'mfa-nonerror-job', 'Enter code', brokenWorker, 'user-1');
 
             // Resolver fires postMessage → non-Error thrown → catch block logs and swallows
             // The not.toThrow() wrapper confirms the catch block prevents propagation to the caller

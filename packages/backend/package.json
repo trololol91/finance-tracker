@@ -21,6 +21,7 @@
     "#scraper/*": "./dist/src/scraper/*",
     "#ai/*": "./dist/src/ai/*",
     "#integrations/*": "./dist/src/integrations/*",
+    "#push/*": "./dist/src/push/*",
     "#generated/*": "./dist/src/generated/*"
   },
   "engines": {
@@ -65,13 +66,15 @@
     "cron-validator": "1.4.0",
     "dotenv": "16.6.1",
     "googleapis": "168.0.0",
+    "nodemailer": "8.0.1",
     "ofx": "0.5.0",
     "papaparse": "5.5.3",
     "passport": "0.7.0",
     "passport-jwt": "4.0.1",
     "pg": "8.18.0",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.1"
+    "rxjs": "7.8.1",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.2.0",
@@ -86,8 +89,10 @@
     "@types/express": "5.0.0",
     "@types/multer": "2.0.0",
     "@types/node": "22.10.7",
+    "@types/nodemailer": "7.0.11",
     "@types/passport-jwt": "4.0.1",
     "@types/supertest": "6.0.2",
+    "@types/web-push": "3.6.4",
     "@vitest/coverage-v8": "4.0.15",
     "@vitest/ui": "4.0.15",
     "eslint": "9.27.0",

@@ -50,6 +50,7 @@ export default defineConfig({
             '#budgets': resolve(__dirname, './src/budgets'),
             '#reports': resolve(__dirname, './src/reports'),
             '#scraper': resolve(__dirname, './src/scraper'),
+            '#push': resolve(__dirname, './src/push'),
             '#ai': resolve(__dirname, './src/ai'),
             '#integrations': resolve(__dirname, './src/integrations'),
             '#generated': resolve(__dirname, './src/generated')
