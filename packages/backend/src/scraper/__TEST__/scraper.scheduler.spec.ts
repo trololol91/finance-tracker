@@ -1,18 +1,15 @@
 import {
     describe, it, expect, beforeEach, vi
 } from 'vitest';
-import {CronJob} from 'cron';
 import {ScraperScheduler} from '#scraper/scraper.scheduler.js';
 import type {PrismaService} from '#database/prisma.service.js';
+import type {SyncScheduleService} from '#scraper/sync/sync-schedule.service.js';
 import type {SchedulerRegistry} from '@nestjs/schedule';
 
 // ---------------------------------------------------------------------------
-// Cron mock — prevents real CronJob timers from running during tests.
-// mockImplementation is re-applied each beforeEach so vi.clearAllMocks()
-// does not leave the constructor without a return value.
+// No CronJob mock needed — ScraperScheduler delegates job construction to
+// SyncScheduleService.reRegisterCronJob, which is mocked directly below.
 // ---------------------------------------------------------------------------
-
-vi.mock('cron', () => ({CronJob: vi.fn()}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,32 +33,18 @@ const makeSchedule = (overrides?: Partial<ScheduleStub>): ScheduleStub => ({
 describe('ScraperScheduler', () => {
     let scheduler: ScraperScheduler;
     let mockPrisma: {syncSchedule: {findMany: ReturnType<typeof vi.fn>}};
-    let mockSchedulerRegistry: {
-        addCronJob: ReturnType<typeof vi.fn>;
-        deleteCronJob: ReturnType<typeof vi.fn>;
-    };
-    let cronJobStart: ReturnType<typeof vi.fn>;
+    let mockSchedulerRegistry: {deleteCronJob: ReturnType<typeof vi.fn>};
+    let mockSyncScheduleService: {reRegisterCronJob: ReturnType<typeof vi.fn>};
 
     beforeEach(() => {
         vi.clearAllMocks();
-
-        // Re-apply CronJob mock implementation after vi.clearAllMocks() wipes it.
-        // Each test gets a fresh start spy via the shared cronJobStart reference.
-        // Arrow functions cannot be used as constructors — function keyword is required.
-        cronJobStart = vi.fn();
-        vi.mocked(CronJob).mockImplementation(
-            // eslint-disable-next-line prefer-arrow-callback
-            function() { return {start: cronJobStart} as unknown as CronJob; }
-        );
-
         mockPrisma = {syncSchedule: {findMany: vi.fn()}};
-        mockSchedulerRegistry = {
-            addCronJob: vi.fn(),
-            deleteCronJob: vi.fn()
-        };
+        mockSchedulerRegistry = {deleteCronJob: vi.fn()};
+        mockSyncScheduleService = {reRegisterCronJob: vi.fn()};
         scheduler = new ScraperScheduler(
             mockPrisma as unknown as PrismaService,
-            mockSchedulerRegistry as unknown as SchedulerRegistry
+            mockSchedulerRegistry as unknown as SchedulerRegistry,
+            mockSyncScheduleService as unknown as SyncScheduleService
         );
     });
 
@@ -82,11 +65,11 @@ describe('ScraperScheduler', () => {
 
             await scheduler.onModuleInit();
 
-            expect(mockSchedulerRegistry.addCronJob).not.toHaveBeenCalled();
-            expect(cronJobStart).not.toHaveBeenCalled();
+            expect(mockSyncScheduleService.reRegisterCronJob).not.toHaveBeenCalled();
+            expect(mockSchedulerRegistry.deleteCronJob).not.toHaveBeenCalled();
         });
 
-        it('should register a cron job for each enabled schedule', async () => {
+        it('should call reRegisterCronJob on the service for each enabled schedule', async () => {
             mockPrisma.syncSchedule.findMany.mockResolvedValue([
                 makeSchedule({id: 'sched-1', cron: '0 8 * * *'}),
                 makeSchedule({id: 'sched-2', cron: '0 20 * * *'})
@@ -94,50 +77,42 @@ describe('ScraperScheduler', () => {
 
             await scheduler.onModuleInit();
 
-            expect(mockSchedulerRegistry.addCronJob).toHaveBeenCalledTimes(2);
-            expect(mockSchedulerRegistry.addCronJob).toHaveBeenCalledWith(
-                'sync-sched-1',
-                expect.objectContaining({start: cronJobStart})
+            expect(mockSyncScheduleService.reRegisterCronJob).toHaveBeenCalledTimes(2);
+            expect(mockSyncScheduleService.reRegisterCronJob).toHaveBeenCalledWith(
+                'sched-1', '0 8 * * *'
             );
-            expect(mockSchedulerRegistry.addCronJob).toHaveBeenCalledWith(
-                'sync-sched-2',
-                expect.objectContaining({start: cronJobStart})
+            expect(mockSyncScheduleService.reRegisterCronJob).toHaveBeenCalledWith(
+                'sched-2', '0 20 * * *'
             );
-            // start() is called once per registered job
-            expect(cronJobStart).toHaveBeenCalledTimes(2);
         });
 
-        it('should use the sync-{id} naming convention for cron job keys', async () => {
+        it('should build the stale-deletion key as sync-{id}', async () => {
             mockPrisma.syncSchedule.findMany.mockResolvedValue([
                 makeSchedule({id: 'abc-123'})
             ]);
 
             await scheduler.onModuleInit();
 
-            expect(mockSchedulerRegistry.addCronJob).toHaveBeenCalledWith(
-                'sync-abc-123',
-                expect.anything()
-            );
+            // The stale-guard must use the same naming convention as SyncScheduleService
+            expect(mockSchedulerRegistry.deleteCronJob).toHaveBeenCalledWith('sync-abc-123');
         });
 
-        it('should attempt to remove a stale job before adding the new one', async () => {
+        it('should attempt stale deletion before calling reRegisterCronJob', async () => {
             mockPrisma.syncSchedule.findMany.mockResolvedValue([
                 makeSchedule({id: 'sched-1', cron: '0 8 * * *'})
             ]);
 
             await scheduler.onModuleInit();
 
-            // deleteCronJob must be called with the same key before addCronJob
-            expect(mockSchedulerRegistry.deleteCronJob).toHaveBeenCalledWith('sync-sched-1');
             const deleteOrder =
                 mockSchedulerRegistry.deleteCronJob.mock.invocationCallOrder[0];
-            const addOrder =
-                mockSchedulerRegistry.addCronJob.mock.invocationCallOrder[0];
-            expect(deleteOrder).toBeLessThan(addOrder);
+            const registerOrder =
+                mockSyncScheduleService.reRegisterCronJob.mock.invocationCallOrder[0];
+            expect(deleteOrder).toBeLessThan(registerOrder);
         });
 
         it(
-            'should silently swallow a stale deletion error and still register the job',
+            'should silently swallow a stale deletion error and still call reRegisterCronJob',
             async () => {
                 mockPrisma.syncSchedule.findMany.mockResolvedValue([
                     makeSchedule({id: 'sched-1', cron: '0 8 * * *'})
@@ -151,8 +126,7 @@ describe('ScraperScheduler', () => {
                 await expect(scheduler.onModuleInit()).resolves.toBeUndefined();
 
                 // The job must still be registered despite the deletion failure
-                expect(mockSchedulerRegistry.addCronJob).toHaveBeenCalledOnce();
-                expect(cronJobStart).toHaveBeenCalledOnce();
+                expect(mockSyncScheduleService.reRegisterCronJob).toHaveBeenCalledOnce();
             }
         );
 

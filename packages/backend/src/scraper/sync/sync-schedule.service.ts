@@ -103,7 +103,7 @@ export class SyncScheduleService {
             });
 
             // Register the cron job in NestJS scheduler
-            this.registerCronJob(schedule.id, dto.cron);
+            this.reRegisterCronJob(schedule.id, dto.cron);
 
             return SyncScheduleResponseDto.fromEntity(schedule, scraper);
         } catch (err) {
@@ -173,7 +173,7 @@ export class SyncScheduleService {
             if (dto.cron !== undefined) {
                 this.removeCronJob(id);
                 if (updated.enabled) {
-                    this.registerCronJob(id, dto.cron);
+                    this.reRegisterCronJob(id, dto.cron);
                 }
             }
 
@@ -234,7 +234,12 @@ export class SyncScheduleService {
     // Private helpers
     // ---------------------------------------------------------------------------
 
-    private registerCronJob(scheduleId: string, cron: string): void {
+    /**
+     * Create and start a new cron job in SchedulerRegistry.
+     * Public so that ScraperScheduler can re-register jobs on server startup
+     * without duplicating the CronJob construction logic.
+     */
+    public reRegisterCronJob(scheduleId: string, cron: string): void {
         /* v8 ignore next 6 */
         const job = new CronJob(cron, () => {
             this.logger.log(`[cron] sync schedule ${scheduleId} triggered`);
