@@ -253,7 +253,7 @@ export class SyncScheduleService {
         } catch {
             // No stale job present — first registration for this schedule
         }
-        /* v8 ignore next 5 */
+        /* v8 ignore next 6 */
         const job = new CronJob(cron, () => {
             this.logger.log(`[cron] sync schedule ${scheduleId} triggered`);
             // ScraperService.sync() will be called here in Step 5
