@@ -1,0 +1,95 @@
+import {
+    Injectable,
+    BadRequestException,
+    Logger
+} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
+import {writeFile} from 'fs/promises';
+import {join} from 'path';
+import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
+
+/**
+ * ScraperAdminService provides the business logic for the admin plugin
+ * management endpoints.
+ *
+ * - reloadPlugins(): re-scans SCRAPER_PLUGIN_DIR and registers any plugins
+ *   found, picking up files added since the last load without restarting.
+ * - installPlugin(): writes a validated .js buffer to SCRAPER_PLUGIN_DIR
+ *   and then calls reloadPlugins() so the plugin is immediately active.
+ */
+@Injectable()
+export class ScraperAdminService {
+    private readonly logger = new Logger(ScraperAdminService.name);
+
+    constructor(
+        private readonly config: ConfigService,
+        private readonly pluginLoader: ScraperPluginLoader
+    ) {}
+
+    /**
+     * Re-scan SCRAPER_PLUGIN_DIR and register any plugins found.
+     * Delegates directly to ScraperPluginLoader.loadPlugins().
+     */
+    public async reloadPlugins(): Promise<void> {
+        this.logger.log('Admin triggered plugin reload');
+        await this.pluginLoader.loadPlugins();
+    }
+
+    /**
+     * Write a plugin file to SCRAPER_PLUGIN_DIR and reload all plugins.
+     *
+     * @param originalname - The original filename from the upload (will be sanitised).
+     * @param buffer       - Raw file bytes to write.
+     * @returns The sanitised filename that was written.
+     * @throws BadRequestException when SCRAPER_PLUGIN_DIR is not configured,
+     *         the filename is invalid, or the file is not a .js file.
+     */
+    public async installPlugin(originalname: string, buffer: Buffer): Promise<string> {
+        const pluginDir = this.config.get<string>('SCRAPER_PLUGIN_DIR');
+        if (!pluginDir) {
+            throw new BadRequestException(
+                'SCRAPER_PLUGIN_DIR is not configured — plugin installation is disabled'
+            );
+        }
+
+        const filename = this.sanitiseFilename(originalname);
+
+        const dest = join(pluginDir, filename);
+        this.logger.log(`Admin installing plugin to '${dest}'`);
+
+        await writeFile(dest, buffer);
+        this.logger.log(`Plugin file written: ${dest}`);
+
+        await this.pluginLoader.loadPlugins();
+
+        return filename;
+    }
+
+    /**
+     * Strip path components and validate that the filename is a .js file.
+     * Allows only word chars, hyphens, dots, and digits with a .js extension.
+     *
+     * @throws BadRequestException for invalid or unsafe filenames.
+     */
+    public sanitiseFilename(originalname: string): string {
+        // Strip any directory prefix an attacker might inject
+        const basename = originalname.replace(/^.*[\\/]/, '');
+
+        if (!basename) {
+            throw new BadRequestException('Plugin filename must not be empty');
+        }
+
+        if (!basename.endsWith('.js')) {
+            throw new BadRequestException('Only .js plugin files are accepted');
+        }
+
+        // Allow only safe characters: word chars, hyphens, dots, digits
+        if (!/^[\w.-]+\.js$/.test(basename)) {
+            throw new BadRequestException(
+                `Invalid plugin filename '${basename}' — use only letters, digits, hyphens, and dots`
+            );
+        }
+
+        return basename;
+    }
+}

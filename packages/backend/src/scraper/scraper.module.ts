@@ -7,6 +7,8 @@ import {SyncScheduleController} from '#scraper/sync/sync-schedule.controller.js'
 import {SyncScheduleService} from '#scraper/sync/sync-schedule.service.js';
 import {SyncJobController} from '#scraper/sync/sync-job.controller.js';
 import {ScraperController} from '#scraper/scraper.controller.js';
+import {ScraperAdminController} from '#scraper/scraper-admin.controller.js';
+import {ScraperAdminService} from '#scraper/scraper-admin.service.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {ScraperScheduler} from '#scraper/scraper.scheduler.js';
 import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
@@ -28,6 +30,7 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
  *   - SyncScheduleController — CRUD for SyncSchedule
  *   - SyncJobController      — POST /run-now, GET /stream, POST /mfa-response
  *   - ScraperController       — GET /scrapers (public)
+ *   - ScraperAdminController   — POST /admin/scrapers/reload, POST /admin/scrapers/install (ADMIN)
  *
  * Providers:
  *   - ImportService, SyncScheduleService, ScraperService, ScraperRegistry
@@ -46,12 +49,14 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
         ImportController,
         SyncScheduleController,
         SyncJobController,
-        ScraperController
+        ScraperController,
+        ScraperAdminController
     ],
     providers: [
         ImportService,
         SyncScheduleService,
         ScraperService,
+        ScraperAdminService,
         ScraperScheduler,
         ScraperPluginLoader,
         ScraperRegistry,
