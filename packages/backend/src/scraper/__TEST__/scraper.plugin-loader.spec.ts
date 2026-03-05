@@ -40,9 +40,7 @@ const makeDirent = (name: string, isFile = true): Dirent =>
     ({isFile: () => isFile, name} as unknown as Dirent);
 
 /** Returns a vi.spyOn targeting the protected `loadModule` method of ScraperPluginLoader. */
-const spyLoadModule = (
-    l: ScraperPluginLoader
-): ReturnType<typeof vi.spyOn> =>
+const spyLoadModule = (l: ScraperPluginLoader) =>
     vi.spyOn(
         l as unknown as {loadModule: (href: string) => Promise<Record<string, unknown>>},
         'loadModule'
@@ -103,6 +101,7 @@ describe('ScraperPluginLoader', () => {
             await loader.loadPlugins();
 
             expect(vi.mocked(readdir)).not.toHaveBeenCalled();
+            expect(mockRegistry.register).not.toHaveBeenCalled();
         });
 
         // -----------------------------------------------------------------------
@@ -186,6 +185,8 @@ describe('ScraperPluginLoader', () => {
             expect(mockRegistry.register).toHaveBeenCalledTimes(2);
             expect(mockRegistry.register).toHaveBeenCalledWith(cibc);
             expect(mockRegistry.register).toHaveBeenCalledWith(rbc);
+            expect(loadModuleSpy).toHaveBeenNthCalledWith(1, expect.stringMatching(/^file:\/\//));
+            expect(loadModuleSpy).toHaveBeenNthCalledWith(2, expect.stringMatching(/^file:\/\//));
         });
 
         // -----------------------------------------------------------------------
