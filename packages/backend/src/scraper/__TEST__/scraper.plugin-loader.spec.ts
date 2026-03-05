@@ -39,6 +39,15 @@ const makePlugin = (bankId = 'test-bank'): BankScraper => ({
 const makeDirent = (name: string, isFile = true): Dirent =>
     ({isFile: () => isFile, name} as unknown as Dirent);
 
+/** Returns a vi.spyOn targeting the protected `loadModule` method of ScraperPluginLoader. */
+const spyLoadModule = (
+    l: ScraperPluginLoader
+): ReturnType<typeof vi.spyOn> =>
+    vi.spyOn(
+        l as unknown as {loadModule: (href: string) => Promise<Record<string, unknown>>},
+        'loadModule'
+    );
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -149,14 +158,14 @@ describe('ScraperPluginLoader', () => {
             vi.mocked(readdir).mockResolvedValue([makeDirent('cibc.js')]);
 
             const plugin = makePlugin('cibc');
-            vi.spyOn(loader as unknown as {
-                loadModule: (href: string) => Promise<Record<string, unknown>>;
-            }, 'loadModule').mockResolvedValue({default: plugin});
+            const loadModuleSpy = spyLoadModule(loader);
+            loadModuleSpy.mockResolvedValue({default: plugin});
 
             await loader.loadPlugins();
 
             expect(mockRegistry.register).toHaveBeenCalledOnce();
             expect(mockRegistry.register).toHaveBeenCalledWith(plugin);
+            expect(loadModuleSpy).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\//));
         });
 
         it('should register all valid plugins when multiple files are present', async () => {
@@ -168,9 +177,7 @@ describe('ScraperPluginLoader', () => {
 
             const cibc = makePlugin('cibc');
             const rbc = makePlugin('rbc');
-            const loadModuleSpy = vi.spyOn(loader as unknown as {
-                loadModule: (href: string) => Promise<Record<string, unknown>>;
-            }, 'loadModule');
+            const loadModuleSpy = spyLoadModule(loader);
             loadModuleSpy.mockResolvedValueOnce({default: cibc});
             loadModuleSpy.mockResolvedValueOnce({default: rbc});
 
@@ -189,9 +196,7 @@ describe('ScraperPluginLoader', () => {
             mockConfig.get.mockReturnValue('/plugins');
             vi.mocked(readdir).mockResolvedValue([makeDirent('bad.js')]);
 
-            vi.spyOn(loader as unknown as {
-                loadModule: (href: string) => Promise<Record<string, unknown>>;
-            }, 'loadModule').mockResolvedValue({}); // no default key
+            spyLoadModule(loader).mockResolvedValue({}); // no default key
 
             await loader.loadPlugins();
 
@@ -202,9 +207,7 @@ describe('ScraperPluginLoader', () => {
             mockConfig.get.mockReturnValue('/plugins');
             vi.mocked(readdir).mockResolvedValue([makeDirent('bad.js')]);
 
-            vi.spyOn(loader as unknown as {
-                loadModule: (href: string) => Promise<Record<string, unknown>>;
-            }, 'loadModule').mockResolvedValue({
+            spyLoadModule(loader).mockResolvedValue({
                 default: {bankId: 'rbc'} // missing displayName, login, etc.
             });
 
@@ -225,9 +228,7 @@ describe('ScraperPluginLoader', () => {
             ]);
 
             const good = makePlugin('good-bank');
-            const loadModuleSpy = vi.spyOn(loader as unknown as {
-                loadModule: (href: string) => Promise<Record<string, unknown>>;
-            }, 'loadModule');
+            const loadModuleSpy = spyLoadModule(loader);
             loadModuleSpy.mockRejectedValueOnce(new Error('Syntax error'));
             loadModuleSpy.mockResolvedValueOnce({default: good});
 
