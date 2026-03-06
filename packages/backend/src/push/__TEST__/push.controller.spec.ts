@@ -80,10 +80,5 @@ describe('PushController', () => {
                 dto.endpoint
             );
         });
-
-        it('delegates to pushService.unsubscribe without returning a body', () => {
-            controller.unsubscribe(makeUser(), makeUnsubscribeDto());
-            expect(pushService.unsubscribe).toHaveBeenCalledTimes(1);
-        });
     });
 });

@@ -123,6 +123,11 @@ describe('PushService', () => {
             expect(vi.mocked(nodemailer.createTransport)).not.toHaveBeenCalled();
             expect(warnSpy).toHaveBeenCalled();
         });
+
+        it('throws when SMTP_PORT is a non-numeric string', () => {
+            expect(() => buildService({...VAPID_CONFIG, ...SMTP_CONFIG, SMTP_PORT: 'not-a-port'}))
+                .toThrow('SMTP_PORT "not-a-port" is not a valid port number');
+        });
     });
 
     // -------------------------------------------------------------------------
