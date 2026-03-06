@@ -1,3 +1,25 @@
-npm run typecheck:all
-npm run lint:all
-npm run test:coverage:all
+STAGED=$(git diff --cached --name-only)
+
+backend_changed=false
+frontend_changed=false
+
+echo "$STAGED" | grep -q "^packages/backend/" && backend_changed=true
+echo "$STAGED" | grep -q "^packages/frontend/" && frontend_changed=true
+
+if $backend_changed; then
+  echo "[pre-commit] backend changes detected — running typecheck, lint, coverage"
+  npm run -w packages/backend typecheck
+  npm run -w packages/backend lint:eslint
+  npm run -w packages/backend test:coverage
+fi
+
+if $frontend_changed; then
+  echo "[pre-commit] frontend changes detected — running typecheck, lint, coverage"
+  npm run -w packages/frontend typecheck
+  npm run -w packages/frontend lint:eslint
+  npm run -w packages/frontend test:coverage
+fi
+
+if ! $backend_changed && ! $frontend_changed; then
+  echo "[pre-commit] no package source changes — skipping checks"
+fi
