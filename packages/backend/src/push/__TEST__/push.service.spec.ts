@@ -124,9 +124,17 @@ describe('PushService', () => {
             expect(warnSpy).toHaveBeenCalled();
         });
 
-        it('throws when SMTP_PORT is a non-numeric string', () => {
+        it('throws when SMTP_PORT is a non-numeric string and SMTP is configured', () => {
             expect(() => buildService({...VAPID_CONFIG, ...SMTP_CONFIG, SMTP_PORT: 'not-a-port'}))
                 .toThrow('SMTP_PORT "not-a-port" is not a valid port number');
+        });
+
+        it('does not throw when SMTP_PORT is invalid but SMTP host/user/pass are absent', () => {
+            const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => void 0);
+            // Bad port but no SMTP credentials — should warn and return null, not throw
+            expect(() => buildService({...VAPID_CONFIG, SMTP_PORT: 'not-a-port'})).not.toThrow();
+            expect(vi.mocked(nodemailer.createTransport)).not.toHaveBeenCalled();
+            expect(warnSpy).toHaveBeenCalled();
         });
     });
 

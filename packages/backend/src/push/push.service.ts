@@ -113,11 +113,6 @@ export class PushService {
 
     private initSmtp(): Transporter<SentMessageInfo> | null {
         const host = this.config.get<string>('SMTP_HOST');
-        const rawPort = this.config.get<string>('SMTP_PORT') ?? '587';
-        const port = parseInt(rawPort, 10);
-        if (isNaN(port)) {
-            throw new Error(`SMTP_PORT "${rawPort}" is not a valid port number`);
-        }
         const user = this.config.get<string>('SMTP_USER');
         const pass = this.config.get<string>('SMTP_PASS');
 
@@ -127,6 +122,12 @@ export class PushService {
                 'email notifications disabled'
             );
             return null;
+        }
+
+        const rawPort = this.config.get<string>('SMTP_PORT') ?? '587';
+        const port = parseInt(rawPort, 10);
+        if (isNaN(port)) {
+            throw new Error(`SMTP_PORT "${rawPort}" is not a valid port number`);
         }
 
         return nodemailer.createTransport({
