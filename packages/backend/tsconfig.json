@@ -12,22 +12,54 @@
         "outDir": "./dist",
         "baseUrl": "./src",
         "paths": {
-            "#root/*": ["./*"],
-            "#common/*": ["./common/*"],
-            "#config/*": ["./config/*"],
-            "#database/*": ["./database/*"],
-            "#auth/*": ["./auth/*"],
-            "#users/*": ["./users/*"],
-            "#transactions/*": ["./transactions/*"],
-            "#categories/*": ["./categories/*"],
-            "#accounts/*": ["./accounts/*"],
-            "#budgets/*": ["./budgets/*"],
-            "#reports/*": ["./reports/*"],
-            "#scraper/*": ["./scraper/*"],
-            "#ai/*": ["./ai/*"],
-            "#integrations/*": ["./integrations/*"],
-            "#push/*": ["./push/*"],
-            "#generated/*": ["./generated/*"]
+            "#root/*": [
+                "./*"
+            ],
+            "#common/*": [
+                "./common/*"
+            ],
+            "#config/*": [
+                "./config/*"
+            ],
+            "#database/*": [
+                "./database/*"
+            ],
+            "#auth/*": [
+                "./auth/*"
+            ],
+            "#users/*": [
+                "./users/*"
+            ],
+            "#transactions/*": [
+                "./transactions/*"
+            ],
+            "#categories/*": [
+                "./categories/*"
+            ],
+            "#accounts/*": [
+                "./accounts/*"
+            ],
+            "#budgets/*": [
+                "./budgets/*"
+            ],
+            "#reports/*": [
+                "./reports/*"
+            ],
+            "#scraper/*": [
+                "./scraper/*"
+            ],
+            "#ai/*": [
+                "./ai/*"
+            ],
+            "#integrations/*": [
+                "./integrations/*"
+            ],
+            "#push/*": [
+                "./push/*"
+            ],
+            "#generated/*": [
+                "./generated/*"
+            ]
         },
         "incremental": true,
         "skipLibCheck": true,
