@@ -346,7 +346,7 @@ Phase 8 completes the four deferred Phase 7 items. The carry-overs are small, se
 
 ## Upcoming: Phase 9 — Dashboard & UX Redesign
 
-Phase 9 is frontend-only (no new backend modules). The goal is a cohesive, navigable app shell: a proper home/dashboard page, a persistent sidebar, a Settings page, and an information-architecture pass to decide where each existing feature lives.
+Phase 9 is primarily frontend work with one small backend addition. The goal is a cohesive, navigable app shell: a proper home/dashboard page, a persistent sidebar, a Settings page, an Admin panel, and an information-architecture pass to decide where each existing feature lives.
 
 **Scope areas to resolve during planning:**
 
@@ -354,10 +354,14 @@ Phase 9 is frontend-only (no new backend modules). The goal is a cohesive, navig
 2. **Sidebar navigation** — replace or augment the current top-nav with a persistent sidebar that lists all primary sections (Dashboard, Transactions, Accounts, Categories, Sync, Settings). Must be responsive (collapsible on small viewports).
 3. **Settings page** — `/settings` route grouping user-level preferences: profile, password change, notification preferences, connected accounts, and any future preference categories.
 4. **Feature placement / information architecture** — decide which pages are primary sidebar items vs. nested under Settings or a parent section. Document the final IA map in the implementation plan.
+5. **Admin panel** — a `/admin` route, only visible and accessible to users with `role === 'ADMIN'`. Contains two sections:
+   - **Plugin management** — "Reload Plugins" button (`POST /admin/scrapers/reload`) and a file-upload form for installing a new `.js` plugin (`POST /admin/scrapers/install`). Shows a result toast on success/error.
+   - **User role management** — list of all users with their current role, and a toggle/button to promote or demote a user to/from `ADMIN`. Requires a new backend endpoint (`PATCH /admin/users/:id/role`) — this is the only backend addition in Phase 9. The first ADMIN user is seeded via the existing DB seed or promoted manually; subsequent promotions happen through this UI.
+   - The admin nav item must be hidden from non-ADMIN users. Route must be guarded client-side (`role === 'ADMIN'` check) and server-side (all endpoints behind `AdminGuard`).
 
 **Recommended next action:**
 
-1. `@planner` — Plan Phase 9: Dashboard & UX Redesign. Research the current routing structure in `packages/frontend/src/routes/`, the existing nav component, and all current pages. Decide whether the Transactions page becomes the dashboard or a new `/dashboard` route is introduced. Produce a full IA decision map and implementation plan in `test-plan/dashboard-ux/implementation-plan.md`.
+1. `@planner` — Plan Phase 9: Dashboard & UX Redesign. Research the current routing structure in `packages/frontend/src/routes/`, the existing nav component, and all current pages. Decide whether the Transactions page becomes the dashboard or a new `/dashboard` route is introduced. Include the Admin panel (scope area 5) in the IA map, noting the one backend addition needed (`PATCH /admin/users/:id/role`). Produce a full IA decision map and implementation plan in `test-plan/dashboard-ux/implementation-plan.md`.
 
 ---
 
