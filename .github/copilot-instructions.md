@@ -202,6 +202,94 @@ This is a finance tracker monorepo with:
 - Keep architecture docs current
 - Document environment variables
 
+## figma-pilot MCP (Figma Design Tool)
+
+**ALWAYS call `figma_status` first** to verify the Figma plugin bridge is connected before any `figma_execute` call.
+
+This project uses [figma-pilot](https://github.com/youware-labs/figma-pilot) — an MCP server that lets you create and modify Figma designs by executing JavaScript against the full Figma plugin API.
+
+### Setup (one-time, per machine)
+1. Download the plugin zip from [figma-pilot Releases](https://github.com/youware-labs/figma-pilot/releases)
+2. In Figma Desktop: Plugins → Development → Import plugin from manifest → select `manifest.json`
+3. Run the plugin (Plugins → Development → figma-pilot) — it must show **Connected**
+4. The MCP server is already configured in `.vscode/mcp.json`
+
+### Available tools
+
+| Tool | Description |
+|------|-------------|
+| `figma_status` | Check connection — call this first |
+| `figma_execute` | Execute JavaScript with full Figma API access |
+| `figma_get_api_docs` | Get detailed API docs for a specific rule file |
+
+### Core API (use inside `figma_execute`)
+
+```javascript
+// Create elements
+await figma.create({ type: 'frame', name: 'Sidebar', width: 240, height: 800 })
+await figma.create({ type: 'text', content: 'Dashboard', fontSize: 14 })
+await figma.create({ type: 'card', name: 'Card', children: [...] })
+
+// Query elements
+const { nodes } = await figma.query({ target: 'selection' })         // current selection
+const { nodes } = await figma.query({ target: 'page' })              // all on page
+const { nodes } = await figma.query({ target: 'name:Sidebar' })      // by name
+
+// Modify elements
+await figma.modify({ target: node.id, fill: '#1e293b', cornerRadius: 8 })
+await figma.modify({ target: node.id, width: 240, height: 'fill' })
+
+// Append / move
+await figma.append({ target: childId, parent: parentId })
+
+// Delete
+await figma.delete({ target: node.id })
+
+// Components
+await figma.listComponents()
+await figma.instantiate({ component: 'ComponentName', parent: frameId })
+await figma.toComponent({ target: node.id })
+
+// Auto-layout
+await figma.modify({ target: frameId, layout: 'vertical', gap: 16, padding: 24 })
+
+// Design tokens
+await figma.createToken({ name: 'color/background', value: '#0f172a', type: 'color' })
+await figma.bindToken({ target: node.id, property: 'fill', token: 'color/background' })
+
+// Accessibility
+await figma.accessibility({ target: 'page', level: 'AA', autoFix: true })
+
+// Export
+await figma.export({ target: node.id, format: 'PNG' })
+```
+
+### Design token mapping (finance-tracker → Figma)
+When creating designs for this project, use these hex values (from `src/index.css`):
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| `--color-background` | `#0f172a` | Page background |
+| `--color-surface` | `#1e293b` | Cards, sidebar |
+| `--color-surface-raised` | `#334155` | Elevated elements |
+| `--color-border` | `#334155` | Borders, dividers |
+| `--color-text-primary` | `#f1f5f9` | Headings |
+| `--color-text-secondary` | `#94a3b8` | Labels, secondary text |
+| `--color-accent` | `#3b82f6` | Primary actions, links |
+| `--color-accent-hover` | `#2563eb` | Hover states |
+| `--color-success` | `#22c55e` | Positive values |
+| `--color-danger` | `#ef4444` | Negative values, errors |
+
+### Workflow for Phase 9 UI design
+1. Call `figma_status` — confirm connected
+2. Create a new page in Figma for the design
+3. Scaffold the app shell: sidebar frame, main content area, top bar
+4. Build each page (Dashboard, Transactions, Accounts, Categories, Sync, Settings, Admin) as a separate frame
+5. Apply finance-tracker tokens (colours, spacing) via `figma.modify` and `figma.createToken`
+6. Review in Figma, iterate, then implement in React
+
+---
+
 ## Questions & Issues
 
 If uncertain about:
