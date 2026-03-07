@@ -64,4 +64,5 @@ accountactivity.csv
 # Test screenshots — stored in screenshots/ at the workspace root, never committed
 screenshots/
 *.png
+transaction.json
 transaction.jsonbash.exe.stackdump
