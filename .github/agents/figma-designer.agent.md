@@ -62,48 +62,48 @@ console.log(`Modified ${nodes.length} elements`);
 Read individual rule files for detailed API documentation:
 
 ### Getting Started
-- [rules/quick-start.md](rules/quick-start.md) - Quick start guide and setup requirements
-- [rules/workflow.md](rules/workflow.md) - Recommended agent workflow and operator rules
+- [figma-pilot-rules/quick-start.md](figma-pilot-rules/quick-start.md) - Quick start guide and setup requirements
+- [figma-pilot-rules/workflow.md](figma-pilot-rules/workflow.md) - Recommended agent workflow and operator rules
 
 ### Core APIs
-- [rules/status.md](rules/status.md) - `figma.status()` - Check connection
-- [rules/query.md](rules/query.md) - `figma.query()` - Query elements by ID, name, or selection
+- [figma-pilot-rules/status.md](figma-pilot-rules/status.md) - `figma.status()` - Check connection
+- [figma-pilot-rules/query.md](figma-pilot-rules/query.md) - `figma.query()` - Query elements by ID, name, or selection
 
 ### Creating Elements
-- [rules/create.md](rules/create.md) - `figma.create()` - Create elements (frames, text, shapes, semantic types)
-- [rules/layout.md](rules/layout.md) - Auto-layout configuration and patterns
+- [figma-pilot-rules/create.md](figma-pilot-rules/create.md) - `figma.create()` - Create elements (frames, text, shapes, semantic types)
+- [figma-pilot-rules/layout.md](figma-pilot-rules/layout.md) - Auto-layout configuration and patterns
 
 ### Modifying Elements
-- [rules/modify.md](rules/modify.md) - `figma.modify()`, `figma.delete()`, `figma.append()`
+- [figma-pilot-rules/modify.md](figma-pilot-rules/modify.md) - `figma.modify()`, `figma.delete()`, `figma.append()`
 
 ### Styling
-- [rules/effects.md](rules/effects.md) - Shadows, blur, and visual effects
-- [rules/gradients.md](rules/gradients.md) - Gradient fills (linear, radial, angular)
-- [rules/corner-radius.md](rules/corner-radius.md) - Independent corner radius
-- [rules/strokes.md](rules/strokes.md) - Stroke styling (dash patterns, caps, alignment)
-- [rules/transforms.md](rules/transforms.md) - Rotation and blend modes
-- [rules/constraints.md](rules/constraints.md) - Responsive constraints and min/max sizes
+- [figma-pilot-rules/effects.md](figma-pilot-rules/effects.md) - Shadows, blur, and visual effects
+- [figma-pilot-rules/gradients.md](figma-pilot-rules/gradients.md) - Gradient fills (linear, radial, angular)
+- [figma-pilot-rules/corner-radius.md](figma-pilot-rules/corner-radius.md) - Independent corner radius
+- [figma-pilot-rules/strokes.md](figma-pilot-rules/strokes.md) - Stroke styling (dash patterns, caps, alignment)
+- [figma-pilot-rules/transforms.md](figma-pilot-rules/transforms.md) - Rotation and blend modes
+- [figma-pilot-rules/constraints.md](figma-pilot-rules/constraints.md) - Responsive constraints and min/max sizes
 
 ### Text
-- [rules/text.md](rules/text.md) - Text elements, wrapping, and sizing
-- [rules/fonts.md](rules/fonts.md) - Loading and using custom fonts
+- [figma-pilot-rules/text.md](figma-pilot-rules/text.md) - Text elements, wrapping, and sizing
+- [figma-pilot-rules/fonts.md](figma-pilot-rules/fonts.md) - Loading and using custom fonts
 
 ### Components
-- [rules/components.md](rules/components.md) - `figma.listComponents()`, `figma.instantiate()`, `figma.toComponent()`, `figma.createVariants()`
+- [figma-pilot-rules/components.md](figma-pilot-rules/components.md) - `figma.listComponents()`, `figma.instantiate()`, `figma.toComponent()`, `figma.createVariants()`
 
 ### Accessibility
-- [rules/accessibility.md](rules/accessibility.md) - `figma.accessibility()` - WCAG compliance checking and auto-fixing
+- [figma-pilot-rules/accessibility.md](figma-pilot-rules/accessibility.md) - `figma.accessibility()` - WCAG compliance checking and auto-fixing
 
 ### Design Tokens
-- [rules/tokens.md](rules/tokens.md) - `figma.createToken()`, `figma.bindToken()`, `figma.syncTokens()`
+- [figma-pilot-rules/tokens.md](figma-pilot-rules/tokens.md) - `figma.createToken()`, `figma.bindToken()`, `figma.syncTokens()`
 
 ### Export
-- [rules/export.md](rules/export.md) - `figma.export()` - Export as PNG, SVG, PDF, JPG
+- [figma-pilot-rules/export.md](figma-pilot-rules/export.md) - `figma.export()` - Export as PNG, SVG, PDF, JPG
 
 ### Common Patterns
-- [rules/patterns.md](rules/patterns.md) - Cards, navigation bars, page layouts
+- [figma-pilot-rules/patterns.md](figma-pilot-rules/patterns.md) - Cards, navigation bars, page layouts
 
 ### Reference
-- [rules/target-specifiers.md](rules/target-specifiers.md) - How to target elements (ID, selection, name)
+- [figma-pilot-rules/target-specifiers.md](figma-pilot-rules/target-specifiers.md) - How to target elements (ID, selection, name)
 
 ---
