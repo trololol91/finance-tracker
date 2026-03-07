@@ -1,15 +1,8 @@
 ---
-description: Design UI screens directly in Figma using the figma-pilot MCP. Creates frames, components, and design tokens from a prompt before React implementation begins.
-tools: ['figma-pilot/*', 'read', 'edit']
-handoffs:
-  - label: Implement in React (Frontend)
-    agent: frontend-dev
-    prompt: The Figma designs above are approved. Implement them in React following all frontend conventions. Match the layout, spacing, and colour tokens exactly.
-    send: false
-  - label: Plan Implementation
-    agent: planner
-    prompt: The Figma designs above are complete. Produce a full implementation plan for the screens shown.
-    send: false
+name: figma-pilot
+description: REQUIRED reading before using figma_execute. Contains API syntax, parameter formats, and examples. READ rules/*.md files for correct usage.
+metadata:
+  tags: figma, mcp, design, ai, components, accessibility, tokens
 ---
 
 ## When to use
@@ -105,5 +98,3 @@ Read individual rule files for detailed API documentation:
 
 ### Reference
 - [rules/target-specifiers.md](rules/target-specifiers.md) - How to target elements (ID, selection, name)
-
----

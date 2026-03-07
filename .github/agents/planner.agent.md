@@ -1,6 +1,6 @@
 ---
 description: Research the codebase, generate a detailed implementation plan, and write planning artefacts (test plans, ADRs, roadmap updates)
-tools: ['codebase', 'fetch', 'search', 'read/problems', 'edit']
+tools: ['search', 'read', 'edit', 'figma-pilot/*']
 handoffs:
   - label: Implement Plan (Backend)
     agent: backend-dev

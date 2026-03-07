@@ -20,7 +20,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **6** | Accounts Module | Accounts UI | ✅ Complete |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | 🟨 Partially Complete |
 | **8** | Phase 7 carry-overs | — | ✅ Complete |
-| **9** | — | Dashboard & UX Redesign (sidebar, Settings, navigation, layout) | ⬜ Not Started |
+| **9** | — | Dashboard & UX Redesign (sidebar, Settings, navigation, layout) | ⬜ In Progress |
 | **10** | MCP Server | MCP App UIs | ⬜ Not Started |
 | **11** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
 
@@ -344,24 +344,35 @@ Phase 8 completes the four deferred Phase 7 items. The carry-overs are small, se
 
 ---
 
-## Upcoming: Phase 9 — Dashboard & UX Redesign
+## Current Focus: Phase 9 — Dashboard & UX Redesign
 
-Phase 9 is primarily frontend work with one small backend addition. The goal is a cohesive, navigable app shell: a proper home/dashboard page, a persistent sidebar, a Settings page, an Admin panel, and an information-architecture pass to decide where each existing feature lives.
+Phase 9 delivers a cohesive app shell: a persistent sidebar, a real Dashboard page (replacing the stub), a Settings page (Profile + Notifications), and an Admin panel (ADMIN-role-gated). Two new backend modules add aggregated dashboard data and admin user management. **No schema migrations required** — `UserRole`, `TransactionType.transfer`, and `notifyPush`/`notifyEmail` are already in the schema.
 
-**Scope areas to resolve during planning:**
+Implementation plan: [`test-plan/dashboard-ux/implementation-plan.md`](../test-plan/dashboard-ux/implementation-plan.md)
 
-1. **Main dashboard / home page** — a `/dashboard` (or `/`) route that acts as the app’s home screen after login. Could be a summary view of recent transactions, account balances, and quick-action shortcuts — or it could be the existing Transactions page promoted to that role with dashboard widgets added around it. This is a key IA decision to make during planning.
-2. **Sidebar navigation** — replace or augment the current top-nav with a persistent sidebar that lists all primary sections (Dashboard, Transactions, Accounts, Categories, Sync, Settings). Must be responsive (collapsible on small viewports).
-3. **Settings page** — `/settings` route grouping user-level preferences: profile, password change, notification preferences, connected accounts, and any future preference categories.
-4. **Feature placement / information architecture** — decide which pages are primary sidebar items vs. nested under Settings or a parent section. Document the final IA map in the implementation plan.
-5. **Admin panel** — a `/admin` route, only visible and accessible to users with `role === 'ADMIN'`. Contains two sections:
-   - **Plugin management** — "Reload Plugins" button (`POST /admin/scrapers/reload`) and a file-upload form for installing a new `.js` plugin (`POST /admin/scrapers/install`). Shows a result toast on success/error.
-   - **User role management** — list of all users with their current role, and a toggle/button to promote or demote a user to/from `ADMIN`. Requires a new backend endpoint (`PATCH /admin/users/:id/role`) — this is the only backend addition in Phase 9. The first ADMIN user is seeded via the existing DB seed or promoted manually; subsequent promotions happen through this UI.
-   - The admin nav item must be hidden from non-ADMIN users. Route must be guarded client-side (`role === 'ADMIN'` check) and server-side (all endpoints behind `AdminGuard`).
+**IA Decision:** `/dashboard` is a new dedicated summary page. Sidebar replaces the Header for all private routes. `/settings` groups Profile + Notifications. `/admin` is ADMIN-role-gated. Categories and Scraper keep their own routes, linked from the sidebar Settings section.
 
-**Recommended next action:**
+**Recommended next actions:**
 
-1. `@planner` — Plan Phase 9: Dashboard & UX Redesign. Research the current routing structure in `packages/frontend/src/routes/`, the existing nav component, and all current pages. Decide whether the Transactions page becomes the dashboard or a new `/dashboard` route is introduced. Include the Admin panel (scope area 5) in the IA map, noting the one backend addition needed (`PATCH /admin/users/:id/role`). Produce a full IA decision map and implementation plan in `test-plan/dashboard-ux/implementation-plan.md`.
+1. ⬜ `@backend-dev` — Implement `DashboardModule` (`GET /dashboard/summary`, `GET /dashboard/spending-by-category`). Register in `app.module.ts`. Swagger on all endpoints. No migration needed.
+2. ⬜ `@backend-dev` — Add `GET /admin/users` + `PATCH /admin/users/:id/role` to `UsersModule` behind `AdminGuard`. Add `AdminUserListItemDto` + `UpdateUserRoleDto`.
+3. ⬜ `@backend-dev` — Prisma seed script (`prisma/seed.ts`) for initial ADMIN user. Wire into `package.json` under `prisma.seed`.
+4. ⬜ `@test-writer` — Backend unit tests for `DashboardService` and the two new `UsersService` admin methods.
+5. ⬜ `@backend-tester` — Run backend API test plan (19 TCs) from `test-plan/dashboard-ux/implementation-plan.md` Section 11.
+6. ⬜ `@code-reviewer` — Review backend changes.
+7. ⬜ `@backend-dev` — Commit backend: dashboard module → admin user endpoints → seed script.
+8. ⬜ Run `npm run generate:api` in `packages/frontend`.
+9. ⬜ **Cross-feature Step A** — Add `role: 'USER' | 'ADMIN'` to `User` interface in `features/auth/types/auth.types.ts`; persist/restore `role` in `authStorage` and `AuthContext`.
+10. ⬜ **Cross-feature Step B** — Add `APP_ROUTES.SETTINGS`, `APP_ROUTES.ADMIN`, `API_ROUTES.DASHBOARD`, `API_ROUTES.ADMIN` to `config/constants.ts`.
+11. ⬜ `@frontend-dev` — Build `AppShell` layout wrapper + `Sidebar` component + `navConfig.ts` + `AdminRoute` guard.
+12. ⬜ **Cross-feature Step C** — Update `routes/index.tsx`: wrap all existing private routes (Transactions, Accounts, Categories, Scraper, existing stubs) in `AppShell` layout route; add `/settings`, `/admin` routes; add `/profile` → `/settings` redirect.
+13. ⬜ `@frontend-dev` — Build real `DashboardPage` with `SummaryCard`, `RecentTransactionsList`, `AccountsPanel`, `SpendingByCategoryPanel` feature components. Use Orval-generated hooks.
+14. ⬜ `@frontend-dev` — Build `SettingsPage` (Profile tab lifted from ProfilePage + Notifications tab).
+15. ⬜ `@frontend-dev` — Build `AdminPage` (`UserRoleTable` + `PluginManager`).
+16. ⬜ `@test-writer` — Frontend unit tests for all new components.
+17. ⬜ `@code-reviewer` — Review frontend changes.
+18. ⬜ `@frontend-tester` — Full regression E2E test plan (Sidebar, Dashboard, Settings, Admin flows) per Section 10 of implementation plan.
+19. ⬜ `@frontend-dev` — Commit frontend per task: AppShell+Sidebar → DashboardPage → SettingsPage → AdminPage.
 
 ---
 
