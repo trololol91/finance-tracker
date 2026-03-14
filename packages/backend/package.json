@@ -7,22 +7,26 @@
   "license": "UNLICENSED",
   "type": "module",
   "imports": {
-    "#root/*": "./dist/src/*",
-    "#common/*": "./dist/src/common/*",
-    "#config/*": "./dist/src/config/*",
-    "#database/*": "./dist/src/database/*",
-    "#auth/*": "./dist/src/auth/*",
-    "#users/*": "./dist/src/users/*",
-    "#transactions/*": "./dist/src/transactions/*",
-    "#categories/*": "./dist/src/categories/*",
-    "#accounts/*": "./dist/src/accounts/*",
-    "#budgets/*": "./dist/src/budgets/*",
-    "#reports/*": "./dist/src/reports/*",
-    "#scraper/*": "./dist/src/scraper/*",
-    "#ai/*": "./dist/src/ai/*",
-    "#integrations/*": "./dist/src/integrations/*",
-    "#push/*": "./dist/src/push/*",
-    "#generated/*": "./dist/src/generated/*"
+    "#root/*": "./dist/*",
+    "#common/*": "./dist/common/*",
+    "#config/*": "./dist/config/*",
+    "#database/*": "./dist/database/*",
+    "#auth/*": "./dist/auth/*",
+    "#users/*": "./dist/users/*",
+    "#transactions/*": "./dist/transactions/*",
+    "#categories/*": "./dist/categories/*",
+    "#accounts/*": "./dist/accounts/*",
+    "#budgets/*": "./dist/budgets/*",
+    "#reports/*": "./dist/reports/*",
+    "#scraper/*": "./dist/scraper/*",
+    "#ai/*": "./dist/ai/*",
+    "#integrations/*": "./dist/integrations/*",
+    "#push/*": "./dist/push/*",
+    "#generated/*": "./dist/generated/*",
+    "#dashboard/*": "./dist/dashboard/*"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "engines": {
     "node": "24.13.0"
@@ -48,7 +52,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "node prisma/seed.js"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "11.0.1",
@@ -106,6 +110,7 @@
     "ts-loader": "9.5.2",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
+    "tsx": "^4.19.2",
     "typescript": "5.7.3",
     "typescript-eslint": "8.20.0",
     "vitest": "4.0.15"

@@ -53,7 +53,8 @@ export default defineConfig({
             '#push': resolve(__dirname, './src/push'),
             '#ai': resolve(__dirname, './src/ai'),
             '#integrations': resolve(__dirname, './src/integrations'),
-            '#generated': resolve(__dirname, './src/generated')
+            '#generated': resolve(__dirname, './src/generated'),
+            '#dashboard': resolve(__dirname, './src/dashboard')
         }
     }
 });

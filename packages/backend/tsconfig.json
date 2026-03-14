@@ -59,6 +59,9 @@
             ],
             "#generated/*": [
                 "./generated/*"
+            ],
+            "#dashboard/*": [
+                "./dashboard/*"
             ]
         },
         "incremental": true,
@@ -77,5 +80,9 @@
         "noImplicitThis": false,
         "strict": true,
         "resolveJsonModule": true
-    }
+    },
+    "include": [
+        "src/**/*",
+        "prisma/seed.ts"
+    ],
 }
