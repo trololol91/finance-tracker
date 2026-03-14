@@ -6,13 +6,15 @@ import {
     vi
 } from 'vitest';
 import {
-    ConflictException, NotFoundException, ForbiddenException
+    ConflictException, NotFoundException, ForbiddenException, BadRequestException
 } from '@nestjs/common';
 import {UsersService} from '#users/users.service.js';
 import type {PrismaService} from '#database/prisma.service.js';
 import type {User} from '#generated/prisma/client.js';
 import type {CreateUserDto} from '#users/dto/create-user.dto.js';
 import type {UpdateUserDto} from '#users/dto/update-user.dto.js';
+import type {AdminUserListItemDto} from '#users/dto/admin-user-list-item.dto.js';
+import {UserRole} from '#generated/prisma/enums.js';
 import * as bcrypt from 'bcrypt';
 
 vi.mock('bcrypt');
@@ -32,7 +34,7 @@ describe('UsersService', () => {
         deletedAt: null,
         timezone: 'UTC',
         currency: 'USD',
-        role: 'USER',
+        role: UserRole.USER,
         notifyPush: true,
         notifyEmail: true,
         createdAt: new Date('2024-01-01'),
@@ -44,6 +46,7 @@ describe('UsersService', () => {
             user: {
                 findUnique: vi.fn(),
                 findFirst: vi.fn(),
+                findMany: vi.fn(),
                 create: vi.fn(),
                 update: vi.fn()
             }
@@ -367,6 +370,167 @@ describe('UsersService', () => {
             await expect(service.remove(authenticatedUserId, targetUserId))
                 .rejects
                 .toThrow(NotFoundException);
+
+            expect(prismaService.user.update).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('findAllForAdmin', () => {
+        const mockAdminUserList: AdminUserListItemDto[] = [
+            {
+                id: '123e4567-e89b-12d3-a456-426614174000',
+                email: 'alice@example.com',
+                firstName: 'Alice',
+                lastName: 'Smith',
+                role: UserRole.USER,
+                isActive: true,
+                createdAt: new Date('2024-01-01')
+            },
+            {
+                id: '456e7890-e89b-12d3-a456-426614174001',
+                email: 'bob@example.com',
+                firstName: 'Bob',
+                lastName: 'Jones',
+                role: UserRole.ADMIN,
+                isActive: true,
+                createdAt: new Date('2024-02-01')
+            }
+        ];
+
+        /**
+         * USV-01: findAllForAdmin() returns all non-deleted users
+         */
+        it('USV-01: returns all non-deleted users', async () => {
+            vi.mocked(prismaService.user.findMany).mockResolvedValue(
+                mockAdminUserList as unknown as User[]
+            );
+
+            const result = await service.findAllForAdmin();
+
+            expect(prismaService.user.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: {deletedAt: null}
+                })
+            );
+            expect(result).toHaveLength(2);
+            expect(result[0].email).toBe('alice@example.com');
+            expect(result[1].email).toBe('bob@example.com');
+        });
+
+        /**
+         * USV-02: findAllForAdmin() excludes soft-deleted users (has deletedAt set)
+         */
+        it('USV-02: excludes soft-deleted users by filtering deletedAt: null', async () => {
+            // Only the non-deleted user is returned from the mock (Prisma handles the filter)
+            const activeOnly: AdminUserListItemDto[] = [mockAdminUserList[0]];
+            vi.mocked(prismaService.user.findMany).mockResolvedValue(
+                activeOnly as unknown as User[]
+            );
+
+            const result = await service.findAllForAdmin();
+
+            // Confirm the where clause filters out deleted users
+            expect(prismaService.user.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: {deletedAt: null}
+                })
+            );
+            expect(result).toHaveLength(1);
+            expect(result[0].email).toBe('alice@example.com');
+        });
+    });
+
+    describe('updateRole', () => {
+        const requestingUserId = '999e4567-e89b-12d3-a456-426614174999';
+        const targetUserId = '123e4567-e89b-12d3-a456-426614174000';
+        const mockAdminItem: AdminUserListItemDto = {
+            id: targetUserId,
+            email: 'test@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            role: UserRole.ADMIN,
+            isActive: true,
+            createdAt: new Date('2024-01-01')
+        };
+
+        /**
+         * USV-03: updateRole() updates role to ADMIN successfully
+         */
+        it('USV-03: updates role to ADMIN successfully', async () => {
+            vi.mocked(prismaService.user.findFirst).mockResolvedValue(mockUser);
+            vi.mocked(prismaService.user.update).mockResolvedValue(
+                mockAdminItem as unknown as User
+            );
+
+            const result = await service.updateRole(
+                requestingUserId, targetUserId, UserRole.ADMIN
+            );
+
+            expect(prismaService.user.findFirst).toHaveBeenCalledWith({
+                where: {id: targetUserId, deletedAt: null}
+            });
+            expect(prismaService.user.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: {id: targetUserId},
+                    data: {role: UserRole.ADMIN}
+                })
+            );
+            expect(result.role).toBe('ADMIN');
+        });
+
+        /**
+         * USV-04: updateRole() updates role to USER successfully
+         */
+        it('USV-04: updates role to USER successfully', async () => {
+            const userItem: AdminUserListItemDto = {...mockAdminItem, role: UserRole.USER};
+            vi.mocked(prismaService.user.findFirst).mockResolvedValue(mockUser);
+            vi.mocked(prismaService.user.update).mockResolvedValue(
+                userItem as unknown as User
+            );
+
+            const result = await service.updateRole(
+                requestingUserId, targetUserId, UserRole.USER
+            );
+
+            expect(prismaService.user.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: {role: UserRole.USER}
+                })
+            );
+            expect(result.role).toBe('USER');
+        });
+
+        /**
+         * USV-05: updateRole() throws BadRequestException when admin tries to change their own role
+         */
+        it('USV-05: throws BadRequestException when requestingUserId === targetUserId', async () => {
+            await expect(
+                service.updateRole(targetUserId, targetUserId, UserRole.ADMIN)
+            )
+                .rejects
+                .toThrow(BadRequestException);
+            await expect(
+                service.updateRole(targetUserId, targetUserId, UserRole.ADMIN)
+            )
+                .rejects
+                .toThrow('You cannot change your own role');
+
+            expect(prismaService.user.findFirst).not.toHaveBeenCalled();
+            expect(prismaService.user.update).not.toHaveBeenCalled();
+        });
+
+        /**
+         * USV-06: updateRole() throws NotFoundException when target user not found
+         */
+        it('USV-06: throws NotFoundException when target user not found', async () => {
+            vi.mocked(prismaService.user.findFirst).mockResolvedValue(null);
+
+            await expect(service.updateRole(requestingUserId, targetUserId, UserRole.ADMIN))
+                .rejects
+                .toThrow(NotFoundException);
+            await expect(service.updateRole(requestingUserId, targetUserId, UserRole.ADMIN))
+                .rejects
+                .toThrow(`User with ID ${targetUserId} not found`);
 
             expect(prismaService.user.update).not.toHaveBeenCalled();
         });

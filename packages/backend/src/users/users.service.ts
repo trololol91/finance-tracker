@@ -1,11 +1,13 @@
 import {
-    Injectable, ConflictException, NotFoundException, ForbiddenException
+    Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import {PrismaService} from '#database/prisma.service.js';
 import type {User} from '#generated/prisma/client.js';
 import {CreateUserDto} from './dto/create-user.dto.js';
 import {UpdateUserDto} from './dto/update-user.dto.js';
+import type {AdminUserListItemDto} from './dto/admin-user-list-item.dto.js';
+import type {UserRole} from '#generated/prisma/enums.js';
 
 @Injectable()
 export class UsersService {
@@ -110,11 +112,68 @@ export class UsersService {
                 lastName: updateUserDto.lastName,
                 timezone: updateUserDto.timezone,
                 currency: updateUserDto.currency,
-                isActive: updateUserDto.isActive
+                isActive: updateUserDto.isActive,
+                notifyPush: updateUserDto.notifyPush,
+                notifyEmail: updateUserDto.notifyEmail
             }
         });
 
         return user;
+    }
+
+    public async findAllForAdmin(): Promise<AdminUserListItemDto[]> {
+        const users = await this.prisma.user.findMany({
+            where: {deletedAt: null},
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                role: true,
+                isActive: true,
+                createdAt: true
+            },
+            orderBy: {createdAt: 'asc'}
+        });
+        return users;
+    }
+
+    /**
+     * Update a user's role.
+     * Enforces that an admin cannot change their own role.
+     */
+    public async updateRole(
+        requestingUserId: string,
+        userId: string,
+        role: UserRole
+    ): Promise<AdminUserListItemDto> {
+        if (requestingUserId === userId) {
+            throw new BadRequestException('You cannot change your own role');
+        }
+
+        const user = await this.prisma.user.findFirst({
+            where: {id: userId, deletedAt: null}
+        });
+
+        if (!user) {
+            throw new NotFoundException(`User with ID ${userId} not found`);
+        }
+
+        const updated = await this.prisma.user.update({
+            where: {id: userId},
+            data: {role},
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                role: true,
+                isActive: true,
+                createdAt: true
+            }
+        });
+
+        return updated;
     }
 
     /**

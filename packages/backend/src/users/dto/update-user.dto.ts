@@ -54,4 +54,24 @@ export class UpdateUserDto {
     @IsBoolean()
     @IsOptional()
     isActive?: boolean;
+
+    @ApiProperty({
+        description: 'Enable push notifications',
+        example: true,
+        required: false,
+        type: Boolean
+    })
+    @IsBoolean()
+    @IsOptional()
+    notifyPush?: boolean;
+
+    @ApiProperty({
+        description: 'Enable email notifications',
+        example: true,
+        required: false,
+        type: Boolean
+    })
+    @IsBoolean()
+    @IsOptional()
+    notifyEmail?: boolean;
 }

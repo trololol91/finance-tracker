@@ -18,7 +18,9 @@ export default [
             },
             sourceType: 'module',
             parserOptions: {
-                projectService: true,
+                projectService: {
+                    allowDefaultProject: ['test/*.ts', 'prisma/*.ts']
+                },
                 tsconfigRootDir: import.meta.dirname
             }
         },
@@ -155,10 +157,11 @@ export default [
         }
     },
     {
-        files: ['tools/**', 'scripts/**'],
+        files: ['tools/**', 'scripts/**', 'prisma/**'],
         rules: {
             'max-lines-per-function': 'off',
             'max-params': 'off',
+            'func-style': 'off',
             // Scripts live outside src/ and cannot use # path aliases
             'no-restricted-imports': 'off'
         }
