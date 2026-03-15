@@ -272,7 +272,7 @@ Windows: `%APPDATA%\Claude\claude_desktop_config.json`
     "finance-tracker": {
       "command": "node",
       "args": [
-        "C:/Users/richm/Projects/finance-tracker/packages/backend/dist/main.js",
+        "C:/Users/<username>/Projects/finance-tracker/packages/backend/dist/main.js",
         "--mcp-stdio"
       ]
     }
