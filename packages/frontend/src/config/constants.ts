@@ -19,7 +19,9 @@ export const API_ROUTES = {
     ACCOUNTS: '/accounts',
     BUDGETS: '/budgets',
     REPORTS: '/reports',
-    SCRAPER: '/scraper'
+    SCRAPER: '/scraper',
+    DASHBOARD: '/dashboard',
+    ADMIN_USERS: '/admin/users'
 } as const;
 
 export const APP_ROUTES = {
@@ -34,5 +36,7 @@ export const APP_ROUTES = {
     BUDGETS: '/budgets',
     REPORTS: '/reports',
     SCRAPER: '/scraper',
-    MFA: '/mfa'
+    MFA: '/mfa',
+    SETTINGS: '/settings',
+    ADMIN: '/admin'
 } as const;

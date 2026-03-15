@@ -211,6 +211,85 @@
         ]
       }
     },
+    "/admin/users": {
+      "get": {
+        "operationId": "AdminUsersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List all users (admin only)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/users/{id}/role": {
+      "patch": {
+        "operationId": "AdminUsersController_updateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserListItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cannot change your own role"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a user's role (admin only)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/auth/register": {
       "post": {
         "description": "Create a new user account and receive a JWT token",
@@ -1673,7 +1752,7 @@
             "description": "Unauthorized"
           },
           "404": {
-            "description": "Session not found or not owned by user"
+            "description": "Session not found, not owned by user, or server restarted mid-sync (mfa_required / running state cannot be resumed — start a new sync run)."
           }
         },
         "security": [
@@ -1760,6 +1839,241 @@
         "summary": "List registered bank scrapers",
         "tags": [
           "scrapers"
+        ]
+      }
+    },
+    "/admin/scrapers/reload": {
+      "post": {
+        "description": "Re-scans SCRAPER_PLUGIN_DIR and registers any valid .js plugins found. Existing registrations with the same bankId are overwritten. Requires ADMIN role. No request body required.",
+        "operationId": "ScraperAdminController_reload",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Plugin reload initiated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReloadPluginsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
+          },
+          "403": {
+            "description": "Caller is not an ADMIN user"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Reload external scraper plugins",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/scrapers/install": {
+      "post": {
+        "description": "Upload a .js plugin file. It is written to SCRAPER_PLUGIN_DIR and loadPlugins() is called so the new plugin is immediately available. The default export must satisfy the BankScraper interface. Requires ADMIN role. Only .js files up to 10 MB are accepted.",
+        "operationId": "ScraperAdminController_install",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "The .js plugin file to install",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A .js file whose default export satisfies BankScraper"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plugin installed and registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallPluginResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file type, unsafe filename, or SCRAPER_PLUGIN_DIR not configured"
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
+          },
+          "403": {
+            "description": "Caller is not an ADMIN user"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Install a new scraper plugin",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/push/subscribe": {
+      "post": {
+        "operationId": "PushController_subscribe",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribePushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription registered successfully"
+          },
+          "400": {
+            "description": "Invalid subscription payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register a Web Push subscription",
+        "tags": [
+          "push"
+        ]
+      },
+      "delete": {
+        "operationId": "PushController_unsubscribe",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnsubscribePushDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Subscription removed successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a Web Push subscription",
+        "tags": [
+          "push"
+        ]
+      }
+    },
+    "/dashboard/summary": {
+      "get": {
+        "operationId": "DashboardController_getSummary",
+        "parameters": [
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "Month in YYYY-MM format. Defaults to current month.",
+            "schema": {
+              "example": "2026-03",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get dashboard summary (net worth, income, expenses, savings rate)",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/dashboard/spending-by-category": {
+      "get": {
+        "operationId": "DashboardController_getSpendingByCategory",
+        "parameters": [
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "description": "Month in YYYY-MM format. Defaults to current month.",
+            "schema": {
+              "example": "2026-03",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendingByCategoryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get spending breakdown by category for a given month",
+        "tags": [
+          "dashboard"
         ]
       }
     }
@@ -1987,8 +2301,83 @@
             "type": "boolean",
             "description": "User active status",
             "example": true
+          },
+          "notifyPush": {
+            "type": "boolean",
+            "description": "Enable push notifications",
+            "example": true
+          },
+          "notifyEmail": {
+            "type": "boolean",
+            "description": "Enable email notifications",
+            "example": true
           }
         }
+      },
+      "AdminUserListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "example": "john@example.com"
+          },
+          "firstName": {
+            "type": "object",
+            "example": "John",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "object",
+            "example": "Doe",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ],
+            "example": "USER"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2026-01-01T00:00:00Z"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "firstName",
+          "lastName",
+          "role",
+          "isActive",
+          "createdAt"
+        ]
+      },
+      "UpdateUserRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ],
+            "example": "ADMIN"
+          }
+        },
+        "required": [
+          "role"
+        ]
       },
       "AuthUserDto": {
         "type": "object",
@@ -2998,6 +3387,278 @@
           "requiresMfaOnEveryRun",
           "maxLookbackDays",
           "pendingTransactionsIncluded"
+        ]
+      },
+      "ReloadPluginsResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Human-readable summary of the reload operation",
+            "example": "Plugin reload complete"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "InstallPluginResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Human-readable summary of the install operation",
+            "example": "Plugin cibc-plugin.js installed and loaded successfully"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Sanitised filename that was written to SCRAPER_PLUGIN_DIR",
+            "example": "cibc-plugin.js"
+          }
+        },
+        "required": [
+          "message",
+          "filename"
+        ]
+      },
+      "PushSubscriptionKeysDto": {
+        "type": "object",
+        "properties": {
+          "p256dh": {
+            "type": "object",
+            "description": "P-256 Diffie-Hellman public key (base64url)"
+          },
+          "auth": {
+            "type": "object",
+            "description": "Authentication secret (base64url)"
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ]
+      },
+      "SubscribePushDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "object",
+            "description": "Push service endpoint URL"
+          },
+          "keys": {
+            "description": "Encryption keys for the subscription",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PushSubscriptionKeysDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
+        ]
+      },
+      "UnsubscribePushDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "object",
+            "description": "Push service endpoint URL to remove"
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
+      },
+      "AccountBalanceSummaryItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Account ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Account name"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Account currency"
+          },
+          "balance": {
+            "type": "number",
+            "description": "Current account balance"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "currency",
+          "balance"
+        ]
+      },
+      "TransactionSummaryItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Transaction ID"
+          },
+          "date": {
+            "type": "string",
+            "description": "Transaction date as ISO 8601 UTC string"
+          },
+          "description": {
+            "type": "string",
+            "description": "Transaction description"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Transaction amount"
+          },
+          "transactionType": {
+            "type": "string",
+            "enum": [
+              "income",
+              "expense",
+              "transfer"
+            ]
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "accountName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "description",
+          "amount",
+          "transactionType",
+          "categoryName",
+          "accountName"
+        ]
+      },
+      "DashboardSummaryDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "description": "Period in YYYY-MM format",
+            "example": "2026-03"
+          },
+          "totalIncome": {
+            "type": "number",
+            "description": "Total income for the month",
+            "example": 5000
+          },
+          "totalExpenses": {
+            "type": "number",
+            "description": "Total expenses for the month",
+            "example": 3200
+          },
+          "netBalance": {
+            "type": "number",
+            "description": "totalIncome - totalExpenses",
+            "example": 1800
+          },
+          "transactionCount": {
+            "type": "number",
+            "description": "Count of non-transfer transactions in the period",
+            "example": 42
+          },
+          "savingsRate": {
+            "type": "number",
+            "description": "(income - expenses) / income * 100; null when income = 0",
+            "nullable": true,
+            "example": 36
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountBalanceSummaryItemDto"
+            }
+          },
+          "recentTransactions": {
+            "description": "Last 5 transactions desc by date",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionSummaryItemDto"
+            }
+          }
+        },
+        "required": [
+          "month",
+          "totalIncome",
+          "totalExpenses",
+          "netBalance",
+          "transactionCount",
+          "savingsRate",
+          "accounts",
+          "recentTransactions"
+        ]
+      },
+      "SpendingByCategoryItemDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Category ID; null for uncategorised transactions"
+          },
+          "categoryName": {
+            "type": "string",
+            "description": "\"Uncategorised\" when categoryId is null",
+            "example": "Groceries"
+          },
+          "color": {
+            "type": "object",
+            "description": "Category color hex code",
+            "example": "#3B82F6",
+            "nullable": true
+          },
+          "total": {
+            "type": "number",
+            "description": "Total amount spent in this category",
+            "example": 450
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Percentage of total monthly expenses, 0-100",
+            "example": 14.06
+          }
+        },
+        "required": [
+          "categoryId",
+          "categoryName",
+          "color",
+          "total",
+          "percentage"
+        ]
+      },
+      "SpendingByCategoryDto": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "description": "Period in YYYY-MM format",
+            "example": "2026-03"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpendingByCategoryItemDto"
+            }
+          }
+        },
+        "required": [
+          "month",
+          "items"
         ]
       }
     }

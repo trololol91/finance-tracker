@@ -20,6 +20,9 @@ export interface User {
     currency: string;
     isActive: boolean;
     createdAt: string;
+    role: 'USER' | 'ADMIN';
+    notifyPush: boolean;
+    notifyEmail: boolean;
 }
 
 export interface AuthContextType {

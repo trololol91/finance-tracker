@@ -1,6 +1,11 @@
-import {createBrowserRouter} from 'react-router-dom';
-import {PrivateRoute} from '@routes/PrivateRoute';
+import {
+    createBrowserRouter,
+    Navigate
+} from 'react-router-dom';
 import {PublicRoute} from '@routes/PublicRoute';
+import {AuthGuard} from '@routes/AuthGuard';
+import {AdminRoute} from '@/guards/AdminRoute';
+import {AppShell} from '@components/layout/AppShell/AppShell';
 import {APP_ROUTES} from '@config/constants';
 
 // Lazy load pages
@@ -15,11 +20,13 @@ const AccountsPage = lazy(() => import('@pages/AccountsPage.tsx'));
 const BudgetsPage = lazy(() => import('@pages/BudgetsPage.tsx'));
 const ReportsPage = lazy(() => import('@pages/ReportsPage.tsx'));
 const ScraperPage = lazy(() => import('@pages/ScraperPage.tsx'));
-const ProfilePage = lazy(() => import('@pages/ProfilePage.tsx'));
 const MfaPage = lazy(() => import('@pages/MfaPage.tsx'));
+const SettingsPage = lazy(() => import('@pages/SettingsPage.tsx'));
+const AdminPage = lazy(() => import('@pages/AdminPage.tsx'));
 const NotFoundPage = lazy(() => import('@pages/NotFoundPage.tsx'));
 
 export const router = createBrowserRouter([
+    // Public routes
     {
         path: APP_ROUTES.HOME,
         element: (
@@ -44,78 +51,40 @@ export const router = createBrowserRouter([
             </PublicRoute>
         )
     },
+
+    // Private routes — all wrapped in AuthGuard then AppShell layout
     {
-        path: APP_ROUTES.DASHBOARD,
-        element: (
-            <PrivateRoute>
-                <DashboardPage />
-            </PrivateRoute>
-        )
+        element: <AuthGuard />,
+        children: [
+            {
+                element: <AppShell />,
+                children: [
+                    {path: APP_ROUTES.DASHBOARD, element: <DashboardPage />},
+                    {path: APP_ROUTES.TRANSACTIONS, element: <TransactionsPage />},
+                    {path: APP_ROUTES.CATEGORIES, element: <CategoriesPage />},
+                    {path: APP_ROUTES.ACCOUNTS, element: <AccountsPage />},
+                    {path: APP_ROUTES.BUDGETS, element: <BudgetsPage />},
+                    {path: APP_ROUTES.REPORTS, element: <ReportsPage />},
+                    {path: APP_ROUTES.SCRAPER, element: <ScraperPage />},
+                    {path: APP_ROUTES.MFA, element: <MfaPage />},
+                    {path: APP_ROUTES.SETTINGS, element: <SettingsPage />},
+                    // Redirect legacy /profile to /settings
+                    {
+                        path: APP_ROUTES.PROFILE,
+                        element: <Navigate to={APP_ROUTES.SETTINGS} replace />
+                    },
+                    // Admin-only routes
+                    {
+                        element: <AdminRoute />,
+                        children: [
+                            {path: APP_ROUTES.ADMIN, element: <AdminPage />}
+                        ]
+                    }
+                ]
+            }
+        ]
     },
-    {
-        path: APP_ROUTES.TRANSACTIONS,
-        element: (
-            <PrivateRoute>
-                <TransactionsPage />
-            </PrivateRoute>
-        )
-    },
-    {
-        path: APP_ROUTES.CATEGORIES,
-        element: (
-            <PrivateRoute>
-                <CategoriesPage />
-            </PrivateRoute>
-        )
-    },
-    {
-        path: APP_ROUTES.ACCOUNTS,
-        element: (
-            <PrivateRoute>
-                <AccountsPage />
-            </PrivateRoute>
-        )
-    },
-    {
-        path: APP_ROUTES.BUDGETS,
-        element: (
-            <PrivateRoute>
-                <BudgetsPage />
-            </PrivateRoute>
-        )
-    },
-    {
-        path: APP_ROUTES.REPORTS,
-        element: (
-            <PrivateRoute>
-                <ReportsPage />
-            </PrivateRoute>
-        )
-    },
-    {
-        path: APP_ROUTES.SCRAPER,
-        element: (
-            <PrivateRoute>
-                <ScraperPage />
-            </PrivateRoute>
-        )
-    },
-    {
-        path: APP_ROUTES.MFA,
-        element: (
-            <PrivateRoute>
-                <MfaPage />
-            </PrivateRoute>
-        )
-    },
-    {
-        path: APP_ROUTES.PROFILE,
-        element: (
-            <PrivateRoute>
-                <ProfilePage />
-            </PrivateRoute>
-        )
-    },
+
     {
         path: '*',
         element: <NotFoundPage />

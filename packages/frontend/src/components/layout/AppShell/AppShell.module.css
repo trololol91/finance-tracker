@@ -1,0 +1,21 @@
+/* ── AppShell: sidebar + content layout ──── */
+
+.shell {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--color-background, #0f172a);
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+/* ── Mobile: no sidebar, full-width content ─ */
+
+@media (max-width: 767px) {
+    .shell {
+        flex-direction: column;
+    }
+}

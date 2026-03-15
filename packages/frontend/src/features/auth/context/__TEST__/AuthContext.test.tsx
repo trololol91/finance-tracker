@@ -54,7 +54,10 @@ describe('AuthProvider', () => {
         timezone: 'America/New_York',
         currency: 'USD',
         isActive: true,
-        createdAt: '2026-01-15T00:00:00.000Z'
+        createdAt: '2026-01-15T00:00:00.000Z',
+        role: 'USER',
+        notifyPush: false,
+        notifyEmail: true
     };
 
     const mockToken = 'mock-jwt-token-12345';

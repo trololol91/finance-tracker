@@ -3,7 +3,8 @@ import React, {
     createContext,
     useState,
     useEffect,
-    useCallback
+    useCallback,
+    useMemo
 } from 'react';
 import type {
     AuthContextType,
@@ -42,7 +43,10 @@ const mapToUser = (dto: UserResponseDto): User => ({
     timezone: dto.timezone,
     currency: dto.currency,
     isActive: dto.isActive,
-    createdAt: dto.createdAt
+    createdAt: dto.createdAt,
+    role: dto.role,
+    notifyPush: dto.notifyPush,
+    notifyEmail: dto.notifyEmail
 });
 
 /**
@@ -134,47 +138,42 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
         void init();
     }, []);
 
-    const authMethods = useCallback(() => {
-        const login = async (email: string, password: string): Promise<void> => {
-            const response = await authControllerLogin({email, password});
-            // Save token before calling getProfile so the request interceptor
-            // includes the Authorization header.
-            authStorage.saveToken(response.accessToken);
-            const profile = await authControllerGetProfile();
-            const authUser = mapToUser(profile);
-            authStorage.saveUser(authUser);
-            setToken(response.accessToken);
-            setUser(authUser);
-        };
+    const login = useCallback(async (email: string, password: string): Promise<void> => {
+        const response = await authControllerLogin({email, password});
+        // Save token before calling getProfile so the request interceptor
+        // includes the Authorization header.
+        authStorage.saveToken(response.accessToken);
+        const profile = await authControllerGetProfile();
+        const authUser = mapToUser(profile);
+        authStorage.saveUser(authUser);
+        setToken(response.accessToken);
+        setUser(authUser);
+    }, []);
 
-        const register = async (data: CreateUserDto): Promise<void> => {
-            const response = await authControllerRegister(data);
-            authStorage.saveToken(response.accessToken);
-            const profile = await authControllerGetProfile();
-            const authUser = mapToUser(profile);
-            authStorage.saveUser(authUser);
-            setToken(response.accessToken);
-            setUser(authUser);
-        };
+    const register = useCallback(async (data: CreateUserDto): Promise<void> => {
+        const response = await authControllerRegister(data);
+        authStorage.saveToken(response.accessToken);
+        const profile = await authControllerGetProfile();
+        const authUser = mapToUser(profile);
+        authStorage.saveUser(authUser);
+        setToken(response.accessToken);
+        setUser(authUser);
+    }, []);
 
-        const logout = (): void => {
-            authStorage.clearAuth();
-            setToken(null);
-            setUser(null);
-        };
+    const logout = useCallback((): void => {
+        authStorage.clearAuth();
+        setToken(null);
+        setUser(null);
+    }, []);
 
-        const updateUser = (updatedUser: User): void => {
-            authStorage.saveUser(updatedUser);
-            setUser(updatedUser);
-        };
+    const updateUser = useCallback((updatedUser: User): void => {
+        authStorage.saveUser(updatedUser);
+        setUser(updatedUser);
+    }, []);
 
-        return {login, register, logout, updateUser};
-    }, [setToken, setUser]);
-
-    const {login, register, logout, updateUser} = authMethods();
     const isAuthenticated = Boolean(token && user);
 
-    const value: AuthContextType = {
+    const value = useMemo<AuthContextType>(() => ({
         user,
         token,
         isAuthenticated,
@@ -184,7 +183,7 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
         register,
         logout,
         updateUser
-    };
+    }), [user, token, isAuthenticated, isLoading, authError, login, register, logout, updateUser]);
 
     return (
         <AuthContext.Provider value={value}>
