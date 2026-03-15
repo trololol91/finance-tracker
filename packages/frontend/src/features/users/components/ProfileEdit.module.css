@@ -1,0 +1,382 @@
+/*
+ * Design source: "Edit Profile — Redesign" frame, Page 2
+ *
+ * Color tokens (all extracted directly from Figma RGB values):
+ *   --pe-bg-page:        #0F172A  (page / input background)
+ *   --pe-bg-card:        #1E293B  (card / section / cancel-btn background)
+ *   --pe-bg-email:       #0B1120  (read-only email input background)
+ *   --pe-bg-badge:       #1A2535  (read-only badge background)
+ *   --pe-border:         #334155  (card border, input border, divider)
+ *   --pe-border-cancel:  #475569  (cancel button border)
+ *   --pe-text-title:     #F1F5F9  (card title + input value text)
+ *   --pe-text-section:   #E2E8F0  (section heading text)
+ *   --pe-text-label:     #94A3B8  (field labels + cancel text)
+ *   --pe-text-email:     #64748B  (read-only email value text)
+ *   --pe-text-badge:     #475569  (badge "read only" text)
+ *   --pe-btn-save:       #3B82F6  (save button fill)
+ *   --pe-btn-save-text:  #FFFFFF  (save button label)
+ *
+ * Spacing (derived from Figma absolute positions):
+ *   Card padding:            32px all sides
+ *   Header-to-section gap:   28px
+ *   Inter-section gap:       28px
+ *   Section title-to-divider:16px  (title h=18, divider y=34 → 34-18=16)
+ *   Divider-to-first-field:  16px  (divider bottom y=35, field y=51 → 16)
+ *   Two-column gap:          16px  (col2 x=316, col1 w=300 → 316-300=16)
+ *   Label-to-input gap:       6px  (label h=15, input y=21 → 21-15=6)
+ *   Button gap:              12px  (save x=91, cancel w=79 → 91-79=12)
+ *   Cancel horizontal pad:   16px  (text x=16, btn w=79, text w=47)
+ *   Save horizontal pad:     20px  (text x=20, btn w=137, text w=97)
+ *   Button height:           36px
+ *   Input height:            40px
+ *   Badge corner radius:      4px
+ *   Input / btn corner radius:8px
+ *   Card corner radius:      12px
+ */
+
+/* ── Card wrapper ────────────────────────────────── */
+
+.card {
+    background-color: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 680px;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* ── Header Row ──────────────────────────────────── */
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 12px;
+}
+
+.title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #F1F5F9;
+    margin: 0;
+    line-height: 1.33; /* 24/18 matching Figma h=24 */
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────── */
+
+.btnCancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 16px;
+    background-color: #1E293B;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #94A3B8;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btnCancel:hover:not(:disabled) {
+    background-color: #263244;
+    border-color: #64748B;
+}
+
+.btnCancel:focus-visible {
+    outline: 2px solid #3B82F6;
+    outline-offset: 2px;
+}
+
+.btnCancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btnSaveLong {
+    display: inline;
+}
+
+.btnSaveShort {
+    display: none;
+}
+
+.btnSave {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 20px;
+    background-color: #3B82F6;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #FFFFFF;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease;
+}
+
+.btnSave:hover:not(:disabled) {
+    background-color: #2563EB;
+}
+
+.btnSave:focus-visible {
+    outline: 2px solid #93C5FD;
+    outline-offset: 2px;
+}
+
+.btnSave:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── API Error Banner ────────────────────────────── */
+
+.apiError {
+    font-size: 13px;
+    font-weight: 500;
+    color: #F87171;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border: 1px solid rgba(248, 113, 113, 0.30);
+    border-radius: 8px;
+    background-color: rgba(248, 113, 113, 0.08);
+}
+
+/* ── Form ────────────────────────────────────────── */
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+/* ── Sections ────────────────────────────────────── */
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.sectionTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #E2E8F0;
+    margin: 0 0 16px;
+    padding: 0;
+    line-height: 1.286; /* 18/14 matching Figma h=18 */
+}
+
+.sectionDivider {
+    width: 100%;
+    height: 1px;
+    background-color: #334155;
+    border: none;
+    margin: 0 0 16px;
+}
+
+/* ── Two-column grid rows ────────────────────────── */
+
+.fieldGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* ── Individual field wrapper (label + input) ─────── */
+
+.fieldWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.fieldLabel {
+    font-size: 12px;
+    font-weight: 500;
+    color: #94A3B8;
+    line-height: 1.25; /* 15/12 matching Figma h=15 */
+}
+
+.fieldInput {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    background-color: #0F172A;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #F1F5F9;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fieldInput:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+/* ── Select wrapper ──────────────────────────────── */
+
+.selectWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.selectLabel {
+    font-size: 12px;
+    font-weight: 500;
+    color: #94A3B8;
+    line-height: 1.25;
+}
+
+.select {
+    width: 100%;
+    height: 40px;
+    padding: 0 32px 0 12px;
+    background-color: #0F172A;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #F1F5F9;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2364748B' d='M5 7L0 2h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.select:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+/* ── Read-only email field ───────────────────────── */
+
+.readonlyField {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 16px;
+}
+
+.readonlyLabel {
+    font-size: 12px;
+    font-weight: 500;
+    color: #94A3B8;
+    line-height: 1.25;
+}
+
+.readonlyBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    background-color: #1A2535;
+    border: 1px solid #334155;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #475569;
+    line-height: 1;
+    letter-spacing: 0.02em;
+}
+
+.readonlyValue {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    background-color: #0B1120;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #64748B;
+    cursor: not-allowed;
+    user-select: none;
+    box-sizing: border-box;
+}
+
+/* ── Responsive: tablet (768px–1023px) ──────────── */
+
+@media (max-width: 1023px) {
+    .card {
+        width: 100%;
+    }
+}
+
+/* ── Responsive: mobile (≤767px) ────────────────── */
+
+@media (max-width: 767px) {
+    .card {
+        padding: 20px;
+        border-radius: 12px;
+    }
+
+    .header {
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .title {
+        font-size: 16px;
+    }
+
+    .fieldGrid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+/* ── Responsive: small mobile (≤375px) ──────────── */
+
+@media (max-width: 375px) {
+    .card {
+        padding: 16px;
+    }
+
+    .btnSaveLong {
+        display: none;
+    }
+
+    .btnSaveShort {
+        display: inline;
+    }
+
+    .btnSave {
+        padding: 0 14px;
+    }
+
+    .btnCancel {
+        padding: 0 14px;
+    }
+}
