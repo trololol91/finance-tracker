@@ -1,0 +1,107 @@
+.page {
+    min-height: 100%;
+    background: var(--color-background);
+    padding: var(--space-6) var(--space-4);
+}
+
+.inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+/* ── Header ──────────────────────────────── */
+.header {
+    margin: 0;
+}
+
+.title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-1) 0;
+}
+
+.subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+/* ── Summary grid ────────────────────────── */
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-4);
+}
+
+/* ── Lower panels grid ───────────────────── */
+.panelsRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    align-items: start;
+}
+
+/* ── Error state ─────────────────────────── */
+.errorState {
+    text-align: center;
+    padding: var(--space-12) var(--space-4);
+    color: var(--color-text-secondary);
+}
+
+.errorHeading {
+    color: var(--color-danger);
+    margin-bottom: var(--space-2);
+}
+
+.retryBtn {
+    margin-top: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+}
+
+.retryBtn:hover {
+    opacity: 0.9;
+}
+
+/* ── Responsive: tablet ──────────────────── */
+@media (max-width: 1023px) {
+    .summaryGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ── Responsive: mobile ──────────────────── */
+@media (max-width: 767px) {
+    .page {
+        padding: var(--space-4) var(--space-3);
+    }
+
+    .summaryGrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-3);
+    }
+
+    .panelsRow {
+        grid-template-columns: 1fr;
+    }
+
+    .title {
+        font-size: var(--font-size-xl);
+    }
+}
+
+/* ── Responsive: very small ──────────────── */
+@media (max-width: 479px) {
+    .summaryGrid {
+        grid-template-columns: 1fr;
+    }
+}
