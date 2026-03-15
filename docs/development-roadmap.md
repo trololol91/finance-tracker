@@ -20,7 +20,7 @@ Detailed implementation notes live in the package-level roadmaps:
 | **6** | Accounts Module | Accounts UI | ✅ Complete |
 | **7** | Transaction Import & Automated Sync | Import & Sync UI | 🟨 Partially Complete |
 | **8** | Phase 7 carry-overs | — | ✅ Complete |
-| **9** | — | Dashboard & UX Redesign (sidebar, Settings, navigation, layout) | ⬜ In Progress |
+| **9** | — | Dashboard & UX Redesign (sidebar, Settings, navigation, layout) | ✅ Complete |
 | **10** | MCP Server | MCP App UIs | ⬜ Not Started |
 | **11** | Reports Module *(optional)* | Analytics Views | ⬜ Not Started |
 
@@ -354,25 +354,26 @@ Implementation plan: [`test-plan/dashboard-ux/implementation-plan.md`](../test-p
 
 **Recommended next actions:**
 
-1. ⬜ `@backend-dev` — Implement `DashboardModule` (`GET /dashboard/summary`, `GET /dashboard/spending-by-category`). Register in `app.module.ts`. Swagger on all endpoints. No migration needed.
-2. ⬜ `@backend-dev` — Add `GET /admin/users` + `PATCH /admin/users/:id/role` to `UsersModule` behind `AdminGuard`. Add `AdminUserListItemDto` + `UpdateUserRoleDto`.
-3. ⬜ `@backend-dev` — Prisma seed script (`prisma/seed.ts`) for initial ADMIN user. Wire into `package.json` under `prisma.seed`.
-4. ⬜ `@test-writer` — Backend unit tests for `DashboardService` and the two new `UsersService` admin methods.
-5. ⬜ `@backend-tester` — Run backend API test plan (19 TCs) from `test-plan/dashboard-ux/implementation-plan.md` Section 11.
-6. ⬜ `@code-reviewer` — Review backend changes.
-7. ⬜ `@backend-dev` — Commit backend: dashboard module → admin user endpoints → seed script.
-8. ⬜ Run `npm run generate:api` in `packages/frontend`.
-9. ⬜ **Cross-feature Step A** — Add `role: 'USER' | 'ADMIN'` to `User` interface in `features/auth/types/auth.types.ts`; persist/restore `role` in `authStorage` and `AuthContext`.
-10. ⬜ **Cross-feature Step B** — Add `APP_ROUTES.SETTINGS`, `APP_ROUTES.ADMIN`, `API_ROUTES.DASHBOARD`, `API_ROUTES.ADMIN` to `config/constants.ts`.
-11. ⬜ `@frontend-dev` — Build `AppShell` layout wrapper + `Sidebar` component + `navConfig.ts` + `AdminRoute` guard.
-12. ⬜ **Cross-feature Step C** — Update `routes/index.tsx`: wrap all existing private routes (Transactions, Accounts, Categories, Scraper, existing stubs) in `AppShell` layout route; add `/settings`, `/admin` routes; add `/profile` → `/settings` redirect.
-13. ⬜ `@frontend-dev` — Build real `DashboardPage` with `SummaryCard`, `RecentTransactionsList`, `AccountsPanel`, `SpendingByCategoryPanel` feature components. Use Orval-generated hooks.
-14. ⬜ `@frontend-dev` — Build `SettingsPage` (Profile tab lifted from ProfilePage + Notifications tab).
-15. ⬜ `@frontend-dev` — Build `AdminPage` (`UserRoleTable` + `PluginManager`).
-16. ⬜ `@test-writer` — Frontend unit tests for all new components.
-17. ⬜ `@code-reviewer` — Review frontend changes.
-18. ⬜ `@frontend-tester` — Full regression E2E test plan (Sidebar, Dashboard, Settings, Admin flows) per Section 10 of implementation plan.
-19. ⬜ `@frontend-dev` — Commit frontend per task: AppShell+Sidebar → DashboardPage → SettingsPage → AdminPage.
+1. ✅ `@backend-dev` — Implement `DashboardModule` (`GET /dashboard/summary`, `GET /dashboard/spending-by-category`). Register in `app.module.ts`. Swagger on all endpoints. No migration needed.
+2. ✅ `@backend-dev` — Add `GET /admin/users` + `PATCH /admin/users/:id/role` to `UsersModule` behind `AdminGuard`. Add `AdminUserListItemDto` + `UpdateUserRoleDto`.
+3. ✅ `@backend-dev` — Prisma seed script (`prisma/seed.ts`) for initial ADMIN user. Wire into `package.json` under `prisma.seed`.
+4. ✅ `@test-writer` — Backend unit tests: `dashboard/__TEST__/dashboard.service.spec.ts` (12 TCs), extended `users/__TEST__/users.service.spec.ts` (+6 TCs), new `users/__TEST__/admin-users.controller.spec.ts` (2 TCs). 517 tests total passing. `npm run lint` clean — zero errors/warnings.
+5. ✅ `@backend-tester` — 20-TC live API test plan executed. Plan saved to `test-plan/dashboard-ux/backend.md`, report to `test-plan/dashboard-ux/backend-report.md`. Known bugs documented: BUG-01 (self-role-change), BUG-02 (uncategorised expenses silently excluded), plus field name discrepancies vs plan.
+6. ✅ `@code-reviewer` — Backend review complete. Critical issues found and fixed; follow-up review confirmed all fixes correct.
+   - **Fixes applied:** N+1 query replaced with `groupBy + _sum`, tsconfig seed path typo corrected, seed transactions made idempotent, `role: string` narrowed to `UserRole` enum, `tsx` added to devDependencies, misplaced JSDoc moved to correct location.
+7. ✅ `@backend-dev` — Backend committed in 3 commits: `db0d27f` (dashboard module), `723b076` (admin user endpoints + role guard), `82ebfe3` (seed script + test plan docs). 524 tests passing, 0 type errors, 0 lint warnings.
+8. ✅ Run `npm run generate:api` in `packages/frontend`. Orval client regenerated — `src/api/dashboard/` and `src/api/admin/` directories created with typed React Query hooks.
+9. ✅ **Cross-feature Step A** — `role: 'USER' | 'ADMIN'` added to `User` interface in `auth.types.ts`; `notifyPush` and `notifyEmail` added to `User` interface and `mapToUser` in `AuthContext.tsx`; `authStorage.ts` already serialises full User object — no change needed. 3 test fixtures updated with `role`, `notifyPush`, `notifyEmail` fields.
+10. ✅ **Cross-feature Step B** — `APP_ROUTES.SETTINGS`, `APP_ROUTES.ADMIN`, `API_ROUTES.DASHBOARD`, `API_ROUTES.ADMIN_USERS` added to `config/constants.ts`.
+11. ✅ `@frontend-dev` — Built `src/config/navConfig.ts` (`NAV_ITEMS` + `SETTINGS_NAV_ITEMS` with lucide-react icons), `Sidebar` (persistent sidebar, active links, admin filtering, user footer + logout), `AppShell` (layout wrapper with Sidebar + Outlet), `AdminRoute` guard (redirects non-admins to /dashboard).
+12. ✅ **Cross-feature Step C** — `routes/index.tsx` updated: new `AuthGuard.tsx` (Outlet-based auth guard); all private routes nested under `AuthGuard` → `AppShell` → `AdminRoute`; `/settings` and `/admin` routes added; `/profile` → `/settings` redirect added; stub pages `SettingsPage.tsx` and `AdminPage.tsx` created. Build: clean, 0 errors.
+13. ✅ `@frontend-dev` — Built real `DashboardPage`: `SummaryCard`, `SpendingByCategoryPanel`, `RecentTransactionsList`, `AccountsPanel`, `DashboardErrorBoundary`; 4-column summary grid + panels using Orval dashboard hooks. 39 new component tests; 1057 total passing.
+14. ✅ `@frontend-dev` — Built `SettingsPage`: `ProfileForm` (profile editing lifted from ProfilePage), `NotificationsForm` (push/email toggles), `SettingsPage` (tabbed page with full ARIA, roving tabindex keyboard nav). 45 new tests; 1102 total passing.
+15. ✅ `@frontend-dev` — Built `AdminPage`: `UserRoleTable` (full user management table, self-row disabled, query invalidation), `PluginManager` (Reload + Install plugin buttons), `AdminPage` (composition page with two sections). 35 new tests.
+16. ✅ `@test-writer` — Frontend unit tests for layout/guard components: `Sidebar/__TEST__/Sidebar.test.tsx` (18 tests), `AppShell/__TEST__/AppShell.test.tsx` (5 tests), `guards/__TEST__/AdminRoute.test.tsx` (6 tests), `routes/__TEST__/AuthGuard.test.tsx` (9 tests), `SettingsErrorBoundary.test.tsx` (6 tests). 1183 total tests passing.
+17. ✅ `@code-reviewer` — Reviewed all Phase 9 frontend changes. `@frontend-dev` applied all 4 critical fixes: `AuthContext.tsx` `useCallback` anti-pattern fixed (individual callbacks + `useMemo`); `SettingsErrorBoundary` inline styles → CSS module + `type="button"` added; `SettingsPage.tsx` WAI-ARIA roving tabindex keyboard nav added; `Sidebar.tsx` `.js` extension added to `navConfig` import. Plus minor fixes: `asString` helper, setTimeout cleanup, `AdminRoute` comment, `fireEvent` → `userEvent`.
+18. ✅ `@frontend-tester` — Full regression E2E test plan (Sidebar, Dashboard, Settings, Admin flows) executed via Playwright MCP. 28/28 TCs passed, 0 bugs. Plan saved to `test-plan/dashboard-ux/frontend.md`, report to `test-plan/dashboard-ux/frontend-report.md`.
+19. ✅ `@frontend-dev` — Commit frontend per task: AppShell+Sidebar → DashboardPage → SettingsPage → AdminPage. 4 commits landed: `3ef97fb`, `d5b805c`, `3224499`, `8b06ca1`.
 
 ---
 
