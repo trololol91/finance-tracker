@@ -1,0 +1,136 @@
+.centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-12) var(--space-4);
+}
+
+.message {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.messageError {
+    color: var(--color-danger);
+}
+
+.tableWrapper {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background-color: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+
+.row {
+    transition: background-color var(--transition-fast);
+}
+
+.row:hover {
+    background-color: var(--color-surface-hover);
+}
+
+.rowSelf {
+    background-color: var(--color-primary-100);
+}
+
+.td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    vertical-align: middle;
+}
+
+.row:last-child .td {
+    border-bottom: none;
+}
+
+.nameCell {
+    font-weight: var(--font-weight-medium);
+}
+
+.emailCell {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.activeTag {
+    display: inline-block;
+    padding: 0.125rem var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    background-color: var(--color-success-bg);
+    color: var(--color-success);
+    border: 1px solid var(--color-success-border);
+}
+
+.inactiveTag {
+    display: inline-block;
+    padding: 0.125rem var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    background-color: var(--color-danger-50);
+    color: var(--color-danger);
+    border: 1px solid var(--color-danger-light);
+}
+
+.roleSelect {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    min-width: 6rem;
+}
+
+.roleSelect:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.roleSelect:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.feedbackCell {
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.feedbackSuccess {
+    color: var(--color-success);
+}
+
+.feedbackError {
+    color: var(--color-danger);
+}
+
+/* Responsive — hide lower-priority columns on mobile */
+@media (max-width: 767px) {
+    .hideOnMobile {
+        display: none;
+    }
+}
