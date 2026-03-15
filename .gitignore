@@ -58,6 +58,9 @@ packages/frontend/.vite/
 exports/*
 accountactivity.csv
 
+# Claude Code local settings (may contain tokens/secrets)
+.claude/settings.local.json
+
 # Playwright MCP state and cache
 .playwright-mcp/
 
