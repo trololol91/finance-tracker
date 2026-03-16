@@ -5,7 +5,9 @@ import {
     beforeEach,
     vi
 } from 'vitest';
-import {BadRequestException} from '@nestjs/common';
+import {
+    BadRequestException, NotFoundException
+} from '@nestjs/common';
 import {ScraperAdminController} from '#scraper/scraper-admin.controller.js';
 import type {ScraperAdminService} from '#scraper/scraper-admin.service.js';
 
@@ -14,6 +16,7 @@ describe('ScraperAdminController', () => {
     let mockService: {
         reloadPlugins: ReturnType<typeof vi.fn>;
         installPlugin: ReturnType<typeof vi.fn>;
+        testScraper: ReturnType<typeof vi.fn>;
     };
 
     beforeEach(() => {
@@ -21,7 +24,8 @@ describe('ScraperAdminController', () => {
 
         mockService = {
             reloadPlugins: vi.fn().mockResolvedValue(undefined),
-            installPlugin: vi.fn()
+            installPlugin: vi.fn(),
+            testScraper: vi.fn()
         };
 
         controller = new ScraperAdminController(
@@ -116,6 +120,58 @@ describe('ScraperAdminController', () => {
             );
 
             await expect(controller.install(file)).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // testScraper
+    // -----------------------------------------------------------------------
+
+    describe('testScraper', () => {
+        it('should call adminService.testScraper with bankId and dto and return the result', async () => {
+            const dto = {inputs: {username: 'u', password: 'p'}};
+            mockService.testScraper.mockResolvedValue({
+                bankId: 'cibc',
+                transactions: [],
+                count: 0
+            });
+
+            const result = await controller.testScraper('cibc', dto);
+
+            expect(mockService.testScraper).toHaveBeenCalledWith('cibc', dto);
+            expect(result).toEqual({bankId: 'cibc', transactions: [], count: 0});
+        });
+
+        it('should propagate NotFoundException from adminService.testScraper', async () => {
+            const dto = {inputs: {}};
+            mockService.testScraper.mockRejectedValue(
+                new NotFoundException('No scraper for cibc')
+            );
+
+            await expect(controller.testScraper('cibc', dto)).rejects.toThrow(NotFoundException);
+        });
+
+        it('should return all transactions returned by the service without modification', async () => {
+            mockService.testScraper.mockResolvedValue({
+                bankId: 'td',
+                transactions: [
+                    {date: '2026-03-01', description: 'Coffee', amount: -3.50, pending: false, syntheticId: 'x'}
+                ],
+                count: 1
+            });
+
+            const result = await controller.testScraper('td', {inputs: {}});
+
+            expect(result.count).toBe(1);
+            expect(result.transactions).toHaveLength(1);
+        });
+
+        it('should propagate unexpected errors from adminService.testScraper', async () => {
+            mockService.testScraper.mockRejectedValue(new Error('Playwright crashed'));
+
+            await expect(
+                controller.testScraper('cibc', {inputs: {}})
+            ).rejects.toThrow('Playwright crashed');
         });
     });
 });

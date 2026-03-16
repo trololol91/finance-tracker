@@ -1,12 +1,22 @@
 import {
     Injectable,
     BadRequestException,
+    NotFoundException,
     Logger
 } from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {writeFile} from 'fs/promises';
 import {join} from 'path';
 import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
+import {ScraperRegistry} from '#scraper/scraper.registry.js';
+import type {
+    BankCredentials, RawTransaction
+} from '#scraper/interfaces/bank-scraper.interface.js';
+import {TestScraperDto} from '#scraper/admin/dto/test-scraper.dto.js';
+import {TestScraperResponseDto} from '#scraper/admin/dto/test-scraper-response.dto.js';
+import type {
+    Browser, Page
+} from 'playwright';
 
 /**
  * ScraperAdminService provides the business logic for the admin plugin
@@ -23,7 +33,8 @@ export class ScraperAdminService {
 
     constructor(
         private readonly config: ConfigService,
-        private readonly pluginLoader: ScraperPluginLoader
+        private readonly pluginLoader: ScraperPluginLoader,
+        private readonly registry: ScraperRegistry
     ) {}
 
     /**
@@ -63,6 +74,59 @@ export class ScraperAdminService {
         await this.pluginLoader.loadPlugins();
 
         return filename;
+    }
+
+    /**
+     * Open a Playwright browser, call plugin.login() with the provided inputs,
+     * then call plugin.scrapeTransactions() for the resolved lookback period.
+     * Returns the raw RawTransaction[] with no database write.
+     *
+     * Intended as a developer tool for validating plugin correctness.
+     *
+     * @param bankId - The bankId registered in ScraperRegistry.
+     * @param dto    - Request body containing inputs and optional lookbackDays.
+     * @throws NotFoundException when bankId is not registered.
+     */
+    public async testScraper(
+        bankId: string,
+        dto: TestScraperDto
+    ): Promise<TestScraperResponseDto> {
+        const plugin = this.registry.findByBankId(bankId);
+        if (!plugin) {
+            throw new NotFoundException(`No scraper registered for bankId '${bankId}'`);
+        }
+
+        const lookbackDays = dto.lookbackDays ?? plugin.maxLookbackDays;
+        const endDate      = new Date();
+        const startDate    = new Date(endDate.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
+
+        const {chromium} = await import('playwright');
+        let browser: Browser | undefined;
+        let page: Page | undefined;
+
+        let transactions: RawTransaction[] = [];
+
+        try {
+            browser = await chromium.launch({headless: true});
+            page = await browser.newPage();
+            // Milestone 4 will replace BankCredentials with PluginInputs = Record<string, string>.
+            // Until then, cast is safe: dto.inputs is Record<string, string> and all built-in
+            // scrapers destructure only { username, password } from the credentials argument.
+            await plugin.login(page, dto.inputs as unknown as BankCredentials);
+            transactions = await plugin.scrapeTransactions(page, {
+                startDate,
+                endDate,
+                includePending: plugin.pendingTransactionsIncluded
+            });
+        } finally {
+            await browser?.close();
+        }
+
+        this.logger.log(
+            `Dry-run scrape for '${bankId}' returned ${transactions.length} transaction(s)`
+        );
+
+        return {bankId, transactions, count: transactions.length};
     }
 
     /**

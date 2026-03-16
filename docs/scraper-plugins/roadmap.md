@@ -10,7 +10,7 @@ Detailed implementation plans for each milestone live in
 | # | Milestone | Status |
 |---|-----------|--------|
 | 1 | Remove Built-ins, Add Startup Seeding | ✅ Done |
-| 2 | Dry-run Test Endpoint | ⬜ Not Started |
+| 2 | Dry-run Test Endpoint | ✅ Done |
 | 3 | dryRun Flag on Run-Now | ⬜ Not Started |
 | 4 | Plugin Input Schema | ⬜ Not Started |
 
@@ -373,6 +373,7 @@ correct form dynamically from the schema with no hardcoded field lists.
   to the client. On edit, `inputs` resets to `{}` — the user must re-enter
   values they wish to change, identical to the current username/password
   behaviour.
+- **`inputs` value-type validation:** `TestScraperDto.inputs` uses `@IsObject()` which validates that the field is a plain object but does not validate that record values are strings — a caller can send `{"inputs": {"username": 123}}` and it passes validation. This gap is intentionally deferred to Milestone 4. When `BankCredentials` is replaced with `PluginInputs = Record<string, string>`, introduce a custom `@IsStringRecord()` validator (or a `@ValidateNested` + `@Transform` equivalent) on any DTO that accepts `inputs` or `Record<string, string>` fields so value types are enforced at the HTTP boundary.
 
 ---
 
