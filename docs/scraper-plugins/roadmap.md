@@ -96,6 +96,120 @@ writing any data to the database.
 - Inputs are not persisted; they are passed directly to the scraper's
   `login()` method and discarded after the call.
 
+### Recommended Next Actions
+
+#### Step 1 — Plan
+
+```
+@docs/scraper-plugins/roadmap.md
+
+planner — Produce a full implementation plan for Milestone 2 — Dry-run Test
+Endpoint. Research the existing scraper admin patterns before writing anything:
+read scraper-admin.controller.ts, scraper-admin.service.ts, and their spec
+files to understand the established conventions for guards, DTOs, and service
+method signatures. Then read bank-scraper.interface.ts to understand
+RawTransaction and how login() receives inputs. Save the plan to
+test-plan/scraper-plugins/milestone-2-implementation-plan.md.
+
+The plan must cover:
+- TestScraperDto shape: inputs (Record<string, string>), lookbackDays (number,
+  optional, defaults to plugin maxLookbackDays)
+- TestScraperResponseDto shape: bankId, transactions (RawTransaction[]), count
+- ScraperAdminService.testScraper(bankId, dto): resolve the plugin from
+  ScraperRegistry (404 if absent), call login() then scrapeTransactions() with
+  a real Playwright page, return raw results without writing to the database
+- Controller action: POST /admin/scrapers/:bankId/test, JwtAuthGuard +
+  AdminGuard, 200 on success, 404 if bankId unknown
+- How to open and close the Playwright browser within the service method
+  (reference how ScraperService or the worker does it today)
+- Unit test cases for the service (happy path, 404, login error, scrape error)
+  and controller (guard behaviour, response shape delegation)
+```
+
+#### Step 2 — Implement
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-2-implementation-plan.md
+
+backend-dev — Implement Milestone 2 — Dry-run Test Endpoint using the plan
+above. Follow all backend conventions: # path aliases, .js ESM extensions on
+internal imports, class-validator decorators on DTOs, @ApiProperty on all DTO
+fields. Do not spawn a worker thread — run the scrape synchronously in the main
+process. After implementing, run npm run typecheck and npm run lint to confirm
+the build is clean before finishing.
+```
+
+#### Step 3 — Tests
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-2-implementation-plan.md
+
+test-writer — Extend scraper-admin.service.spec.ts and
+scraper-admin.controller.spec.ts with Milestone 2 test cases. Read both spec
+files in full before writing anything — match the existing mock setup, factory
+patterns, and assertion style exactly.
+
+Service cases to cover:
+- Happy path: login() and scrapeTransactions() called; raw results returned
+- bankId not in registry: throws NotFoundException
+- login() throws: error propagates, browser closed
+- scrapeTransactions() throws: error propagates, browser closed
+
+Controller cases to cover:
+- 200 with correct response shape delegated from service
+- No auth token: 401
+- Non-admin user: 403
+- Service throws NotFoundException: 404
+
+Run the full spec suite after writing and fix any failures before finishing.
+```
+
+#### Step 4 — Live API Testing
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-2-implementation-plan.md
+
+backend-tester — Run the Milestone 2 API test plan against the running server
+at http://localhost:3001. Save the test plan to
+test-plan/scraper-plugins/milestone-2-backend.md and the execution report to
+test-plan/scraper-plugins/milestone-2-backend-report.md.
+
+Test cases to execute:
+- POST /admin/scrapers/:bankId/test — no auth token → 401
+- POST /admin/scrapers/:bankId/test — USER role → 403
+- POST /admin/scrapers/unknown-bank/test — ADMIN token → 404
+- POST /admin/scrapers/cibc/test — ADMIN token, valid inputs → 200 with
+  { bankId, transactions, count } shape (do not assert transaction content —
+  a real browser session is not available in CI; assert shape only)
+```
+
+#### Step 5 — Code Review
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-2-implementation-plan.md
+
+code-reviewer — Review the Milestone 2 changes in packages/backend/src/scraper/.
+Focus on: guard ordering on the new controller action, correct Playwright
+browser lifecycle (browser always closed in finally), DTO validation coverage,
+error propagation from login() and scrapeTransactions(), and whether the
+service method could leak a browser handle if an unexpected exception is thrown.
+Also confirm the response DTO is fully decorated with @ApiProperty so the
+OpenAPI spec stays accurate.
+```
+
+#### Step 6 — Commit
+
+```
+@docs/scraper-plugins/roadmap.md
+
+backend-dev — Commit the Milestone 2 changes with message:
+feat(scraper): add dry-run test endpoint POST /admin/scrapers/:bankId/test
+```
+
 ---
 
 ## Milestone 3 — dryRun Flag on Run-Now
