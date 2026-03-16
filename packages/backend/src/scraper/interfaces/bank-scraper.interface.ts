@@ -1,4 +1,3 @@
-/* v8 ignore file */
 /**
  * Every built-in and external scraper satisfies this contract.
  * Built-in scrapers live under `banks/`; external plugins are loaded from `SCRAPER_PLUGIN_DIR`.
@@ -18,6 +17,13 @@ export interface PluginFieldDescriptor {
 }
 
 export type PluginInputs = Record<string, string>;
+
+export class MfaRequiredError extends Error {
+    constructor(public readonly prompt: string) {
+        super(`MFA required: ${prompt}`);
+        this.name = 'MfaRequiredError';
+    }
+}
 
 export interface BankScraper {
     /** Unique key stored in SyncSchedule.bankId — plain string, no enum. */
@@ -44,6 +50,13 @@ export interface BankScraper {
 
     /** Navigate to the login page and complete authentication. */
     login(page: unknown, inputs: PluginInputs): Promise<void>;
+
+    /**
+     * Called by the worker after the main thread delivers an MFA code.
+     * `page` is still positioned on the MFA/OTP screen that login() left it on.
+     * Only required for banks that use MFA (requiresMfaOnEveryRun: true or session-expiry MFA).
+     */
+    submitMfa?(page: unknown, code: string): Promise<void>;
 
     /**
      * Navigate to the transactions page, apply the date range, and return all
@@ -77,7 +90,7 @@ export interface RawTransaction {
 /**
  * Input passed to the scraper worker thread via `workerData`.
  * All sensitive values (credentials) are decrypted in the main process
- * before being passed here. The worker should never touch the database.
+ * before being passed here.
  */
 export interface ScraperWorkerInput {
     bankId: string;
@@ -89,6 +102,18 @@ export interface ScraperWorkerInput {
     userId: string;
     /** When true the worker skips the final prisma.transaction.createMany call. */
     dryRun: boolean;
+    /**
+     * Absolute file:// URL to the compiled plugin .js file.
+     * Resolved by ScraperService from ScraperRegistry.getPluginPath(bankId).
+     * The worker calls dynamic import(pluginPath) to load the BankScraper instance.
+     */
+    pluginPath: string;
+    /**
+     * Full DATABASE_URL connection string.
+     * Passed to `new PrismaClient({ datasources: { db: { url: databaseUrl } } })`
+     * inside the worker so it can write transactions without NestJS DI.
+     */
+    databaseUrl: string;
 }
 
 /**
@@ -97,4 +122,4 @@ export interface ScraperWorkerInput {
 export type WorkerMessage =
     | {type: 'status', status: string, message: string}
     | {type: 'mfa_required', prompt: string}
-    | {type: 'result', transactions: RawTransaction[]};
+    | {type: 'result', transactions: RawTransaction[], importedCount: number, skippedCount: number};

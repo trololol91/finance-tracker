@@ -184,7 +184,10 @@ describe('ScraperPluginLoader', () => {
             await loader.loadPlugins();
 
             expect(mockRegistry.register).toHaveBeenCalledOnce();
-            expect(mockRegistry.register).toHaveBeenCalledWith(plugin);
+            expect(mockRegistry.register).toHaveBeenCalledWith(
+                plugin,
+                expect.stringMatching(/^file:\/\//)
+            );
             expect(loadModuleSpy).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\//));
         });
 
@@ -204,8 +207,14 @@ describe('ScraperPluginLoader', () => {
             await loader.loadPlugins();
 
             expect(mockRegistry.register).toHaveBeenCalledTimes(2);
-            expect(mockRegistry.register).toHaveBeenCalledWith(cibc);
-            expect(mockRegistry.register).toHaveBeenCalledWith(rbc);
+            expect(mockRegistry.register).toHaveBeenCalledWith(
+                cibc,
+                expect.stringMatching(/^file:\/\//)
+            );
+            expect(mockRegistry.register).toHaveBeenCalledWith(
+                rbc,
+                expect.stringMatching(/^file:\/\//)
+            );
             expect(loadModuleSpy).toHaveBeenNthCalledWith(1, expect.stringMatching(/^file:\/\//));
             expect(loadModuleSpy).toHaveBeenNthCalledWith(2, expect.stringMatching(/^file:\/\//));
         });
@@ -287,7 +296,10 @@ describe('ScraperPluginLoader', () => {
 
             // Only the good plugin should be registered
             expect(mockRegistry.register).toHaveBeenCalledOnce();
-            expect(mockRegistry.register).toHaveBeenCalledWith(good);
+            expect(mockRegistry.register).toHaveBeenCalledWith(
+                good,
+                expect.stringMatching(/^file:\/\//)
+            );
             expect(loadModuleSpy).toHaveBeenNthCalledWith(1, expect.stringMatching(/^file:\/\//));
             expect(loadModuleSpy).toHaveBeenNthCalledWith(2, expect.stringMatching(/^file:\/\//));
         });
@@ -352,16 +364,17 @@ describe('ScraperPluginLoader', () => {
 
             await callSeedBuiltins(loader);
 
-            expect(vi.mocked(copyFile)).toHaveBeenCalledTimes(2);
+            expect(vi.mocked(copyFile)).toHaveBeenCalledTimes(3);
         });
 
         it('should not overwrite a plugin that already exists (idempotent)', async () => {
             mockConfig.get.mockReturnValue('/plugins');
             const enoent = Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
-            // First file exists, second is missing
+            // First file exists, second is missing, third exists — only one copy expected
             vi.mocked(access)
                 .mockResolvedValueOnce(undefined)
-                .mockRejectedValueOnce(enoent);
+                .mockRejectedValueOnce(enoent)
+                .mockResolvedValueOnce(undefined);
             vi.mocked(copyFile).mockResolvedValue(undefined);
 
             await callSeedBuiltins(loader);
@@ -389,6 +402,36 @@ describe('ScraperPluginLoader', () => {
             const [firstSrcArg] = vi.mocked(copyFile).mock.calls[0];
             expect(firstSrcArg).toContain('banks');
             expect(firstSrcArg).toMatch(/cibc\.scraper\.js$/);
+        });
+
+        // TC-PL-01
+        it('should copy stub.scraper.js to plugin dir on clean install', async () => {
+            mockConfig.get.mockReturnValue('/plugins');
+            const enoent = Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
+            vi.mocked(access).mockRejectedValue(enoent);
+            vi.mocked(copyFile).mockResolvedValue(undefined);
+
+            await callSeedBuiltins(loader);
+
+            const copyArgs = vi.mocked(copyFile).mock.calls.map(([src]) => src as string);
+            expect(copyArgs.some(src => src.includes('stub.scraper.js'))).toBe(true);
+        });
+    });
+
+    // TC-PL-02
+    describe('loadPlugins — file:// URL second arg', () => {
+        it('should call registry.register with the plugin file URL as second argument', async () => {
+            mockConfig.get.mockReturnValue('/plugins');
+            vi.mocked(readdir).mockResolvedValue([makeDirent('cibc.js')]);
+            const plugin = makePlugin('cibc');
+            spyLoadModule(loader).mockResolvedValue({default: plugin});
+
+            await loader.loadPlugins();
+
+            expect(mockRegistry.register).toHaveBeenCalledWith(
+                plugin,
+                expect.stringMatching(/^file:\/\//)
+            );
         });
     });
 });

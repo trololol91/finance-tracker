@@ -11,6 +11,7 @@ import {PrismaService} from '#database/prisma.service.js';
 import {PushService} from '#push/push.service.js';
 import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
+import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import {
     SyncJobStatus, SyncRunStatus
 } from '#scraper/sync-job-status.js';
@@ -46,7 +47,8 @@ export class ScraperService {
         private readonly prisma: PrismaService,
         private readonly cryptoService: CryptoService,
         private readonly sessionStore: SyncSessionStore,
-        private readonly pushService: PushService
+        private readonly pushService: PushService,
+        private readonly registry: ScraperRegistry
     ) {}
 
     /**
@@ -103,66 +105,79 @@ export class ScraperService {
         startDateOverride?: string,
         dryRun = false
     ): Promise<void> {
-        await this.prisma.syncJob.update({
-            where: {id: jobId},
-            data: {status: SyncJobStatus.loggingIn}
-        });
-        this.sessionStore.emit(sessionId, {
-            data: JSON.stringify({
-                status: SyncJobStatus.loggingIn,
-                message: `Connecting to ${schedule.bankId}...`
-            })
-        } as MessageEvent);
+        try {
+            await this.prisma.syncJob.update({
+                where: {id: jobId},
+                data: {status: SyncJobStatus.loggingIn}
+            });
+            this.sessionStore.emit(sessionId, {
+                data: JSON.stringify({
+                    status: SyncJobStatus.loggingIn,
+                    message: `Connecting to ${schedule.bankId}...`
+                })
+            } as MessageEvent);
 
-        const inputs = JSON.parse(
-            this.cryptoService.decrypt(schedule.pluginConfigEnc)
-        ) as Record<string, string>;
+            const inputs = JSON.parse(
+                this.cryptoService.decrypt(schedule.pluginConfigEnc)
+            ) as Record<string, string>;
 
-        const startDate = startDateOverride
-            ? new Date(startDateOverride)
-            : this.computeStartDate(schedule);
-        const endDate = new Date();
-
-        const workerInput: ScraperWorkerInput = {
-            bankId: schedule.bankId,
-            inputs,
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            accountId: schedule.accountId,
-            jobId,
-            userId: schedule.userId,
-            dryRun
-        };
-
-        /* v8 ignore next 3 */
-        const workerPath = join(
-            fileURLToPath(new URL('.', import.meta.url)), 'scraper.worker.js'
-        );
-        /* v8 ignore next 5 */
-        const worker = new Worker(workerPath, {workerData: workerInput});
-        const timeout = setTimeout(() => {
-            void worker.terminate();
-        }, ScraperService.WORKER_TIMEOUT_MS);
-
-        worker.on('message', (msg: unknown) => {
-            if (!isWorkerMessage(msg)) return;
-            void this.handleWorkerMessage(sessionId, jobId, schedule, msg, worker);
-        });
-
-        worker.on('error', (err: Error) => {
-            clearTimeout(timeout);
-            void this.handleWorkerError(sessionId, jobId, schedule, err);
-        });
-
-        /* v8 ignore next 5 */
-        worker.on('exit', (code: number | null) => {
-            clearTimeout(timeout);
-            if (code !== 0 && code !== null) {
-                this.logger.warn(
-                    `Scraper worker exited with code ${String(code)} for job ${jobId}`
+            const pluginPath = this.registry.getPluginPath(schedule.bankId);
+            if (!pluginPath) {
+                throw new NotFoundException(
+                    `No plugin registered for bankId '${schedule.bankId}'`
                 );
             }
-        });
+
+            const startDate = startDateOverride
+                ? new Date(startDateOverride)
+                : this.computeStartDate(schedule);
+            const endDate = new Date();
+
+            const workerInput: ScraperWorkerInput = {
+                bankId: schedule.bankId,
+                inputs,
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+                accountId: schedule.accountId,
+                jobId,
+                userId: schedule.userId,
+                dryRun,
+                pluginPath,
+                databaseUrl: process.env.DATABASE_URL ?? ''
+            };
+
+            /* v8 ignore next 3 */
+            const workerPath = join(
+                fileURLToPath(new URL('.', import.meta.url)), 'scraper.worker.js'
+            );
+            /* v8 ignore next 5 */
+            const worker = new Worker(workerPath, {workerData: workerInput});
+            const timeout = setTimeout(() => {
+                void worker.terminate();
+            }, ScraperService.WORKER_TIMEOUT_MS);
+
+            worker.on('message', (msg: unknown) => {
+                if (!isWorkerMessage(msg)) return;
+                void this.handleWorkerMessage(sessionId, jobId, schedule, msg, worker);
+            });
+
+            worker.on('error', (err: Error) => {
+                clearTimeout(timeout);
+                void this.handleWorkerError(sessionId, jobId, schedule, err);
+            });
+
+            /* v8 ignore next 5 */
+            worker.on('exit', (code: number | null) => {
+                clearTimeout(timeout);
+                if (code !== 0 && code !== null) {
+                    this.logger.warn(
+                        `Scraper worker exited with code ${String(code)} for job ${jobId}`
+                    );
+                }
+            });
+        } catch (err) {
+            await this.handleWorkerError(sessionId, jobId, schedule, err as Error);
+        }
     }
 
     private async handleWorkerMessage(
@@ -180,7 +195,7 @@ export class ScraperService {
             await this.handleMfaRequired(sessionId, jobId, msg.prompt, worker, schedule.userId);
         } else {
             await this.handleResult(
-                sessionId, jobId, schedule, msg.transactions
+                sessionId, jobId, schedule, msg
             );
         }
     }
@@ -228,13 +243,9 @@ export class ScraperService {
         sessionId: string,
         jobId: string,
         schedule: SyncSchedule,
-        transactions: RawTransaction[]
+        result: {transactions: RawTransaction[], importedCount: number, skippedCount: number}
     ): Promise<void> {
-        // Phase 7: stub scrapers return []. Phase 8 will call ImportService.bulkInsert().
-        // TODO Phase 8: const {importedCount, skippedCount} =
-        //   await this.importService.bulkInsert(schedule.userId, schedule.accountId, transactions);
-        const importedCount = transactions.length;
-        const skippedCount = 0;
+        const {importedCount, skippedCount} = result;
         const now = new Date();
 
         await this.prisma.syncJob.update({

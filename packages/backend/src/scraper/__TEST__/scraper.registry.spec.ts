@@ -136,4 +136,56 @@ describe('ScraperRegistry.register', () => {
         expect(registry.findByBankId('cibc')).toBe(replacement);
         expect(registry.findByBankId('cibc')).not.toBe(original);
     });
+
+    // TC-R-01
+    it('register(scraper, filePath) stores the pluginPath and getPluginPath() returns it', () => {
+        const registry = new ScraperRegistry([]);
+
+        registry.register(makeScraper('rbc'), 'file:///plugins/rbc.scraper.js');
+
+        expect(registry.getPluginPath('rbc')).toBe('file:///plugins/rbc.scraper.js');
+    });
+
+    // TC-R-02
+    it('register(scraper) without pluginPath stores empty string; getPluginPath() returns undefined', () => {
+        const registry = new ScraperRegistry([]);
+
+        registry.register(makeScraper('rbc'));
+
+        expect(registry.getPluginPath('rbc')).toBeUndefined();
+    });
+
+    // TC-R-03
+    it('getPluginPath() returns undefined for unregistered bankId', () => {
+        const registry = new ScraperRegistry([]);
+
+        expect(registry.getPluginPath('unknown')).toBeUndefined();
+    });
+
+    // TC-R-04
+    it('scrapers injected via constructor (DI path) have getPluginPath() return undefined', () => {
+        const registry = new ScraperRegistry([makeScraper('cibc')]);
+
+        expect(registry.getPluginPath('cibc')).toBeUndefined();
+    });
+
+    // TC-R-05
+    it('overwriting a registration via register() updates the pluginPath', () => {
+        const registry = new ScraperRegistry([]);
+
+        registry.register(makeScraper('cibc'), 'file:///v1/cibc.scraper.js');
+        registry.register(makeScraper('cibc'), 'file:///v2/cibc.scraper.js');
+
+        expect(registry.getPluginPath('cibc')).toBe('file:///v2/cibc.scraper.js');
+    });
+
+    // TC-R-06
+    it('findByBankId() still returns the scraper object after pluginPath change', () => {
+        const registry = new ScraperRegistry([]);
+        const scraper = makeScraper('rbc');
+
+        registry.register(scraper, 'file:///plugins/rbc.scraper.js');
+
+        expect(registry.findByBankId('rbc')).toBe(scraper);
+    });
 });

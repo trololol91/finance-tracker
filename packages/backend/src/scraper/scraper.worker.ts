@@ -1,29 +1,27 @@
-/* v8 ignore file */
 /**
  * Scraper worker thread entry point.
  *
- * This script runs inside a Node.js worker_thread; it must not use NestJS DI
- * or access the database directly. Communication is exclusively via
- * `parentPort.postMessage` / `parentPort.once('message')`.
+ * Runs inside a Node.js worker_thread. Does not use NestJS DI.
+ * Communicates exclusively via parentPort.postMessage / parentPort.once('message').
  *
- * Phase 7 stub: real Playwright scraping is deferred to Phase 8.
- * The worker posts a `logging_in` status then immediately returns an empty
- * `RawTransaction[]` result — the full architecture (MFA bridge, timeouts,
- * plugin resolution) is wired and ready for real scrapers.
- *
- * MFA bridge (Phase 8):
- *   Worker → main: `parentPort.postMessage({ type: 'mfa_required', prompt })`
- *   Main → worker: `worker.postMessage({ type: 'mfa_code', code })`
- *   Worker: `const { code } = await new Promise(r => parentPort.once('message', r))`
+ * MFA bridge:
+ *   Worker → main: postMessage({ type: 'mfa_required', prompt })
+ *   Main → worker: postMessage({ type: 'mfa_code', code })
+ *   Worker: const { code } = await new Promise(r => parentPort.once('message', r))
  */
 import {
     parentPort,
     workerData
 } from 'worker_threads';
+import {chromium} from 'playwright';
+import {PrismaClient} from '#generated/prisma/client.js';
+import {PrismaPg} from '@prisma/adapter-pg';
 import type {
     ScraperWorkerInput,
-    RawTransaction
+    RawTransaction,
+    BankScraper
 } from '#scraper/interfaces/bank-scraper.interface.js';
+import {MfaRequiredError} from '#scraper/interfaces/bank-scraper.interface.js';
 import {SyncJobStatus} from '#scraper/sync-job-status.js';
 
 const input = workerData as ScraperWorkerInput;
@@ -39,56 +37,87 @@ parentPort.postMessage({
     message: `Connecting to ${input.bankId}...`
 });
 
-/**
- * Phase 7 stub: return empty transactions immediately.
- *
- * Phase 8 implementation (replace the two lines below with this block):
- *
- *   import { chromium } from 'playwright';
- *   import { MfaRequiredError } from '#scraper/banks/cibc.scraper.js'; // or plugin registry
- *
- *   const browser = await chromium.launch({ headless: true });
- *   const page    = await browser.newPage();
- *
- *   try {
- *       // 1. Resolve the correct BankScraper for this bankId from ScraperRegistry.
- *       //    (Registry is populated at startup by ScraperModule / plugin-loader.)
- *       const scraper = registry.get(input.bankId);
- *
- *       // 2. Attempt login — throws MfaRequiredError if bank shows OTP screen.
- *       try {
- *           await scraper.login(page, input.inputs);
- *       } catch (err) {
- *           if (!(err instanceof MfaRequiredError)) throw err;
- *
- *           // 3. Signal the main thread and suspend until the user submits the code.
- *           parentPort!.postMessage({ type: 'mfa_required', prompt: err.prompt });
- *           const { code } = await new Promise<{ code: string }>(r =>
- *               parentPort!.once('message', r)
- *           );
- *
- *           // 4. Submit the MFA code — page is still on the OTP screen.
- *           await scraper.submitMfa(page, code);
- *       }
- *
- *       // 5. Scrape — only reached once the session is fully authenticated.
- *       const transactions = await scraper.scrapeTransactions(page, {
- *           startDate:      new Date(input.startDate),
- *           endDate:        new Date(input.endDate),
- *           includePending: true,
- *       });
- *
- *       parentPort!.postMessage({ type: 'result', transactions });
- *   } finally {
- *       await browser.close();
- *   }
- */
-// Phase 7 stub: return empty transactions immediately regardless of dryRun.
-// Phase 8 will replace this block with the real Playwright + dedup + write logic.
-// The dryRun gate belongs around prisma.transaction.createMany — not around the
-// scrape itself. See the Phase 8 comment block above for placement.
-const transactions: RawTransaction[] = [];
-if (!input.dryRun) {
-    // Phase 8: prisma.transaction.createMany(dedupedRows) goes here
+const browser = await chromium.launch({headless: true});
+const page    = await browser.newPage();
+
+const adapter = new PrismaPg({connectionString: input.databaseUrl});
+const prisma = new PrismaClient({adapter});
+
+let importedCount = 0;
+let skippedCount  = 0;
+
+try {
+    const mod = await import(input.pluginPath) as {default: BankScraper};
+    const scraper = mod.default;
+
+    try {
+        await scraper.login(page, input.inputs);
+    } catch (err) {
+        // Use a duck-type check instead of instanceof so this works correctly
+        // when vi.resetModules() causes the interface module to be re-evaluated
+        // in a different module realm (test environment only; no production impact).
+        const isMfaError =
+            err instanceof MfaRequiredError ||
+            (err instanceof Error && err.name === 'MfaRequiredError' && 'prompt' in err);
+        if (!isMfaError) throw err;
+
+        const prompt = (err as MfaRequiredError).prompt;
+        parentPort.postMessage({type: 'mfa_required', prompt});
+        const {code} = await new Promise<{code: string}>(r =>
+            parentPort!.once('message', r)
+        );
+
+        if (typeof scraper.submitMfa === 'function') {
+            await scraper.submitMfa(page, code);
+        }
+    }
+
+    const transactions: RawTransaction[] = await scraper.scrapeTransactions(page, {
+        startDate: new Date(input.startDate),
+        endDate: new Date(input.endDate),
+        includePending: true
+    });
+
+    const syntheticIds = transactions.map(t => t.syntheticId);
+    const existing = await prisma.transaction.findMany({
+        where: {
+            userId: input.userId,
+            fitid: {in: syntheticIds}
+        },
+        select: {fitid: true}
+    });
+    const existingFitids = new Set(existing.map(r => r.fitid));
+    const newTransactions = transactions.filter(
+        t => !existingFitids.has(t.syntheticId)
+    );
+
+    skippedCount  = transactions.length - newTransactions.length;
+    importedCount = newTransactions.length;
+
+    if (!input.dryRun && newTransactions.length > 0) {
+        await prisma.transaction.createMany({
+            data: newTransactions.map(t => ({
+                userId: input.userId,
+                accountId: input.accountId,
+                fitid: t.syntheticId,
+                date: new Date(t.date),
+                originalDate: new Date(t.date),
+                description: t.description,
+                amount: t.amount,
+                transactionType: t.amount >= 0 ? 'income' : 'expense',
+                isActive: true
+            }))
+        });
+    }
+
+    parentPort.postMessage({
+        type: 'result',
+        transactions,
+        importedCount,
+        skippedCount
+    });
+
+} finally {
+    await prisma.$disconnect();
+    await browser.close();
 }
-parentPort.postMessage({type: 'result', transactions});

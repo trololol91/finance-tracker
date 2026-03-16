@@ -18,7 +18,7 @@ import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
 
 /** Built-in plugin filenames compiled alongside this module under `banks/`. */
-const BUILTIN_PLUGINS = ['cibc.scraper.js', 'td.scraper.js'];
+const BUILTIN_PLUGINS = ['cibc.scraper.js', 'td.scraper.js', 'stub.scraper.js'];
 
 /**
  * Type guard — returns true only when the value satisfies every field of the
@@ -161,7 +161,7 @@ export class ScraperPluginLoader implements OnModuleInit {
                     continue;
                 }
 
-                this.registry.register(plugin);
+                this.registry.register(plugin, pathToFileURL(filePath).href);
                 registered++;
                 this.logger.log(
                     `Plugin '${plugin.bankId}' registered from '${filePath}'`

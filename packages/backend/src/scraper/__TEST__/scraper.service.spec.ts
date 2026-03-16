@@ -11,6 +11,7 @@ import type {SyncSchedule} from '#generated/prisma/client.js';
 import type {
     RawTransaction, ScraperWorkerInput
 } from '#scraper/interfaces/bank-scraper.interface.js';
+import type {ScraperRegistry} from '#scraper/scraper.registry.js';
 
 // ---------------------------------------------------------------------------
 // Worker mock — prevents real worker_threads spawning in unit tests
@@ -90,6 +91,7 @@ describe('ScraperService', () => {
     let prisma: PrismaService;
     let cryptoService: CryptoService;
     let sessionStore: SyncSessionStore;
+    let mockRegistry: {getPluginPath: ReturnType<typeof vi.fn>};
 
     beforeEach(() => {
         workerHandlers.message = undefined;
@@ -119,7 +121,16 @@ describe('ScraperService', () => {
         const pushService = {
             sendNotification: vi.fn().mockResolvedValue(undefined)
         } as unknown as PushService;
-        service = new ScraperService(prisma, cryptoService, sessionStore, pushService);
+        mockRegistry = {
+            getPluginPath: vi.fn().mockReturnValue('file:///plugins/cibc.scraper.js')
+        };
+        service = new ScraperService(
+            prisma,
+            cryptoService,
+            sessionStore,
+            pushService,
+            mockRegistry as unknown as ScraperRegistry
+        );
 
         vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockSchedule);
         vi.mocked(prisma.syncJob.create).mockResolvedValue(mockJob);
@@ -178,6 +189,8 @@ describe('ScraperService', () => {
 
             const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
             expect(workerInput.dryRun).toBe(true);
+            expect(workerInput.pluginPath).toBe('file:///plugins/cibc.scraper.js');
+            expect(workerInput.databaseUrl).toEqual(expect.any(String));
         });
 
         it('should pass dryRun: false to the worker input when dryRun is not provided', async () => {
@@ -186,6 +199,8 @@ describe('ScraperService', () => {
 
             const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
             expect(workerInput.dryRun).toBe(false);
+            expect(workerInput.pluginPath).toBe('file:///plugins/cibc.scraper.js');
+            expect(workerInput.databaseUrl).toEqual(expect.any(String));
         });
 
         it('should pass dryRun: false to the worker input when dryRun is explicitly false', async () => {
@@ -194,6 +209,22 @@ describe('ScraperService', () => {
 
             const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
             expect(workerInput.dryRun).toBe(false);
+            expect(workerInput.pluginPath).toBe('file:///plugins/cibc.scraper.js');
+            expect(workerInput.databaseUrl).toEqual(expect.any(String));
+        });
+
+        // TC-SV-01
+        it('sync() should mark job failed when no plugin is registered for bankId', async () => {
+            mockRegistry.getPluginPath.mockReturnValue(undefined);
+
+            await service.sync('user-1', 'sched-1', 'manual');
+            await new Promise<void>(resolve => { setImmediate(resolve); });
+
+            expect(prisma.syncJob.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({status: 'failed'})
+                })
+            );
         });
     });
 
@@ -216,7 +247,7 @@ describe('ScraperService', () => {
             const {sessionId} = await service.sync('user-1', 'sched-1');
             await new Promise<void>(resolve => { setImmediate(resolve); });
 
-            workerHandlers.message?.({type: 'result', transactions: []});
+            workerHandlers.message?.({type: 'result', transactions: [], importedCount: 0, skippedCount: 0});
             await new Promise<void>(resolve => { setImmediate(resolve); });
 
             expect(prisma.syncJob.update).toHaveBeenCalledWith(
@@ -285,7 +316,11 @@ describe('ScraperService', () => {
                 sessionId: string,
                 jobId: string,
                 schedule: SyncSchedule,
-                transactions: RawTransaction[]
+                result: {
+                    transactions: RawTransaction[];
+                    importedCount: number;
+                    skippedCount: number;
+                }
             ) => Promise<void>;
         }
 
@@ -295,7 +330,11 @@ describe('ScraperService', () => {
             const received: string[] = [];
             sessionStore.getObservable('job-1').subscribe(e => received.push(e.data as string));
 
-            await svc.handleResult('job-1', 'job-1', mockSchedule, []);
+            await svc.handleResult('job-1', 'job-1', mockSchedule, {
+                transactions: [],
+                importedCount: 0,
+                skippedCount: 0
+            });
 
             expect(prisma.syncJob.update).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -310,7 +349,11 @@ describe('ScraperService', () => {
             const svc = service as unknown as InternalService;
             sessionStore.createSession('job-2');
 
-            await svc.handleResult('job-2', 'job-2', mockSchedule, []);
+            await svc.handleResult('job-2', 'job-2', mockSchedule, {
+                transactions: [],
+                importedCount: 0,
+                skippedCount: 0
+            });
 
             expect(prisma.syncSchedule.update).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -323,22 +366,47 @@ describe('ScraperService', () => {
             const svc = service as unknown as InternalService;
             sessionStore.createSession('job-3');
 
-            await svc.handleResult('job-3', 'job-3', mockSchedule, []);
+            await svc.handleResult('job-3', 'job-3', mockSchedule, {
+                transactions: [],
+                importedCount: 0,
+                skippedCount: 0
+            });
 
             expect(sessionStore.hasSession('job-3')).toBe(false);
         });
 
-        it('should report importedCount equal to transactions array length', async () => {
+        it('should report importedCount from the result object', async () => {
             const svc = service as unknown as InternalService;
             sessionStore.createSession('job-4');
             const received: string[] = [];
             sessionStore.getObservable('job-4').subscribe(e => received.push(e.data as string));
 
-            const fakeTxs = [{} as RawTransaction, {} as RawTransaction];
-            await svc.handleResult('job-4', 'job-4', mockSchedule, fakeTxs);
+            await svc.handleResult('job-4', 'job-4', mockSchedule, {
+                transactions: [{} as RawTransaction, {} as RawTransaction],
+                importedCount: 2,
+                skippedCount: 0
+            });
 
             const completeEvent = received.find(d => d.includes('"complete"'));
             expect(completeEvent).toContain('"importedCount":2');
+        });
+
+        // TC-SV-02
+        it('handleResult reads skippedCount from the message object', async () => {
+            const svc = service as unknown as InternalService;
+            sessionStore.createSession('job-skip');
+            const received: string[] = [];
+            sessionStore.getObservable('job-skip').subscribe(e => received.push(e.data as string));
+
+            await svc.handleResult('job-skip', 'job-skip', mockSchedule, {
+                transactions: [],
+                importedCount: 1,
+                skippedCount: 3
+            });
+
+            const completeEvent = received.find(d => d.includes('"complete"'));
+            expect(completeEvent).toContain('"skippedCount":3');
+            expect(completeEvent).toContain('"importedCount":1');
         });
     });
 
@@ -538,7 +606,7 @@ describe('ScraperService', () => {
 
             await svc.handleWorkerMessage(
                 'wm-3', 'wm-3', mockSchedule,
-                {type: 'result', transactions: []},
+                {type: 'result', transactions: [], importedCount: 0, skippedCount: 0},
                 {postMessage: vi.fn()}
             );
 

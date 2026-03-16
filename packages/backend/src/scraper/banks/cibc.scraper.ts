@@ -57,17 +57,7 @@ import type {
     RawTransaction
 } from '#scraper/interfaces/bank-scraper.interface.js';
 
-// ---------------------------------------------------------------------------
-// Typed error thrown by login() when CIBC presents an MFA / OTP challenge.
-// scraper.worker.ts catches this, posts { type: 'mfa_required' } to the main
-// thread, awaits the code, then calls scraper.submitMfa(page, code).
-// ---------------------------------------------------------------------------
-export class MfaRequiredError extends Error {
-    constructor(public readonly prompt: string) {
-        super(`MFA required: ${prompt}`);
-        this.name = 'MfaRequiredError';
-    }
-}
+export {MfaRequiredError} from '#scraper/interfaces/bank-scraper.interface.js';
 
 const cibcScraper: BankScraper = {
     bankId: 'cibc',
