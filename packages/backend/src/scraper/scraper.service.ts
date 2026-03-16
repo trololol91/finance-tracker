@@ -59,7 +59,8 @@ export class ScraperService {
         userId: string,
         scheduleId: string,
         triggeredBy: 'cron' | 'manual' = 'manual',
-        startDateOverride?: string
+        startDateOverride?: string,
+        dryRun = false
     ): Promise<{sessionId: string}> {
         const schedule = await this.prisma.syncSchedule.findFirst({
             where: {id: scheduleId, userId}
@@ -86,7 +87,7 @@ export class ScraperService {
         } as MessageEvent);
 
         // Spawn worker asynchronously — do not block the caller
-        void this.runWorker(sessionId, job.id, schedule, startDateOverride);
+        void this.runWorker(sessionId, job.id, schedule, startDateOverride, dryRun);
 
         return {sessionId};
     }
@@ -99,7 +100,8 @@ export class ScraperService {
         sessionId: string,
         jobId: string,
         schedule: SyncSchedule,
-        startDateOverride?: string
+        startDateOverride?: string,
+        dryRun = false
     ): Promise<void> {
         await this.prisma.syncJob.update({
             where: {id: jobId},
@@ -128,7 +130,8 @@ export class ScraperService {
             endDate: endDate.toISOString(),
             accountId: schedule.accountId,
             jobId,
-            userId: schedule.userId
+            userId: schedule.userId,
+            dryRun
         };
 
         /* v8 ignore next 3 */

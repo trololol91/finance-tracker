@@ -77,6 +77,8 @@ export interface ScraperWorkerInput {
     accountId: string;
     jobId: string;
     userId: string;
+    /** When true the worker skips the final prisma.transaction.createMany call. */
+    dryRun: boolean;
 }
 
 /**

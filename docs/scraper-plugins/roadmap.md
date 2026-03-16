@@ -11,7 +11,7 @@ Detailed implementation plans for each milestone live in
 |---|-----------|--------|
 | 1 | Remove Built-ins, Add Startup Seeding | ✅ Done |
 | 2 | Dry-run Test Endpoint | ✅ Done |
-| 3 | dryRun Flag on Run-Now | ⬜ Not Started |
+| 3 | dryRun Flag on Run-Now | 🟨 In Progress |
 | 4 | Plugin Input Schema | ⬜ Not Started |
 
 ---
@@ -250,6 +250,128 @@ the database.
   passed, not by the response format.
 - DB write is the only step skipped; deduplication logic still runs against
   existing `Transaction.fitid` values so `skippedCount` is accurate.
+
+### Recommended Next Actions
+
+#### Step 1 — Plan
+
+```
+@docs/scraper-plugins/roadmap.md
+
+planner — Produce a full implementation plan for Milestone 3 — dryRun Flag on
+Run-Now. Research the existing scraper sync patterns before writing anything:
+read run-sync-now.dto.ts, bank-scraper.interface.ts, scraper.service.ts, and
+scraper.worker.ts to understand how ScraperWorkerInput is constructed and
+passed to the worker thread, and how the worker currently calls
+prisma.transaction.createMany. Also read scraper.service.spec.ts and
+scraper.worker.spec.ts to understand the existing mock setup and test
+conventions. Save the plan to
+test-plan/scraper-plugins/milestone-3-implementation-plan.md.
+
+The plan must cover:
+- RunSyncNowDto change: add dryRun?: boolean with @IsOptional() and
+  @IsBoolean() decorators; default is false when omitted
+- ScraperWorkerInput change: add dryRun: boolean to the interface in
+  bank-scraper.interface.ts
+- ScraperService.sync() change: read dryRun from the DTO and pass it into the
+  worker input object; confirm no other call sites need updating
+- scraper.worker.ts change: gate the prisma.transaction.createMany call behind
+  if (!input.dryRun); ensure skippedCount is still computed by running dedup
+  logic against existing fitids even in dry-run mode; importedCount is 0 on a
+  dry run
+- SSE event behaviour: all normal events are emitted on a dry run — no
+  short-circuit before the scrape; the terminal complete event is emitted with
+  importedCount: 0
+- Unit test cases for the service and worker (see Step 3 for the full list)
+```
+
+#### Step 2 — Implement
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-3-implementation-plan.md
+
+backend-dev — Implement Milestone 3 — dryRun Flag on Run-Now using the plan
+above. Follow all backend conventions: # path aliases, .js ESM extensions on
+internal imports, class-validator decorators on DTOs, @ApiProperty on all DTO
+fields. The gate must be if (!input.dryRun) — not if (input.dryRun === false)
+— so that the falsy default is handled correctly without an explicit comparison.
+Do not short-circuit the scrape itself; only gate the database write. After
+implementing, run npm run typecheck and npm run lint to confirm the build is
+clean before finishing.
+```
+
+#### Step 3 — Tests
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-3-implementation-plan.md
+
+test-writer — Extend scraper.service.spec.ts and scraper.worker.spec.ts with
+Milestone 3 test cases. Read both spec files in full before writing anything —
+match the existing mock setup, factory patterns, and assertion style exactly.
+
+Service cases to cover:
+- dryRun: true is passed through to the worker input (assert workerInput.dryRun
+  is true after calling sync() with a DTO that has dryRun: true)
+- dryRun defaults to false when omitted from the DTO (assert
+  workerInput.dryRun is false when the DTO has no dryRun field)
+
+Worker cases to cover:
+- dryRun: false (default): prisma.transaction.createMany is called with the
+  expected transaction rows
+- dryRun: true: prisma.transaction.createMany is NOT called; importedCount is
+  0 in the terminal complete event; skippedCount reflects dedup against
+  existing fitids (mock an existing fitid and assert it appears in skippedCount)
+
+Run the full spec suite after writing and fix any failures before finishing.
+```
+
+#### Step 4 — Live API Testing
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-3-implementation-plan.md
+
+backend-tester — Run the Milestone 3 API test plan against the running server
+at http://localhost:3001. Save the test plan to
+test-plan/scraper-plugins/milestone-3-backend.md and the execution report to
+test-plan/scraper-plugins/milestone-3-backend-report.md.
+
+Test cases to execute:
+- POST /scraper/sync/run-now with dryRun: true, ADMIN token → SSE stream
+  completes normally; terminal complete event has importedCount: 0
+- POST /scraper/sync/run-now without dryRun field, ADMIN token → behaviour
+  unchanged; real import proceeds (importedCount reflects actual rows written)
+- POST /scraper/sync/run-now with dryRun: "yes" (wrong type), ADMIN token →
+  400 validation error
+```
+
+#### Step 5 — Code Review
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-3-implementation-plan.md
+
+code-reviewer — Review the Milestone 3 changes in packages/backend/src/scraper/.
+Focus on: dryRun correctly defaults to false in the DTO (@IsOptional() +
+@IsBoolean() — confirm the decorator order and that no @IsNotEmpty() blocks
+the default); the flag is threaded all the way through from the DTO to the
+worker input without being dropped or shadowed; the createMany gate is
+if (!input.dryRun) and not a strict equality check; SSE events are emitted
+identically for dry and real runs with no short-circuit before the scrape;
+skippedCount still reflects real dedup logic even in dry-run mode (dedup runs
+against existing fitids regardless of the flag).
+```
+
+#### Step 6 — Commit
+
+```
+@docs/scraper-plugins/roadmap.md
+
+backend-dev — Commit the Milestone 3 changes with message:
+feat(scraper): add dryRun flag to run-now sync endpoint
+```
 
 ---
 

@@ -1,6 +1,7 @@
 import {
     IsDateString,
-    IsOptional
+    IsOptional,
+    IsBoolean
 } from 'class-validator';
 import {ApiPropertyOptional} from '@nestjs/swagger';
 
@@ -16,4 +17,17 @@ export class RunSyncNowDto {
     @IsOptional()
     @IsDateString()
     public startDate?: string;
+
+    @ApiPropertyOptional({
+        description:
+            'When true, runs the full scrape pipeline (login, scrape, dedup check) ' +
+            'but skips the final database write. All SSE status events are emitted ' +
+            'normally; the terminal complete event will have importedCount: 0. ' +
+            'Defaults to false when omitted.',
+        example: true,
+        default: false
+    })
+    @IsOptional()
+    @IsBoolean()
+    public dryRun?: boolean;
 }

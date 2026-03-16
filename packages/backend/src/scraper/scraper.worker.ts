@@ -83,5 +83,12 @@ parentPort.postMessage({
  *       await browser.close();
  *   }
  */
+// Phase 7 stub: return empty transactions immediately regardless of dryRun.
+// Phase 8 will replace this block with the real Playwright + dedup + write logic.
+// The dryRun gate belongs around prisma.transaction.createMany — not around the
+// scrape itself. See the Phase 8 comment block above for placement.
 const transactions: RawTransaction[] = [];
+if (!input.dryRun) {
+    // Phase 8: prisma.transaction.createMany(dedupedRows) goes here
+}
 parentPort.postMessage({type: 'result', transactions});

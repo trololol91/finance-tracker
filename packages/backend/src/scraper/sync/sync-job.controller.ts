@@ -74,7 +74,8 @@ export class SyncJobController {
             currentUser.id,
             scheduleId,
             'manual',
-            dto.startDate
+            dto.startDate,
+            dto.dryRun ?? false
         );
     }
 

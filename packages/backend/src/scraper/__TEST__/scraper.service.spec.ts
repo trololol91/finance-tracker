@@ -8,7 +8,9 @@ import type {PrismaService} from '#database/prisma.service.js';
 import type {CryptoService} from '#scraper/crypto/crypto.service.js';
 import type {PushService} from '#push/push.service.js';
 import type {SyncSchedule} from '#generated/prisma/client.js';
-import type {RawTransaction} from '#scraper/interfaces/bank-scraper.interface.js';
+import type {
+    RawTransaction, ScraperWorkerInput
+} from '#scraper/interfaces/bank-scraper.interface.js';
 
 // ---------------------------------------------------------------------------
 // Worker mock — prevents real worker_threads spawning in unit tests
@@ -17,11 +19,15 @@ import type {RawTransaction} from '#scraper/interfaces/bank-scraper.interface.js
 const workerHandlers = vi.hoisted(() => ({
     message: undefined as ((msg: unknown) => void) | undefined,
     error: undefined as ((err: Error) => void) | undefined,
-    terminate: vi.fn()
+    terminate: vi.fn(),
+    lastWorkerData: undefined as unknown
 }));
 
 vi.mock('worker_threads', () => ({
     Worker: class MockWorker {
+        constructor(_path: string, options: {workerData: unknown}) {
+            workerHandlers.lastWorkerData = options.workerData;
+        }
         public on(event: string, handler: (arg: unknown) => void): void {
             if (event === 'message') {
                 workerHandlers.message = handler;
@@ -89,6 +95,7 @@ describe('ScraperService', () => {
         workerHandlers.message = undefined;
         workerHandlers.error = undefined;
         workerHandlers.terminate.mockReset();
+        workerHandlers.lastWorkerData = undefined;
 
         prisma = {
             syncSchedule: {
@@ -163,6 +170,30 @@ describe('ScraperService', () => {
             await expect(service.sync('user-1', 'missing-id')).rejects.toThrow(
                 NotFoundException
             );
+        });
+
+        it('should pass dryRun: true to the worker input when dryRun is true', async () => {
+            await service.sync('user-1', 'sched-1', 'manual', undefined, true);
+            await new Promise<void>(resolve => { setImmediate(resolve); });
+
+            const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
+            expect(workerInput.dryRun).toBe(true);
+        });
+
+        it('should pass dryRun: false to the worker input when dryRun is not provided', async () => {
+            await service.sync('user-1', 'sched-1', 'manual', undefined);
+            await new Promise<void>(resolve => { setImmediate(resolve); });
+
+            const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
+            expect(workerInput.dryRun).toBe(false);
+        });
+
+        it('should pass dryRun: false to the worker input when dryRun is explicitly false', async () => {
+            await service.sync('user-1', 'sched-1', 'manual', undefined, false);
+            await new Promise<void>(resolve => { setImmediate(resolve); });
+
+            const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
+            expect(workerInput.dryRun).toBe(false);
         });
     });
 

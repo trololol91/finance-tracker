@@ -377,22 +377,27 @@ Implementation plan: [`test-plan/dashboard-ux/implementation-plan.md`](../test-p
 
 ---
 
-## Current Focus: Scraper Plugin System — Milestone 1 (Remove Built-ins, Add Startup Seeding)
+## Current Focus: Scraper Plugin System — Milestone 3 (dryRun Flag on Run-Now)
 
-Implementation plan: [`test-plan/scraper-plugins/milestone-1-implementation-plan.md`](../test-plan/scraper-plugins/milestone-1-implementation-plan.md)
+Implementation plan: [`test-plan/scraper-plugins/milestone-3-implementation-plan.md`](../test-plan/scraper-plugins/milestone-3-implementation-plan.md)
 
-**Goal:** Eliminate bank-specific knowledge from the NestJS core. `CibcScraper` and `TdScraper` are removed as NestJS providers; they become standalone ESM plugin files loaded through the same plugin path as any third-party scraper. On first boot, `ScraperPluginLoader` seeds those files into `SCRAPER_PLUGIN_DIR` if they do not already exist.
+**Goal:** Add `dryRun?: boolean` (default `false`) to `RunSyncNowDto` and thread it through `ScraperService.sync()` → `ScraperWorkerInput` → the worker thread. The worker gates `prisma.transaction.createMany` behind `if (!input.dryRun)` while still running the full scrape pipeline and emitting all SSE status events normally. The terminal `complete` SSE event carries `importedCount: 0` on a dry run.
+
+**Completed:**
+
+- Milestone 1 (Remove Built-ins, Add Startup Seeding) — see `test-plan/scraper-plugins/milestone-1-implementation-plan.md`.
+- Milestone 2 (Dry-run Test Endpoint) — `POST /admin/scrapers/:bankId/test` implemented, tested, and committed (commit `d7e07fa`). See `test-plan/scraper-plugins/milestone-2-implementation-plan.md`.
 
 **Recommended next actions:**
 
-1. `@backend-dev` — **Step 1**: Convert `banks/cibc.scraper.ts` — remove `@Injectable()` and the class wrapper; export a plain `BankScraper` object literal as the `default` export. Keep `MfaRequiredError` as a named export. Retain the `/* v8 ignore file */` pragma.
-2. `@backend-dev` — **Step 2**: Convert `banks/td.scraper.ts` — same pattern as Step 1.
-3. `@backend-dev` — **Step 3**: Update `scraper.module.ts` — remove `CibcScraper`, `TdScraper` class providers, the `BANK_SCRAPER` factory provider, and the now-unused imports (`CibcScraper`, `TdScraper`, `BANK_SCRAPER`, `BankScraper`). Update the JSDoc block.
-4. `@backend-dev` — **Step 4**: Add `seedBuiltins()` to `ScraperPluginLoader` — private method that copies each built-in plugin file into `SCRAPER_PLUGIN_DIR` if absent (idempotent). Call `await this.seedBuiltins()` from `onModuleInit()` before `await this.loadPlugins()`.
-5. `@test-writer` — **Step 5**: Extend `scraper.plugin-loader.spec.ts` with 8 seeding test cases (copy-on-missing, skip-when-present, idempotency, ENOENT vs non-ENOENT errors, path correctness) and update the `onModuleInit` case.
-6. `@backend-tester` — Regression-check the unchanged endpoints (`GET /scrapers`, `POST /admin/scrapers/reload`, `POST /admin/scrapers/install`) against the running server. Save plan to `test-plan/scraper-plugins/milestone-1-backend.md` and report to `test-plan/scraper-plugins/milestone-1-backend-report.md`.
-7. `@code-reviewer` — Review all changes in `packages/backend/src/scraper/`.
-8. `@backend-dev` — Commit: `refactor(scraper): convert built-in scrapers to plugins with startup seeding`.
+1. `@backend-dev` — **Step 1**: Add `dryRun?: boolean` to `RunSyncNowDto` with `@IsOptional()` and `@IsBoolean()` decorators and `@ApiPropertyOptional`. File: `packages/backend/src/scraper/sync/dto/run-sync-now.dto.ts`.
+2. `@backend-dev` — **Step 2**: Add `dryRun: boolean` (non-optional) to `ScraperWorkerInput` in `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts`. Apply Step 1 and Step 2 together before running typecheck — the new required field will cause a typecheck error until Step 3 is applied.
+3. `@backend-dev` — **Step 3**: Update `ScraperService.sync()` to accept `dryRun: boolean = false` as a trailing parameter. Update `runWorker()` to accept and forward `dryRun`. Add `dryRun` to the `workerInput` literal. Update the call site in `sync-job.controller.ts` to pass `dto.dryRun ?? false`. File: `packages/backend/src/scraper/scraper.service.ts` and `packages/backend/src/scraper/sync/sync-job.controller.ts`.
+4. `@backend-dev` — **Step 4**: Add the `if (!input.dryRun)` gate comment and stub in `packages/backend/src/scraper/scraper.worker.ts` around where Phase 8 will place `prisma.transaction.createMany`. The `parentPort.postMessage({ type: 'result', transactions })` call remains unconditional.
+5. `@test-writer` — **Step 5**: Extend `scraper.service.spec.ts` with 3 new dryRun service cases (dryRun true threaded, dryRun omitted defaults to false, dryRun explicit false). Create `scraper.worker.spec.ts` with Phase 7 stub live tests (result message, status message) and Phase 8 `it.todo` stubs (createMany called / not called, importedCount, skippedCount). Match existing mock setup and assertion style exactly.
+6. `@backend-tester` — Run TC-01 through TC-07 from the Backend API Test Plan section. Save plan to `test-plan/scraper-plugins/milestone-3-backend.md` and report to `test-plan/scraper-plugins/milestone-3-backend-report.md`.
+7. `@code-reviewer` — Review all changes in `packages/backend/src/scraper/`. Focus: `@IsOptional()` before `@IsBoolean()` with no `@IsNotEmpty()`; `dryRun` threaded without being dropped or shadowed; gate is `if (!input.dryRun)` not a strict equality check; SSE events emitted identically on dry and real runs with no short-circuit before the scrape; `workerData` typed as non-optional `dryRun: boolean`.
+8. `@backend-dev` — Commit: `feat(scraper): add dryRun flag to run-now sync endpoint`.
 
 ---
 

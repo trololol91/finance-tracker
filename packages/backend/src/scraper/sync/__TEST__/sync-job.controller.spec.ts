@@ -112,7 +112,8 @@ describe('SyncJobController', () => {
                 mockUser.id,
                 SCHEDULE_ID,
                 'manual',
-                undefined
+                undefined,
+                false
             );
             expect(result).toEqual({sessionId: SESSION_ID});
         });
@@ -127,7 +128,38 @@ describe('SyncJobController', () => {
                 mockUser.id,
                 SCHEDULE_ID,
                 'manual',
-                '2025-01-01T00:00:00.000Z'
+                '2025-01-01T00:00:00.000Z',
+                false
+            );
+        });
+
+        it('should pass dryRun: true when dto.dryRun is true', async () => {
+            vi.mocked(scraperService.sync).mockResolvedValue({sessionId: SESSION_ID});
+            const dto = {dryRun: true};
+
+            await controller.runNow(SCHEDULE_ID, dto, mockUser);
+
+            expect(scraperService.sync).toHaveBeenCalledWith(
+                mockUser.id,
+                SCHEDULE_ID,
+                'manual',
+                undefined,
+                true
+            );
+        });
+
+        it('should pass dryRun: false when dto.dryRun is explicitly false', async () => {
+            vi.mocked(scraperService.sync).mockResolvedValue({sessionId: SESSION_ID});
+            const dto = {dryRun: false};
+
+            await controller.runNow(SCHEDULE_ID, dto, mockUser);
+
+            expect(scraperService.sync).toHaveBeenCalledWith(
+                mockUser.id,
+                SCHEDULE_ID,
+                'manual',
+                undefined,
+                false
             );
         });
 
