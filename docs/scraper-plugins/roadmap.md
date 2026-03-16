@@ -9,7 +9,7 @@ Detailed implementation plans for each milestone live in
 
 | # | Milestone | Status |
 |---|-----------|--------|
-| 1 | Remove Built-ins, Add Startup Seeding | ⬜ Not Started |
+| 1 | Remove Built-ins, Add Startup Seeding | ⬜ In Progress |
 | 2 | Dry-run Test Endpoint | ⬜ Not Started |
 | 3 | dryRun Flag on Run-Now | ⬜ Not Started |
 | 4 | Polymorphic Credentials | ⬜ Not Started |

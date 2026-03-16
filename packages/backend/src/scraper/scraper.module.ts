@@ -14,15 +14,9 @@ import {ScraperAdminService} from '#scraper/scraper-admin.service.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {ScraperScheduler} from '#scraper/scraper.scheduler.js';
 import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
-import {
-    ScraperRegistry,
-    BANK_SCRAPER
-} from '#scraper/scraper.registry.js';
+import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
-import {CibcScraper} from '#scraper/banks/cibc.scraper.js';
-import {TdScraper} from '#scraper/banks/td.scraper.js';
-import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
 
 /**
  * ScraperModule bundles the transaction import and automated sync features.
@@ -38,10 +32,13 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
  *   - ImportService, SyncScheduleService, ScraperService, ScraperAdminService
  *   - AdminGuard, ScraperRegistry
  *   - ScraperScheduler (OnModuleInit — restores enabled cron jobs after restart)
- *   - ScraperPluginLoader (OnModuleInit — loads external .js plugins from SCRAPER_PLUGIN_DIR)
+ *   - ScraperPluginLoader (OnModuleInit — seeds built-in plugins into SCRAPER_PLUGIN_DIR,
+ *       then loads all .js plugins from that directory)
  *   - CryptoService (AES-256-GCM credential encryption)
  *   - SyncSessionStore (in-memory SSE sessions)
- *   - BANK_SCRAPER token: array of [CibcScraper, TdScraper] via factory provider
+ *
+ * Built-in scrapers (cibc, td) are loaded as plugins via ScraperPluginLoader.
+ * ScraperRegistry accepts an empty injection via @Optional() until plugins are loaded.
  */
 @Module({
     imports: [
@@ -66,14 +63,7 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
         ScraperPluginLoader,
         ScraperRegistry,
         CryptoService,
-        SyncSessionStore,
-        CibcScraper,
-        TdScraper,
-        {
-            provide: BANK_SCRAPER,
-            useFactory: (cibc: CibcScraper, td: TdScraper): BankScraper[] => [cibc, td],
-            inject: [CibcScraper, TdScraper]
-        }
+        SyncSessionStore
     ]
 })
 export class ScraperModule {}

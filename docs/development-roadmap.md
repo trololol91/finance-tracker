@@ -377,6 +377,25 @@ Implementation plan: [`test-plan/dashboard-ux/implementation-plan.md`](../test-p
 
 ---
 
+## Current Focus: Scraper Plugin System — Milestone 1 (Remove Built-ins, Add Startup Seeding)
+
+Implementation plan: [`test-plan/scraper-plugins/milestone-1-implementation-plan.md`](../test-plan/scraper-plugins/milestone-1-implementation-plan.md)
+
+**Goal:** Eliminate bank-specific knowledge from the NestJS core. `CibcScraper` and `TdScraper` are removed as NestJS providers; they become standalone ESM plugin files loaded through the same plugin path as any third-party scraper. On first boot, `ScraperPluginLoader` seeds those files into `SCRAPER_PLUGIN_DIR` if they do not already exist.
+
+**Recommended next actions:**
+
+1. `@backend-dev` — **Step 1**: Convert `banks/cibc.scraper.ts` — remove `@Injectable()` and the class wrapper; export a plain `BankScraper` object literal as the `default` export. Keep `MfaRequiredError` as a named export. Retain the `/* v8 ignore file */` pragma.
+2. `@backend-dev` — **Step 2**: Convert `banks/td.scraper.ts` — same pattern as Step 1.
+3. `@backend-dev` — **Step 3**: Update `scraper.module.ts` — remove `CibcScraper`, `TdScraper` class providers, the `BANK_SCRAPER` factory provider, and the now-unused imports (`CibcScraper`, `TdScraper`, `BANK_SCRAPER`, `BankScraper`). Update the JSDoc block.
+4. `@backend-dev` — **Step 4**: Add `seedBuiltins()` to `ScraperPluginLoader` — private method that copies each built-in plugin file into `SCRAPER_PLUGIN_DIR` if absent (idempotent). Call `await this.seedBuiltins()` from `onModuleInit()` before `await this.loadPlugins()`.
+5. `@test-writer` — **Step 5**: Extend `scraper.plugin-loader.spec.ts` with 8 seeding test cases (copy-on-missing, skip-when-present, idempotency, ENOENT vs non-ENOENT errors, path correctness) and update the `onModuleInit` case.
+6. `@backend-tester` — Regression-check the unchanged endpoints (`GET /scrapers`, `POST /admin/scrapers/reload`, `POST /admin/scrapers/install`) against the running server. Save plan to `test-plan/scraper-plugins/milestone-1-backend.md` and report to `test-plan/scraper-plugins/milestone-1-backend-report.md`.
+7. `@code-reviewer` — Review all changes in `packages/backend/src/scraper/`.
+8. `@backend-dev` — Commit: `refactor(scraper): convert built-in scrapers to plugins with startup seeding`.
+
+---
+
 ## Future Enhancements (Post-Phase 11)
 
 These are not phases — they have no backend/frontend deliverables in this repo. They are standalone tools or infrastructure improvements that would benefit the project and the broader agent workflow.

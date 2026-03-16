@@ -49,7 +49,6 @@
  *   Desc cell:       td:nth-child(2)
  *   Amount cell:     td:nth-child(3)   (negative string = debit, e.g. "-$42.00")
  */
-import {Injectable} from '@nestjs/common';
 import type {
     BankScraper,
     BankCredentials,
@@ -69,13 +68,12 @@ export class MfaRequiredError extends Error {
     }
 }
 
-@Injectable()
-export class CibcScraper implements BankScraper {
-    public readonly bankId = 'cibc';
-    public readonly displayName = 'CIBC';
-    public readonly requiresMfaOnEveryRun = true;
-    public readonly maxLookbackDays = 90;
-    public readonly pendingTransactionsIncluded = true;
+const cibcScraper: BankScraper = {
+    bankId: 'cibc',
+    displayName: 'CIBC',
+    requiresMfaOnEveryRun: true,
+    maxLookbackDays: 90,
+    pendingTransactionsIncluded: true,
 
     /**
      * Phase 7 stub — navigate to CIBC login page and authenticate.
@@ -83,7 +81,7 @@ export class CibcScraper implements BankScraper {
      *
      * Phase 8 implementation example:
      * ─────────────────────────────────────────────────────────────────────────
-     * public async login(page: unknown, credentials: BankCredentials): Promise<void> {
+     * async login(page: unknown, credentials: BankCredentials): Promise<void> {
      *     const p = page as import('playwright').Page;
      *
      *     await p.goto('https://www.cibc.com/en/personal-banking/sign-on.html');
@@ -105,24 +103,9 @@ export class CibcScraper implements BankScraper {
      * }
      * ─────────────────────────────────────────────────────────────────────────
      */
-    public login(_page: unknown, _credentials: BankCredentials): Promise<void> {
+    login(_page: unknown, _credentials: BankCredentials): Promise<void> {
         return Promise.resolve();
-    }
-
-    /**
-     * Phase 8 addition — submit the OTP code after login() threw MfaRequiredError.
-     * The page is still on the MFA screen when this is called.
-     *
-     * Phase 8 implementation example:
-     * ─────────────────────────────────────────────────────────────────────────
-     * public async submitMfa(page: unknown, code: string): Promise<void> {
-     *     const p = page as import('playwright').Page;
-     *     await p.fill('input[name="otp"]', code);
-     *     await p.click('button[type="submit"]');
-     *     await p.waitForSelector('.account-summary', { timeout: 15_000 });
-     * }
-     * ─────────────────────────────────────────────────────────────────────────
-     */
+    },
 
     /**
      * Phase 7 stub — scrape transaction rows from CIBC portal.
@@ -131,7 +114,7 @@ export class CibcScraper implements BankScraper {
      *
      * Phase 8 implementation example:
      * ─────────────────────────────────────────────────────────────────────────
-     * public async scrapeTransactions(
+     * async scrapeTransactions(
      *   page: unknown, options: ScrapeOptions): Promise<RawTransaction[]> {
      *     const p = page as import('playwright').Page;
      *
@@ -166,7 +149,9 @@ export class CibcScraper implements BankScraper {
      * }
      * ─────────────────────────────────────────────────────────────────────────
      */
-    public scrapeTransactions(_page: unknown, _options: ScrapeOptions): Promise<RawTransaction[]> {
+    scrapeTransactions(_page: unknown, _options: ScrapeOptions): Promise<RawTransaction[]> {
         return Promise.resolve([]);
     }
-}
+};
+
+export default cibcScraper;
