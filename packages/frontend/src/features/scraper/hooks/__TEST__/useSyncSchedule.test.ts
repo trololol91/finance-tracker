@@ -10,6 +10,7 @@ import {
 import React from 'react';
 import {useSyncSchedule} from '@features/scraper/hooks/useSyncSchedule.js';
 import type {SyncScheduleResponseDto} from '@/api/model/syncScheduleResponseDto.js';
+import type {ScraperInfoDto} from '@/api/model/scraperInfoDto.js';
 
 vi.mock('@/api/sync-schedules/sync-schedules.js', () => ({
     useSyncScheduleControllerFindAll: vi.fn(),
@@ -19,17 +20,23 @@ vi.mock('@/api/sync-schedules/sync-schedules.js', () => ({
     getSyncScheduleControllerFindAllQueryKey: vi.fn(() => ['/sync-schedules'])
 }));
 
+vi.mock('@/api/scrapers/scrapers.js', () => ({
+    useScraperControllerListScrapers: vi.fn()
+}));
+
 import {
     useSyncScheduleControllerFindAll,
     useSyncScheduleControllerCreate,
     useSyncScheduleControllerUpdate,
     useSyncScheduleControllerRemove
 } from '@/api/sync-schedules/sync-schedules.js';
+import {useScraperControllerListScrapers} from '@/api/scrapers/scrapers.js';
 
 type FindAllReturn = ReturnType<typeof useSyncScheduleControllerFindAll>;
 type CreateReturn = ReturnType<typeof useSyncScheduleControllerCreate>;
 type UpdateReturn = ReturnType<typeof useSyncScheduleControllerUpdate>;
 type RemoveReturn = ReturnType<typeof useSyncScheduleControllerRemove>;
+type ScrapersReturn = ReturnType<typeof useScraperControllerListScrapers>;
 
 const makeFindAll = (schedules: SyncScheduleResponseDto[] = []): FindAllReturn =>
     ({data: schedules, isLoading: false, isError: false}) as unknown as FindAllReturn;
@@ -43,10 +50,26 @@ const makeUpdate = (mutate = vi.fn(), isPending = false): UpdateReturn =>
 const makeRemove = (mutate = vi.fn(), isPending = false): RemoveReturn =>
     ({mutate, isPending}) as unknown as RemoveReturn;
 
+const tdScraper: ScraperInfoDto = {
+    bankId: 'td',
+    displayName: 'TD Bank',
+    requiresMfaOnEveryRun: false,
+    maxLookbackDays: 90,
+    pendingTransactionsIncluded: false,
+    inputSchema: [
+        {key: 'username', label: 'Username', type: 'text', required: true},
+        {key: 'password', label: 'Password', type: 'password', required: true}
+    ]
+};
+
+const makeScrapers = (scrapers: ScraperInfoDto[] = [tdScraper]): ScrapersReturn =>
+    ({data: scrapers}) as unknown as ScrapersReturn;
+
 const mockFindAll = vi.mocked(useSyncScheduleControllerFindAll);
 const mockCreate = vi.mocked(useSyncScheduleControllerCreate);
 const mockUpdate = vi.mocked(useSyncScheduleControllerUpdate);
 const mockRemove = vi.mocked(useSyncScheduleControllerRemove);
+const mockScrapers = vi.mocked(useScraperControllerListScrapers);
 
 const createWrapper = (): (({children}: {children: React.ReactNode}) => React.JSX.Element) => {
     const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
@@ -84,6 +107,7 @@ describe('useSyncSchedule', () => {
         mockCreate.mockReturnValue(makeCreate());
         mockUpdate.mockReturnValue(makeUpdate());
         mockRemove.mockReturnValue(makeRemove());
+        mockScrapers.mockReturnValue(makeScrapers());
     });
 
     describe('initial state', () => {
@@ -128,6 +152,12 @@ describe('useSyncSchedule', () => {
             expect(result.current.formValues.bankId).toBe('');
         });
 
+        it('openCreate resets inputs to empty object', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openCreate(); });
+            expect(result.current.formValues.inputs).toEqual({});
+        });
+
         it('openEdit sets modalMode to "edit"', () => {
             const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
             act(() => { result.current.openEdit(makeSchedule()); });
@@ -147,6 +177,12 @@ describe('useSyncSchedule', () => {
             expect(result.current.formValues.bankId).toBe('cibc');
             expect(result.current.formValues.cron).toBe('0 9 * * 1');
             expect(result.current.formValues.lookbackDays).toBe('14');
+        });
+
+        it('openEdit sets inputs to empty object (inputs are never sent back from server)', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule()); });
+            expect(result.current.formValues.inputs).toEqual({});
         });
 
         it('openEdit sets editTarget', () => {
@@ -195,23 +231,65 @@ describe('useSyncSchedule', () => {
         });
     });
 
+    describe('handleInputChange', () => {
+        it('updates a key inside inputs', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.handleInputChange('username', 'myuser'); });
+            expect(result.current.formValues.inputs.username).toBe('myuser');
+        });
+
+        it('merges new key into existing inputs', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleInputChange('username', 'myuser');
+                result.current.handleInputChange('password', 'mypass');
+            });
+            expect(result.current.formValues.inputs.username).toBe('myuser');
+            expect(result.current.formValues.inputs.password).toBe('mypass');
+        });
+
+        it('clears the corresponding inputs.key error', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            // First trigger an input-level validation error by submitting with bankId set
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            // Should have inputs.username error since td has required username field
+            expect(result.current.errors['inputs.username']).toBeDefined();
+            // Clearing via handleInputChange should remove the error
+            act(() => { result.current.handleInputChange('username', 'myuser'); });
+            expect(result.current.errors['inputs.username']).toBeUndefined();
+        });
+    });
+
     describe('handleSubmit', () => {
         it('shows validation errors when required fields are empty', () => {
             const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.errors.accountId).toBeDefined();
             expect(result.current.errors.bankId).toBeDefined();
-            expect(result.current.errors.username).toBeDefined();
-            expect(result.current.errors.password).toBeDefined();
+        });
+
+        it('shows input validation errors when bankId is set but required inputs are missing', () => {
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors['inputs.username']).toBeDefined();
+            expect(result.current.errors['inputs.password']).toBeDefined();
         });
 
         it('validates lookbackDays range (too low)', () => {
             const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
             act(() => {
                 result.current.handleFieldChange('accountId', 'a');
-                result.current.handleFieldChange('bankId', 'b');
-                result.current.handleFieldChange('username', 'u');
-                result.current.handleFieldChange('password', 'p');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleInputChange('username', 'u');
+                result.current.handleInputChange('password', 'p');
                 result.current.handleFieldChange('lookbackDays', '0');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
@@ -222,9 +300,9 @@ describe('useSyncSchedule', () => {
             const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
             act(() => {
                 result.current.handleFieldChange('accountId', 'a');
-                result.current.handleFieldChange('bankId', 'b');
-                result.current.handleFieldChange('username', 'u');
-                result.current.handleFieldChange('password', 'p');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleInputChange('username', 'u');
+                result.current.handleInputChange('password', 'p');
                 result.current.handleFieldChange('lookbackDays', '400');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
@@ -238,8 +316,8 @@ describe('useSyncSchedule', () => {
             act(() => {
                 result.current.handleFieldChange('accountId', 'acc-1');
                 result.current.handleFieldChange('bankId', 'td');
-                result.current.handleFieldChange('username', 'user123');
-                result.current.handleFieldChange('password', 'pass123');
+                result.current.handleInputChange('username', 'user123');
+                result.current.handleInputChange('password', 'pass123');
                 result.current.handleFieldChange('cron', '0 8 * * *');
                 result.current.handleFieldChange('lookbackDays', '7');
             });
@@ -249,7 +327,7 @@ describe('useSyncSchedule', () => {
                     data: expect.objectContaining({
                         accountId: 'acc-1',
                         bankId: 'td',
-                        username: 'user123'
+                        inputs: expect.objectContaining({username: 'user123'})
                     })
                 }),
                 expect.any(Object)
@@ -264,8 +342,8 @@ describe('useSyncSchedule', () => {
             act(() => {
                 result.current.handleFieldChange('accountId', 'acc-1');
                 result.current.handleFieldChange('bankId', 'td');
-                result.current.handleFieldChange('username', 'user');
-                result.current.handleFieldChange('password', 'pass');
+                result.current.handleInputChange('username', 'user');
+                result.current.handleInputChange('password', 'pass');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.modalMode).toBeNull();
@@ -283,8 +361,8 @@ describe('useSyncSchedule', () => {
             act(() => {
                 result.current.handleFieldChange('accountId', 'acc-1');
                 result.current.handleFieldChange('bankId', 'td');
-                result.current.handleFieldChange('username', 'user');
-                result.current.handleFieldChange('password', 'pass');
+                result.current.handleInputChange('username', 'user');
+                result.current.handleInputChange('password', 'pass');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.errors.cron).toBe('Cron invalid');
@@ -299,8 +377,8 @@ describe('useSyncSchedule', () => {
             act(() => {
                 result.current.handleFieldChange('accountId', 'acc-1');
                 result.current.handleFieldChange('bankId', 'td');
-                result.current.handleFieldChange('username', 'user');
-                result.current.handleFieldChange('password', 'pass');
+                result.current.handleInputChange('username', 'user');
+                result.current.handleInputChange('password', 'pass');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.errors.cron).toContain('create');
@@ -312,8 +390,6 @@ describe('useSyncSchedule', () => {
             const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
             act(() => { result.current.openEdit(makeSchedule({id: 'sched-5'})); });
             act(() => {
-                result.current.handleFieldChange('username', 'newuser');
-                result.current.handleFieldChange('password', 'newpass');
                 result.current.handleFieldChange('cron', '0 8 * * *');
                 result.current.handleFieldChange('lookbackDays', '7');
             });
@@ -329,29 +405,35 @@ describe('useSyncSchedule', () => {
             mockUpdate.mockReturnValue(makeUpdate(mutate));
             const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
             act(() => { result.current.openEdit(makeSchedule()); });
-            // openEdit sets username/password to '', which fails validation — fill them in
-            act(() => {
-                result.current.handleFieldChange('username', 'someuser');
-                result.current.handleFieldChange('password', 'somepass');
-            });
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.modalMode).toBeNull();
         });
 
-        it('sends non-empty username/password in update mutation data', () => {
+        it('omits inputs from update payload when inputs is empty', () => {
+            const mutate = vi.fn();
+            mockUpdate.mockReturnValue(makeUpdate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule({id: 'sched-u'})); });
+            // Do not call handleInputChange — leave inputs as {}
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            interface UpdateArg {id: string, data: Record<string, unknown>}
+            const firstArg = mutate.mock.calls[0][0] as UpdateArg;
+            expect(firstArg.data).not.toHaveProperty('inputs');
+        });
+
+        it('includes inputs in update payload when inputs has values', () => {
             const mutate = vi.fn();
             mockUpdate.mockReturnValue(makeUpdate(mutate));
             const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
             act(() => { result.current.openEdit(makeSchedule({id: 'sched-u'})); });
             act(() => {
-                result.current.handleFieldChange('username', 'newuser');
-                result.current.handleFieldChange('password', 'newpass');
+                result.current.handleInputChange('username', 'newuser');
+                result.current.handleInputChange('password', 'newpass');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            interface UpdateArg {id: string, data: {username?: string, password?: string}}
+            interface UpdateArg {id: string, data: {inputs?: Record<string, string>}}
             const firstArg = mutate.mock.calls[0][0] as UpdateArg;
-            expect(firstArg.data.username).toBe('newuser');
-            expect(firstArg.data.password).toBe('newpass');
+            expect(firstArg.data.inputs).toEqual({username: 'newuser', password: 'newpass'});
         });
     });
 

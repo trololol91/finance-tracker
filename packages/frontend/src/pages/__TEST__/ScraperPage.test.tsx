@@ -134,7 +134,7 @@ const mockSyncJob = vi.mocked(useSyncJob);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const defaultFormValues: SyncScheduleFormValues = {
-    accountId: '', bankId: '', username: '', password: '',
+    accountId: '', bankId: '', inputs: {},
     cron: '0 8 * * *', lookbackDays: '3', enabled: true
 };
 
@@ -184,6 +184,7 @@ const makeSyncScheduleReturn = (
     openEdit: vi.fn(),
     closeModal: vi.fn(),
     handleFieldChange: vi.fn(),
+    handleInputChange: vi.fn(),
     handleSubmit: vi.fn(),
     handleDelete: vi.fn(),
     ...overrides

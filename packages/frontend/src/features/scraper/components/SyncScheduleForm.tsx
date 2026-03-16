@@ -13,6 +13,7 @@ interface SyncScheduleFormProps {
     editMode: boolean;
     firstFieldRef?: React.RefObject<HTMLSelectElement | null>;
     onChange: (field: keyof SyncScheduleFormValues, value: string | boolean) => void;
+    onInputChange: (key: string, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -23,6 +24,7 @@ export const SyncScheduleForm = ({
     editMode,
     firstFieldRef,
     onChange,
+    onInputChange,
     onSubmit
 }: SyncScheduleFormProps): React.JSX.Element => {
     const {data: scrapers} = useScraperControllerListScrapers();
@@ -94,51 +96,66 @@ export const SyncScheduleForm = ({
                 )}
             </div>
 
-            {/* Credentials row */}
-            <div className={styles.row}>
-                <div className={styles.field}>
-                    <label className={styles.label} htmlFor="ss-username">
-                        {editMode ? 'New Username' : 'Username'}{!editMode && (
-                            <span aria-hidden="true" className={styles.required}> *</span>
-                        )}
-                    </label>
-                    <input
-                        id="ss-username"
-                        type="text"
-                        autoComplete="username"
-                        className={`${styles.input}${errors.username !== undefined ? ` ${styles.inputError}` : ''}`}
-                        value={values.username}
-                        required={!editMode}
-                        aria-required={editMode ? 'false' : 'true'}
-                        placeholder={editMode ? 'Leave blank to keep unchanged' : ''}
-                        onChange={(e) => { onChange('username', e.target.value); }}
-                    />
-                    {errors.username !== undefined && (
-                        <span role="alert" className={styles.error}>{errors.username}</span>
-                    )}
-                </div>
-                <div className={styles.field}>
-                    <label className={styles.label} htmlFor="ss-password">
-                        {editMode ? 'New Password' : 'Password'}{!editMode && (
-                            <span aria-hidden="true" className={styles.required}> *</span>
-                        )}
-                    </label>
-                    <input
-                        id="ss-password"
-                        type="password"
-                        autoComplete={editMode ? 'new-password' : 'current-password'}
-                        className={`${styles.input}${errors.password !== undefined ? ` ${styles.inputError}` : ''}`}
-                        value={values.password}
-                        required={!editMode}
-                        aria-required={editMode ? 'false' : 'true'}
-                        placeholder={editMode ? 'Leave blank to keep unchanged' : ''}
-                        onChange={(e) => { onChange('password', e.target.value); }}
-                    />
-                    {errors.password !== undefined && (
-                        <span role="alert" className={styles.error}>{errors.password}</span>
-                    )}
-                </div>
-            </div>
+            {/* Dynamic plugin input fields — driven by the selected scraper's inputSchema */}
+            {((): React.JSX.Element[] | null => {
+                const selectedScraper = scrapers?.find((s) => s.bankId === values.bankId);
+                if (selectedScraper === undefined) return null;
+
+                return selectedScraper.inputSchema.map((field) => {
+                    const fieldError = errors[`inputs.${field.key}`];
+                    const fieldValue = values.inputs[field.key] ?? '';
+
+                    return (
+                        <div key={field.key} className={styles.field}>
+                            <label className={styles.label} htmlFor={`ss-input-${field.key}`}>
+                                {editMode ? `New ${field.label}` : field.label}
+                                {!editMode && field.required && (
+                                    <span aria-hidden="true" className={styles.required}> *</span>
+                                )}
+                            </label>
+
+                            {field.type === 'select' && field.options !== undefined ? (
+                                <select
+                                    id={`ss-input-${field.key}`}
+                                    className={`${styles.select}${fieldError !== undefined ? ` ${styles.inputError}` : ''}`}
+                                    value={fieldValue}
+                                    required={!editMode && field.required}
+                                    onChange={(e) => { onInputChange(field.key, e.target.value); }}
+                                >
+                                    <option value="">Select…</option>
+                                    {field.options.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input
+                                    id={`ss-input-${field.key}`}
+                                    type={field.type}
+                                    autoComplete={
+                                        field.type === 'password'
+                                            ? (editMode ? 'new-password' : 'current-password')
+                                            : field.key
+                                    }
+                                    className={`${styles.input}${fieldError !== undefined ? ` ${styles.inputError}` : ''}`}
+                                    value={fieldValue}
+                                    required={!editMode && field.required}
+                                    placeholder={editMode ? 'Leave blank to keep unchanged' : ''}
+                                    onChange={(e) => { onInputChange(field.key, e.target.value); }}
+                                />
+                            )}
+
+                            {field.hint !== undefined && (
+                                <span className={styles.hint}>{field.hint}</span>
+                            )}
+                            {fieldError !== undefined && (
+                                <span role="alert" className={styles.error}>{fieldError}</span>
+                            )}
+                        </div>
+                    );
+                });
+            })()}
 
             {/* Cron + lookback row */}
             <div className={styles.row}>

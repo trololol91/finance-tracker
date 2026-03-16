@@ -9,6 +9,7 @@ import {SyncScheduleForm} from '@features/scraper/components/SyncScheduleForm.js
 import type {
     SyncScheduleFormValues, SyncScheduleFormErrors
 } from '@features/scraper/types/scraper.types.js';
+import type {ScraperInfoDto} from '@/api/model/scraperInfoDto.js';
 
 vi.mock('@/api/scrapers/scrapers.js', () => ({
     useScraperControllerListScrapers: vi.fn()
@@ -23,14 +24,24 @@ import {useAccountsControllerFindAll} from '@/api/accounts/accounts.js';
 const mockScrapers = vi.mocked(useScraperControllerListScrapers);
 const mockAccounts = vi.mocked(useAccountsControllerFindAll);
 
-interface ScraperItem {bankId: string, displayName: string, isActive: boolean}
 interface AccountItem {id: string, name: string, isActive: boolean}
+
+const tdScraper: ScraperInfoDto = {
+    bankId: 'td',
+    displayName: 'TD Bank',
+    requiresMfaOnEveryRun: false,
+    maxLookbackDays: 90,
+    pendingTransactionsIncluded: false,
+    inputSchema: [
+        {key: 'username', label: 'Username', type: 'text', required: true, hint: 'Your TD EasyWeb username'},
+        {key: 'password', label: 'Password', type: 'password', required: true}
+    ]
+};
 
 const emptyValues: SyncScheduleFormValues = {
     accountId: '',
     bankId: '',
-    username: '',
-    password: '',
+    inputs: {},
     cron: '0 8 * * *',
     lookbackDays: '3',
     enabled: true
@@ -42,15 +53,14 @@ const defaultProps = {
     isSubmitting: false,
     editMode: false,
     onChange: vi.fn(),
+    onInputChange: vi.fn(),
     onSubmit: vi.fn()
 };
 
 beforeEach(() => {
     vi.clearAllMocks();
     mockScrapers.mockReturnValue({
-        data: [
-            {bankId: 'td', displayName: 'TD Bank', isActive: true} as ScraperItem
-        ]
+        data: [tdScraper]
     } as ReturnType<typeof useScraperControllerListScrapers>);
     mockAccounts.mockReturnValue({
         data: [
@@ -66,12 +76,10 @@ describe('SyncScheduleForm', () => {
             expect(screen.getByRole('form', {name: /new sync schedule form/i})).toBeInTheDocument();
         });
 
-        it('shows Account, Bank, Username, Password fields', () => {
+        it('shows Account and Bank fields', () => {
             render(<SyncScheduleForm {...defaultProps} />);
             expect(screen.getByLabelText(/account/i)).toBeInTheDocument();
             expect(screen.getByLabelText(/bank/i)).toBeInTheDocument();
-            expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-            expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
         });
 
         it('shows cron and lookback fields', () => {
@@ -100,12 +108,39 @@ describe('SyncScheduleForm', () => {
             expect(screen.getByRole('option', {name: 'Chequing'})).toBeInTheDocument();
         });
 
-        it('calls onChange when username input changes', async () => {
+        it('does not show plugin input fields when no bank is selected', () => {
+            render(<SyncScheduleForm {...defaultProps} />);
+            // Without a bankId selected, no scraper is found and no input fields rendered
+            expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
+            expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
+        });
+
+        it('shows plugin input fields when a bank is selected', () => {
+            const valuesWithBank: SyncScheduleFormValues = {...emptyValues, bankId: 'td'};
+            render(<SyncScheduleForm {...defaultProps} values={valuesWithBank} />);
+            expect(screen.getByLabelText(/^username/i)).toBeInTheDocument();
+            expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
+        });
+
+        it('calls onInputChange when a plugin input field changes', async () => {
             const user = userEvent.setup();
-            const onChange = vi.fn();
-            render(<SyncScheduleForm {...defaultProps} onChange={onChange} />);
+            const onInputChange = vi.fn();
+            const valuesWithBank: SyncScheduleFormValues = {...emptyValues, bankId: 'td'};
+            render(
+                <SyncScheduleForm
+                    {...defaultProps}
+                    values={valuesWithBank}
+                    onInputChange={onInputChange}
+                />
+            );
             await user.type(screen.getByLabelText(/^username/i), 'bob');
-            expect(onChange).toHaveBeenCalledWith('username', expect.any(String));
+            expect(onInputChange).toHaveBeenCalledWith('username', expect.any(String));
+        });
+
+        it('shows hint text for fields that have a hint', () => {
+            const valuesWithBank: SyncScheduleFormValues = {...emptyValues, bankId: 'td'};
+            render(<SyncScheduleForm {...defaultProps} values={valuesWithBank} />);
+            expect(screen.getByText(/Your TD EasyWeb username/i)).toBeInTheDocument();
         });
     });
 
@@ -120,8 +155,9 @@ describe('SyncScheduleForm', () => {
             expect(screen.getByRole('button', {name: /save changes/i})).toBeInTheDocument();
         });
 
-        it('shows "New Username" label in edit mode', () => {
-            render(<SyncScheduleForm {...defaultProps} editMode={true} />);
+        it('shows "New Username" label in edit mode when bank is selected', () => {
+            const valuesWithBank: SyncScheduleFormValues = {...emptyValues, bankId: 'td'};
+            render(<SyncScheduleForm {...defaultProps} editMode={true} values={valuesWithBank} />);
             expect(screen.getByLabelText(/new username/i)).toBeInTheDocument();
         });
 
@@ -153,6 +189,13 @@ describe('SyncScheduleForm', () => {
             );
             await user.click(screen.getByLabelText(/schedule enabled/i));
             expect(onChange).toHaveBeenCalledWith('enabled', expect.any(Boolean));
+        });
+
+        it('shows "Leave blank to keep unchanged" placeholder for password in edit mode', () => {
+            const valuesWithBank: SyncScheduleFormValues = {...emptyValues, bankId: 'td'};
+            render(<SyncScheduleForm {...defaultProps} editMode={true} values={valuesWithBank} />);
+            const passwordInput = screen.getByLabelText(/new password/i);
+            expect(passwordInput).toHaveAttribute('placeholder', 'Leave blank to keep unchanged');
         });
     });
 
@@ -187,24 +230,16 @@ describe('SyncScheduleForm', () => {
             expect(screen.getByText('Invalid cron')).toBeInTheDocument();
         });
 
-        it('shows username error when present', () => {
+        it('shows plugin input error when present', () => {
+            const valuesWithBank: SyncScheduleFormValues = {...emptyValues, bankId: 'td'};
             render(
                 <SyncScheduleForm
                     {...defaultProps}
-                    errors={{username: 'Username required'}}
+                    values={valuesWithBank}
+                    errors={{'inputs.username': 'Username required'} as SyncScheduleFormErrors}
                 />
             );
             expect(screen.getByText('Username required')).toBeInTheDocument();
-        });
-
-        it('shows password error when present', () => {
-            render(
-                <SyncScheduleForm
-                    {...defaultProps}
-                    errors={{password: 'Password required'}}
-                />
-            );
-            expect(screen.getByText('Password required')).toBeInTheDocument();
         });
 
         it('shows lookbackDays error when present', () => {
@@ -252,6 +287,41 @@ describe('SyncScheduleForm', () => {
             // Only the "Select bank…" placeholder option should exist
             const bankSelect = screen.getByLabelText(/bank/i);
             expect(within(bankSelect).getAllByRole('option')).toHaveLength(1);
+        });
+    });
+
+    describe('select-type plugin fields', () => {
+        it('renders a <select> element for fields with type "select"', () => {
+            const selectScraper: ScraperInfoDto = {
+                bankId: 'cibc',
+                displayName: 'CIBC',
+                requiresMfaOnEveryRun: false,
+                maxLookbackDays: 90,
+                pendingTransactionsIncluded: false,
+                inputSchema: [
+                    {
+                        key: 'accountType',
+                        label: 'Account Type',
+                        type: 'select',
+                        required: true,
+                        options: [
+                            {value: 'chequing', label: 'Chequing'},
+                            {value: 'savings', label: 'Savings'}
+                        ]
+                    }
+                ]
+            };
+            mockScrapers.mockReturnValue({
+                data: [selectScraper]
+            } as ReturnType<typeof useScraperControllerListScrapers>);
+            const valuesWithBank: SyncScheduleFormValues = {...emptyValues, bankId: 'cibc'};
+            render(<SyncScheduleForm {...defaultProps} values={valuesWithBank} />);
+            const selectEl = screen.getByLabelText(/account type/i);
+            expect(selectEl.tagName).toBe('SELECT');
+            // Scope to this select to avoid collision with the account select
+            const withinSelect = within(selectEl);
+            expect(withinSelect.getByRole('option', {name: 'Chequing'})).toBeInTheDocument();
+            expect(withinSelect.getByRole('option', {name: 'Savings'})).toBeInTheDocument();
         });
     });
 });

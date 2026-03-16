@@ -36,8 +36,7 @@ beforeAll(() => {
 const emptyValues: SyncScheduleFormValues = {
     accountId: '',
     bankId: '',
-    username: '',
-    password: '',
+    inputs: {},
     cron: '0 8 * * *',
     lookbackDays: '3',
     enabled: true
@@ -50,6 +49,7 @@ const defaultProps = {
     isSubmitting: false,
     onClose: vi.fn(),
     onChange: vi.fn(),
+    onInputChange: vi.fn(),
     onSubmit: vi.fn()
 };
 

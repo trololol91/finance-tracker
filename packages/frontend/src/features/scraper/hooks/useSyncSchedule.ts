@@ -12,7 +12,9 @@ import {
     useSyncScheduleControllerRemove,
     getSyncScheduleControllerFindAllQueryKey
 } from '@/api/sync-schedules/sync-schedules.js';
+import {useScraperControllerListScrapers} from '@/api/scrapers/scrapers.js';
 import type {SyncScheduleResponseDto} from '@/api/model/syncScheduleResponseDto.js';
+import type {ScraperInfoDto} from '@/api/model/scraperInfoDto.js';
 import type {
     SyncScheduleFormValues,
     SyncScheduleFormErrors,
@@ -22,24 +24,35 @@ import type {
 const EMPTY_FORM: SyncScheduleFormValues = {
     accountId: '',
     bankId: '',
-    username: '',
-    password: '',
+    inputs: {},
     cron: '0 8 * * *',
     lookbackDays: '3',
     enabled: true
 };
 
-const validateForm = (values: SyncScheduleFormValues, isEdit: boolean): SyncScheduleFormErrors => {
+const validateForm = (
+    values: SyncScheduleFormValues,
+    isEdit: boolean,
+    selectedScraper: ScraperInfoDto | undefined
+): SyncScheduleFormErrors => {
     const errors: SyncScheduleFormErrors = {};
     if (values.accountId.trim() === '') errors.accountId = 'Account is required';
     if (values.bankId.trim() === '') errors.bankId = 'Bank is required';
-    // In edit mode username/password are optional — leave blank keeps them unchanged
-    if (!isEdit && values.username.trim() === '') errors.username = 'Username is required';
-    if (!isEdit && values.password.trim() === '') errors.password = 'Password is required';
     if (values.cron.trim() === '') errors.cron = 'Cron expression is required';
     const days = parseInt(values.lookbackDays, 10);
     if (isNaN(days) || days < 1 || days > 365) {
         errors.lookbackDays = 'Lookback days must be between 1 and 365';
+    }
+    // Validate required plugin input fields (only in create mode)
+    if (!isEdit && selectedScraper !== undefined) {
+        for (const field of selectedScraper.inputSchema) {
+            if (field.required) {
+                const val = values.inputs[field.key] ?? '';
+                if (val.trim() === '') {
+                    errors[`inputs.${field.key}`] = `${field.label} is required`;
+                }
+            }
+        }
     }
     return errors;
 };
@@ -57,6 +70,7 @@ export interface UseSyncScheduleReturn {
     openEdit: (schedule: SyncScheduleResponseDto) => void;
     closeModal: () => void;
     handleFieldChange: (field: keyof SyncScheduleFormValues, value: string | boolean) => void;
+    handleInputChange: (key: string, value: string) => void;
     handleSubmit: (e: React.FormEvent) => void;
     handleDelete: (id: string) => void;
 }
@@ -71,6 +85,8 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
 
     const {data, isLoading, isError} = useSyncScheduleControllerFindAll();
     const schedules: SyncScheduleResponseDto[] = data ?? [];
+
+    const {data: scrapers} = useScraperControllerListScrapers();
 
     const createMutation = useSyncScheduleControllerCreate();
     const updateMutation = useSyncScheduleControllerUpdate();
@@ -94,8 +110,7 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
         setFormValues({
             accountId: schedule.accountId,
             bankId: schedule.bankId,
-            username: '',
-            password: '',
+            inputs: {},
             cron: schedule.cron,
             lookbackDays: String(schedule.lookbackDays),
             enabled: schedule.enabled
@@ -122,10 +137,23 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
         []
     );
 
+    const handleInputChange = useCallback(
+        (key: string, value: string): void => {
+            setFormValues((prev) => ({...prev, inputs: {...prev.inputs, [key]: value}}));
+            setErrors((prev) => {
+                const next = {...prev};
+                delete next[`inputs.${key}`];
+                return next;
+            });
+        },
+        []
+    );
+
     const handleSubmit = useCallback(
         (e: React.FormEvent): void => {
             e.preventDefault();
-            const validationErrors = validateForm(formValues, editTarget !== null);
+            const selectedScraper = scrapers?.find((s) => s.bankId === formValues.bankId);
+            const validationErrors = validateForm(formValues, editTarget !== null, selectedScraper);
             if (Object.keys(validationErrors).length > 0) {
                 setErrors(validationErrors);
                 return;
@@ -142,12 +170,12 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
             };
 
             if (editTarget !== null) {
+                const hasInputs = Object.keys(formValues.inputs).length > 0;
                 updateMutation.mutate(
                     {
                         id: editTarget.id,
                         data: {
-                            username: formValues.username !== '' ? formValues.username : undefined,
-                            password: formValues.password !== '' ? formValues.password : undefined,
+                            ...(hasInputs ? {inputs: formValues.inputs} : {}),
                             cron: formValues.cron,
                             lookbackDays: parseInt(formValues.lookbackDays, 10),
                             enabled: formValues.enabled
@@ -161,8 +189,7 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
                         data: {
                             accountId: formValues.accountId,
                             bankId: formValues.bankId,
-                            username: formValues.username,
-                            password: formValues.password,
+                            inputs: formValues.inputs,
                             cron: formValues.cron,
                             lookbackDays: parseInt(formValues.lookbackDays, 10)
                         }
@@ -171,7 +198,7 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
                 );
             }
         },
-        [formValues, editTarget, createMutation, updateMutation, invalidate]
+        [formValues, editTarget, scrapers, createMutation, updateMutation, invalidate]
     );
 
     const handleDelete = useCallback(
@@ -200,6 +227,7 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
         openEdit,
         closeModal,
         handleFieldChange,
+        handleInputChange,
         handleSubmit,
         handleDelete
     };

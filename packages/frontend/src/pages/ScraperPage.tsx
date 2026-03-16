@@ -38,6 +38,7 @@ const ScraperPageInner = (): React.JSX.Element => {
         openEdit,
         closeModal,
         handleFieldChange,
+        handleInputChange,
         handleSubmit,
         handleDelete: deleteSchedule
     } = useSyncSchedule();
@@ -221,6 +222,7 @@ const ScraperPageInner = (): React.JSX.Element => {
                 isSubmitting={isSubmitting}
                 onClose={closeModal}
                 onChange={handleFieldChange}
+                onInputChange={handleInputChange}
                 onSubmit={handleSubmit}
             />
 

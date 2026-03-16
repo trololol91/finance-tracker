@@ -14,6 +14,7 @@ interface SyncScheduleModalProps {
     isSubmitting: boolean;
     onClose: () => void;
     onChange: (field: keyof SyncScheduleFormValues, value: string | boolean) => void;
+    onInputChange: (key: string, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -24,6 +25,7 @@ export const SyncScheduleModal = ({
     isSubmitting,
     onClose,
     onChange,
+    onInputChange,
     onSubmit
 }: SyncScheduleModalProps): React.JSX.Element | null => {
     const headingId = useId();
@@ -135,6 +137,7 @@ export const SyncScheduleModal = ({
                         firstFieldRef={firstFieldRef}
                         editMode={mode === 'edit'}
                         onChange={onChange}
+                        onInputChange={onInputChange}
                         onSubmit={onSubmit}
                     />
                 </div>

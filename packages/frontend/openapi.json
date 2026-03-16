@@ -1934,6 +1934,67 @@
         ]
       }
     },
+    "/admin/scrapers/{bankId}/test": {
+      "post": {
+        "description": "Opens a Playwright browser, calls plugin.login() with the provided inputs, then calls plugin.scrapeTransactions() for the specified lookback period. Returns the raw RawTransaction[] with no database write. Requires ADMIN role. Returns 404 if bankId is not registered.",
+        "operationId": "ScraperAdminController_testScraper",
+        "parameters": [
+          {
+            "name": "bankId",
+            "required": true,
+            "in": "path",
+            "description": "Unique bank identifier registered in ScraperRegistry (e.g. cibc, td)",
+            "schema": {
+              "example": "cibc",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestScraperDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scrape completed. Raw transactions returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestScraperResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body fails validation"
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
+          },
+          "403": {
+            "description": "Caller is not an ADMIN user"
+          },
+          "404": {
+            "description": "No scraper registered for the given bankId"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Dry-run a scraper plugin",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/push/subscribe": {
       "post": {
         "operationId": "PushController_subscribe",
@@ -3271,14 +3332,13 @@
             "description": "Bank identifier (must match a registered BankScraper.bankId)",
             "example": "cibc"
           },
-          "username": {
-            "type": "string",
-            "description": "Online banking username"
-          },
-          "password": {
-            "type": "string",
-            "description": "Online banking password",
-            "minLength": 1
+          "inputs": {
+            "type": "object",
+            "description": "Plugin-specific input fields (keys defined by the bank's inputSchema)",
+            "example": {
+              "username": "myuser",
+              "password": "mypass"
+            }
           },
           "cron": {
             "type": "string",
@@ -3295,22 +3355,20 @@
         "required": [
           "accountId",
           "bankId",
-          "username",
-          "password",
+          "inputs",
           "cron"
         ]
       },
       "UpdateSyncScheduleDto": {
         "type": "object",
         "properties": {
-          "username": {
-            "type": "string",
-            "description": "Online banking username"
-          },
-          "password": {
-            "type": "string",
-            "description": "Online banking password",
-            "minLength": 1
+          "inputs": {
+            "type": "object",
+            "description": "Plugin-specific input fields (keys defined by the bank's inputSchema)",
+            "example": {
+              "username": "myuser",
+              "password": "mypass"
+            }
           },
           "cron": {
             "type": "string",
@@ -3336,6 +3394,12 @@
             "type": "string",
             "description": "Override the computed start date for this sync window. ISO 8601 UTC string (e.g. \"2025-01-01T00:00:00.000Z\"). If omitted the service uses the standard lookback calculation.",
             "example": "2025-01-01T00:00:00.000Z"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "When true, runs the full scrape pipeline (login, scrape, dedup check) but skips the final database write. All SSE status events are emitted normally; the terminal complete event will have importedCount: 0. Defaults to false when omitted.",
+            "example": true,
+            "default": false
           }
         }
       },
@@ -3350,6 +3414,62 @@
         },
         "required": [
           "code"
+        ]
+      },
+      "PluginFieldDescriptorDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "username",
+            "description": "Field key used in the inputs map"
+          },
+          "label": {
+            "type": "string",
+            "example": "Username",
+            "description": "Human-readable label for the field"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "password",
+              "number",
+              "select"
+            ],
+            "description": "Input type for the field"
+          },
+          "required": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether this field is required"
+          },
+          "hint": {
+            "type": "string",
+            "example": "Your online banking username",
+            "description": "Optional hint text displayed below the field"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Options for select-type fields"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "type",
+          "required"
         ]
       },
       "ScraperInfoDto": {
@@ -3379,6 +3499,13 @@
             "type": "boolean",
             "example": false,
             "description": "Whether the scraper returns pending (un-posted) transactions"
+          },
+          "inputSchema": {
+            "description": "Fields the plugin requires from the user",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PluginFieldDescriptorDto"
+            }
           }
         },
         "required": [
@@ -3386,7 +3513,8 @@
           "displayName",
           "requiresMfaOnEveryRun",
           "maxLookbackDays",
-          "pendingTransactionsIncluded"
+          "pendingTransactionsIncluded",
+          "inputSchema"
         ]
       },
       "ReloadPluginsResponseDto": {
@@ -3419,6 +3547,89 @@
         "required": [
           "message",
           "filename"
+        ]
+      },
+      "TestScraperDto": {
+        "type": "object",
+        "properties": {
+          "inputs": {
+            "type": "object",
+            "description": "Key-value map of inputs passed directly to plugin.login(). Keys and values are plugin-specific (e.g. username, password, card number).",
+            "example": {
+              "username": "user@example.com",
+              "password": "hunter2"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "lookbackDays": {
+            "type": "number",
+            "description": "Number of calendar days back from today to scrape. Defaults to the plugin's maxLookbackDays when omitted. Must be a positive integer.",
+            "example": 30
+          }
+        },
+        "required": [
+          "inputs"
+        ]
+      },
+      "TestScraperResponseDto": {
+        "type": "object",
+        "properties": {
+          "bankId": {
+            "type": "string",
+            "description": "The bankId that was tested — echoes the :bankId path parameter",
+            "example": "cibc"
+          },
+          "transactions": {
+            "type": "array",
+            "description": "Raw transaction rows returned by the scraper. No deduplication or DB write is performed.",
+            "items": {
+              "type": "object",
+              "required": [
+                "date",
+                "description",
+                "amount",
+                "pending",
+                "syntheticId"
+              ],
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "example": "2026-03-01",
+                  "description": "ISO 8601 date"
+                },
+                "description": {
+                  "type": "string",
+                  "example": "TIM HORTONS #1234"
+                },
+                "amount": {
+                  "type": "number",
+                  "example": -4.75,
+                  "description": "Negative = debit, positive = credit"
+                },
+                "pending": {
+                  "type": "boolean",
+                  "example": false
+                },
+                "syntheticId": {
+                  "type": "string",
+                  "example": "abc123...",
+                  "description": "Stable dedup key"
+                }
+              }
+            }
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of transactions returned — convenience field equal to transactions.length",
+            "example": 1
+          }
+        },
+        "required": [
+          "bankId",
+          "transactions",
+          "count"
         ]
       },
       "PushSubscriptionKeysDto": {
