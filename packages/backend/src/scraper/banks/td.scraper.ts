@@ -6,7 +6,8 @@
  */
 import type {
     BankScraper,
-    BankCredentials,
+    PluginInputs,
+    PluginFieldDescriptor,
     ScrapeOptions,
     RawTransaction
 } from '#scraper/interfaces/bank-scraper.interface.js';
@@ -18,11 +19,27 @@ const tdScraper: BankScraper = {
     maxLookbackDays: 365,
     pendingTransactionsIncluded: false,
 
+    inputSchema: [
+        {
+            key: 'username',
+            label: 'Username',
+            type: 'text',
+            required: true,
+            hint: 'Your TD EasyWeb username'
+        },
+        {
+            key: 'password',
+            label: 'Password',
+            type: 'password',
+            required: true
+        }
+    ] satisfies PluginFieldDescriptor[],
+
     /**
      * Phase 7 stub — navigate to TD login page and authenticate.
      * Real implementation uses Playwright; deferred to Phase 8.
      */
-    login(_page: unknown, _credentials: BankCredentials): Promise<void> {
+    login(_page: unknown, _inputs: PluginInputs): Promise<void> {
         return Promise.resolve();
     },
 

@@ -28,7 +28,7 @@ const mockState = vi.hoisted(() => ({
     postMessage: vi.fn(),
     workerData: {
         bankId: 'cibc',
-        credentials: {username: 'u', password: 'p'},
+        inputs: {username: 'u', password: 'p'},
         startDate: '2026-01-01T00:00:00.000Z',
         endDate: '2026-03-15T00:00:00.000Z',
         accountId: 'acct-1',
@@ -69,7 +69,7 @@ describe('scraper.worker.ts (Phase 7 stub)', () => {
         // Reset to default non-dryRun input before each test
         mockState.workerData = {
             bankId: 'cibc',
-            credentials: {username: 'u', password: 'p'},
+            inputs: {username: 'u', password: 'p'},
             startDate: '2026-01-01T00:00:00.000Z',
             endDate: '2026-03-15T00:00:00.000Z',
             accountId: 'acct-1',

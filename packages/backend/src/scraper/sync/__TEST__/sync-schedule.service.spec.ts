@@ -22,6 +22,7 @@ const mockScraper: BankScraper = {
     requiresMfaOnEveryRun: true,
     maxLookbackDays: 90,
     pendingTransactionsIncluded: false,
+    inputSchema: [],
     login: vi.fn(),
     scrapeTransactions: vi.fn()
 };
@@ -31,7 +32,7 @@ const mockScheduleBase = {
     userId: 'user-uuid-1',
     accountId: 'acct-uuid-1',
     bankId: 'cibc',
-    credentialsEnc: 'encrypted:data',
+    pluginConfigEnc: 'encrypted:data',
     cron: '0 8 * * *',
     enabled: true,
     lastRunAt: null,
@@ -101,7 +102,8 @@ describe('SyncScheduleService', () => {
             displayName: 'CIBC',
             requiresMfaOnEveryRun: true,
             maxLookbackDays: 90,
-            pendingTransactionsIncluded: false
+            pendingTransactionsIncluded: false,
+            inputSchema: []
         }]);
         vi.mocked(cryptoService.encrypt).mockReturnValue('encrypted:data');
         vi.mocked(cryptoService.decrypt).mockReturnValue(
@@ -184,8 +186,7 @@ describe('SyncScheduleService', () => {
         const dto = {
             accountId: 'acct-uuid-1',
             bankId: 'cibc',
-            username: 'user1',
-            password: 'pass1',
+            inputs: {username: 'user1', password: 'pass1'},
             cron: '0 8 * * *'
         };
 
@@ -221,12 +222,9 @@ describe('SyncScheduleService', () => {
         });
 
         it('should throw BadRequestException for invalid cron expression', async () => {
-            await expect(service.create(userId, {...dto, cron: 'not-a-cron'})).rejects.toThrow(
-                BadRequestException
-            );
-            await expect(service.create(userId, {...dto, cron: 'not-a-cron'})).rejects.toThrow(
-                'Invalid cron expression'
-            );
+            const badCronDto = {...dto, cron: 'not-a-cron'};
+            await expect(service.create(userId, badCronDto)).rejects.toThrow(BadRequestException);
+            await expect(service.create(userId, badCronDto)).rejects.toThrow('Invalid cron expression');
         });
 
         it('should throw ConflictException on P2002 unique constraint', async () => {
@@ -305,8 +303,14 @@ describe('SyncScheduleService', () => {
             );
         });
 
-        it('should re-encrypt credentials when password is provided', async () => {
-            await service.update(userId, mockScheduleBase.id, {password: 'newpass'});
+        it('should re-encrypt plugin inputs when inputs is provided', async () => {
+            vi.mocked(cryptoService.decrypt).mockReturnValue(
+                JSON.stringify({username: 'user1', password: 'pass1'})
+            );
+
+            await service.update(userId, mockScheduleBase.id, {
+                inputs: {password: 'newpass'}
+            });
 
             expect(cryptoService.decrypt).toHaveBeenCalled();
             expect(cryptoService.encrypt).toHaveBeenCalledWith(
@@ -314,8 +318,14 @@ describe('SyncScheduleService', () => {
             );
         });
 
-        it('should re-encrypt credentials when only username is updated', async () => {
-            await service.update(userId, mockScheduleBase.id, {username: 'newuser'});
+        it('should re-encrypt plugin inputs when only username is updated', async () => {
+            vi.mocked(cryptoService.decrypt).mockReturnValue(
+                JSON.stringify({username: 'user1', password: 'pass1'})
+            );
+
+            await service.update(userId, mockScheduleBase.id, {
+                inputs: {username: 'newuser'}
+            });
 
             expect(cryptoService.decrypt).toHaveBeenCalled();
             expect(cryptoService.encrypt).toHaveBeenCalledWith(

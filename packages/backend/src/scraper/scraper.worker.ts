@@ -57,7 +57,7 @@ parentPort.postMessage({
  *
  *       // 2. Attempt login — throws MfaRequiredError if bank shows OTP screen.
  *       try {
- *           await scraper.login(page, input.credentials);
+ *           await scraper.login(page, input.inputs);
  *       } catch (err) {
  *           if (!(err instanceof MfaRequiredError)) throw err;
  *

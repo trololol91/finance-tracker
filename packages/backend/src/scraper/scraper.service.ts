@@ -114,9 +114,9 @@ export class ScraperService {
             })
         } as MessageEvent);
 
-        const credentials = JSON.parse(
-            this.cryptoService.decrypt(schedule.credentialsEnc)
-        ) as {username: string, password: string};
+        const inputs = JSON.parse(
+            this.cryptoService.decrypt(schedule.pluginConfigEnc)
+        ) as Record<string, string>;
 
         const startDate = startDateOverride
             ? new Date(startDateOverride)
@@ -125,7 +125,7 @@ export class ScraperService {
 
         const workerInput: ScraperWorkerInput = {
             bankId: schedule.bankId,
-            credentials,
+            inputs,
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
             accountId: schedule.accountId,

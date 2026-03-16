@@ -17,6 +17,7 @@ import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
+import {RequiredInputsConstraint} from '#common/validators/required-inputs.validator.js';
 
 /**
  * ScraperModule bundles the transaction import and automated sync features.
@@ -63,7 +64,8 @@ import {SyncSessionStore} from '#scraper/sync-session.store.js';
         ScraperPluginLoader,
         ScraperRegistry,
         CryptoService,
-        SyncSessionStore
+        SyncSessionStore,
+        RequiredInputsConstraint
     ]
 })
 export class ScraperModule {}

@@ -105,8 +105,7 @@ describe('SyncScheduleController', () => {
             const dto = {
                 accountId: 'acct-uuid-1',
                 bankId: 'cibc',
-                username: 'user1',
-                password: 'pass1',
+                inputs: {username: 'user1', password: 'pass1'},
                 cron: '0 8 * * *'
             };
 
@@ -125,8 +124,7 @@ describe('SyncScheduleController', () => {
                 controller.create({
                     accountId: 'acct-uuid-1',
                     bankId: 'unknown-bank',
-                    username: 'u',
-                    password: 'p',
+                    inputs: {username: 'u', password: 'p'},
                     cron: '0 8 * * *'
                 }, mockUser)
             ).rejects.toThrow(BadRequestException);

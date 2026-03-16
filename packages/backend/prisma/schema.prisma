@@ -219,7 +219,7 @@ model SyncSchedule {
   accountId       String         @map("account_id") @db.Uuid
 
   bankId          String         @map("bank_id")
-  credentialsEnc  String         @map("credentials_enc")
+  pluginConfigEnc  String         @map("plugin_config_enc")
   cron            String         @default("0 8 * * *")
   enabled         Boolean        @default(true)
 

@@ -41,7 +41,8 @@ export class ScraperRegistry {
             displayName: s.displayName,
             requiresMfaOnEveryRun: s.requiresMfaOnEveryRun,
             maxLookbackDays: s.maxLookbackDays,
-            pendingTransactionsIncluded: s.pendingTransactionsIncluded
+            pendingTransactionsIncluded: s.pendingTransactionsIncluded,
+            inputSchema: s.inputSchema
         }));
     }
 

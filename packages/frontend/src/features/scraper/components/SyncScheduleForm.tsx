@@ -120,6 +120,8 @@ export const SyncScheduleForm = ({
                                     className={`${styles.select}${fieldError !== undefined ? ` ${styles.inputError}` : ''}`}
                                     value={fieldValue}
                                     required={!editMode && field.required}
+                                    aria-required={(!editMode && field.required) ? 'true' : 'false'}
+                                    aria-invalid={fieldError !== undefined ? 'true' : 'false'}
                                     onChange={(e) => { onInputChange(field.key, e.target.value); }}
                                 >
                                     <option value="">Select…</option>
@@ -141,6 +143,8 @@ export const SyncScheduleForm = ({
                                     className={`${styles.input}${fieldError !== undefined ? ` ${styles.inputError}` : ''}`}
                                     value={fieldValue}
                                     required={!editMode && field.required}
+                                    aria-required={(!editMode && field.required) ? 'true' : 'false'}
+                                    aria-invalid={fieldError !== undefined ? 'true' : 'false'}
                                     placeholder={editMode ? 'Leave blank to keep unchanged' : ''}
                                     onChange={(e) => { onInputChange(field.key, e.target.value); }}
                                 />

@@ -12,6 +12,7 @@ const makeScraper = (bankId: string): BankScraper => ({
     requiresMfaOnEveryRun: false,
     maxLookbackDays: 90,
     pendingTransactionsIncluded: true,
+    inputSchema: [],
     login: (): Promise<void> => Promise.resolve(),
     scrapeTransactions: (): Promise<never[]> => Promise.resolve([])
 });
@@ -55,7 +56,47 @@ describe('ScraperRegistry', () => {
             displayName: 'cibc Bank',
             requiresMfaOnEveryRun: false,
             maxLookbackDays: 90,
-            pendingTransactionsIncluded: true
+            pendingTransactionsIncluded: true,
+            inputSchema: []
+        });
+    });
+
+    it('listAll() passes through non-empty inputSchema from the plugin', () => {
+        const scraper: BankScraper = {
+            ...makeScraper('rbc'),
+            inputSchema: [
+                {
+                    key: 'username',
+                    label: 'Username',
+                    type: 'text',
+                    required: true,
+                    hint: 'Your online banking username'
+                },
+                {
+                    key: 'password',
+                    label: 'Password',
+                    type: 'password',
+                    required: true
+                }
+            ]
+        };
+        const registry = new ScraperRegistry([scraper]);
+        const list = registry.listAll();
+
+        expect(list).toHaveLength(1);
+        expect(list[0].inputSchema).toHaveLength(2);
+        expect(list[0].inputSchema[0]).toEqual({
+            key: 'username',
+            label: 'Username',
+            type: 'text',
+            required: true,
+            hint: 'Your online banking username'
+        });
+        expect(list[0].inputSchema[1]).toEqual({
+            key: 'password',
+            label: 'Password',
+            type: 'password',
+            required: true
         });
     });
 

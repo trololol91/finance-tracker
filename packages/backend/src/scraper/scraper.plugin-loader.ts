@@ -35,6 +35,7 @@ const isBankScraper = (value: unknown): value is BankScraper => {
         typeof v.requiresMfaOnEveryRun === 'boolean' &&
         typeof v.maxLookbackDays === 'number' &&
         typeof v.pendingTransactionsIncluded === 'boolean' &&
+        Array.isArray(v.inputSchema) &&
         typeof v.login === 'function' &&
         typeof v.scrapeTransactions === 'function'
     );

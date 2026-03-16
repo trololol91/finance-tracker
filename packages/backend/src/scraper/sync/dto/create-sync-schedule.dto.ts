@@ -6,12 +6,15 @@ import {
     IsString,
     IsUUID,
     IsNotEmpty,
-    MinLength,
     IsOptional,
     IsInt,
+    IsObject,
     Min,
-    Max
+    Max,
+    Validate
 } from 'class-validator';
+import {IsStringRecord} from '#common/validators/is-string-record.validator.js';
+import {RequiredInputsConstraint} from '#common/validators/required-inputs.validator.js';
 
 export class CreateSyncScheduleDto {
     @ApiProperty({description: 'Account UUID to sync transactions into'})
@@ -26,15 +29,14 @@ export class CreateSyncScheduleDto {
     @IsNotEmpty()
     public bankId!: string;
 
-    @ApiProperty({description: 'Online banking username'})
-    @IsString()
-    @IsNotEmpty()
-    public username!: string;
-
-    @ApiProperty({description: 'Online banking password', minLength: 1})
-    @IsString()
-    @MinLength(1)
-    public password!: string;
+    @ApiProperty({
+        description: 'Plugin-specific input fields — keys and expected values are defined dynamically by the selected bank\'s inputSchema',
+        example: {key1: 'value1', key2: 'value2'}
+    })
+    @IsObject()
+    @IsStringRecord()
+    @Validate(RequiredInputsConstraint)
+    public inputs!: Record<string, string>;
 
     @ApiProperty({
         description: 'Cron expression for the sync schedule (e.g. \'0 8 * * *\')',

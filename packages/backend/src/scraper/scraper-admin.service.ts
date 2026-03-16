@@ -9,9 +9,7 @@ import {writeFile} from 'fs/promises';
 import {join} from 'path';
 import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
-import type {
-    BankCredentials, RawTransaction
-} from '#scraper/interfaces/bank-scraper.interface.js';
+import type {RawTransaction} from '#scraper/interfaces/bank-scraper.interface.js';
 import {TestScraperDto} from '#scraper/admin/dto/test-scraper.dto.js';
 import {TestScraperResponseDto} from '#scraper/admin/dto/test-scraper-response.dto.js';
 import type {
@@ -109,10 +107,7 @@ export class ScraperAdminService {
         try {
             browser = await chromium.launch({headless: true});
             page = await browser.newPage();
-            // Milestone 4 will replace BankCredentials with PluginInputs = Record<string, string>.
-            // Until then, cast is safe: dto.inputs is Record<string, string> and all built-in
-            // scrapers destructure only { username, password } from the credentials argument.
-            await plugin.login(page, dto.inputs as unknown as BankCredentials);
+            await plugin.login(page, dto.inputs);
             transactions = await plugin.scrapeTransactions(page, {
                 startDate,
                 endDate,

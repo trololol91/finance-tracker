@@ -51,7 +51,7 @@ const mockSchedule = {
     userId: 'user-1',
     accountId: 'acct-1',
     bankId: 'cibc',
-    credentialsEnc: 'encrypted-data',
+    pluginConfigEnc: 'encrypted-data',
     cron: '0 8 * * *',
     enabled: true,
     lastRunAt: null,

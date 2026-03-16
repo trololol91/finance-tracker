@@ -7,6 +7,18 @@
  * requiring `playwright` as a dependency. In real scraper implementations,
  * cast `page as import('playwright').Page` inside the method body.
  */
+
+export interface PluginFieldDescriptor {
+    key: string;
+    label: string;
+    type: 'text' | 'password' | 'number' | 'select';
+    required: boolean;
+    hint?: string;
+    options?: {value: string, label: string}[];
+}
+
+export type PluginInputs = Record<string, string>;
+
 export interface BankScraper {
     /** Unique key stored in SyncSchedule.bankId — plain string, no enum. */
     readonly bankId: string;
@@ -27,19 +39,17 @@ export interface BankScraper {
      */
     readonly pendingTransactionsIncluded: boolean;
 
+    /** Describes the fields this plugin requires from the user (username, password, etc.). */
+    readonly inputSchema: PluginFieldDescriptor[];
+
     /** Navigate to the login page and complete authentication. */
-    login(page: unknown, credentials: BankCredentials): Promise<void>;
+    login(page: unknown, inputs: PluginInputs): Promise<void>;
 
     /**
      * Navigate to the transactions page, apply the date range, and return all
      * visible rows as structured data.
      */
     scrapeTransactions(page: unknown, options: ScrapeOptions): Promise<RawTransaction[]>;
-}
-
-export interface BankCredentials {
-    username: string;
-    password: string;
 }
 
 export interface ScrapeOptions {
@@ -71,7 +81,7 @@ export interface RawTransaction {
  */
 export interface ScraperWorkerInput {
     bankId: string;
-    credentials: {username: string, password: string};
+    inputs: PluginInputs;
     startDate: string;   // ISO 8601 UTC
     endDate: string;     // ISO 8601 UTC
     accountId: string;

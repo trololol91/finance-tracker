@@ -8,7 +8,7 @@
  *
  *  scraper.worker.ts (worker thread)
  *    │
- *    ├─ 1. calls scraper.login(page, credentials)
+ *    ├─ 1. calls scraper.login(page, inputs)
  *    │        └─ navigates CIBC login, fills card + password, submits
  *    │           if MFA prompt appears → throws MfaRequiredError(prompt)
  *    │
@@ -51,7 +51,8 @@
  */
 import type {
     BankScraper,
-    BankCredentials,
+    PluginInputs,
+    PluginFieldDescriptor,
     ScrapeOptions,
     RawTransaction
 } from '#scraper/interfaces/bank-scraper.interface.js';
@@ -75,18 +76,34 @@ const cibcScraper: BankScraper = {
     maxLookbackDays: 90,
     pendingTransactionsIncluded: true,
 
+    inputSchema: [
+        {
+            key: 'username',
+            label: 'Card / Username',
+            type: 'text',
+            required: true,
+            hint: 'Your CIBC online banking card number or username'
+        },
+        {
+            key: 'password',
+            label: 'Password',
+            type: 'password',
+            required: true
+        }
+    ] satisfies PluginFieldDescriptor[],
+
     /**
      * Phase 7 stub — navigate to CIBC login page and authenticate.
      * Real implementation uses Playwright; deferred to Phase 8.
      *
      * Phase 8 implementation example:
      * ─────────────────────────────────────────────────────────────────────────
-     * async login(page: unknown, credentials: BankCredentials): Promise<void> {
+     * async login(page: unknown, inputs: PluginInputs): Promise<void> {
      *     const p = page as import('playwright').Page;
      *
      *     await p.goto('https://www.cibc.com/en/personal-banking/sign-on.html');
-     *     await p.fill('input[name="card"]', credentials.username);
-     *     await p.fill('input[name="password"]', credentials.password);
+     *     await p.fill('input[name="card"]', inputs.username);
+     *     await p.fill('input[name="password"]', inputs.password);
      *     await p.click('button[type="submit"]');
      *
      *     // Wait for either the dashboard or an MFA challenge to appear.
@@ -103,7 +120,7 @@ const cibcScraper: BankScraper = {
      * }
      * ─────────────────────────────────────────────────────────────────────────
      */
-    login(_page: unknown, _credentials: BankCredentials): Promise<void> {
+    login(_page: unknown, _inputs: PluginInputs): Promise<void> {
         return Promise.resolve();
     },
 

@@ -37,6 +37,7 @@ const makePlugin = (bankId = 'test-bank'): BankScraper => ({
     requiresMfaOnEveryRun: false,
     maxLookbackDays: 90,
     pendingTransactionsIncluded: true,
+    inputSchema: [],
     login: vi.fn(),
     scrapeTransactions: vi.fn()
 });
@@ -230,6 +231,35 @@ describe('ScraperPluginLoader', () => {
 
             spyLoadModule(loader).mockResolvedValue({
                 default: {bankId: 'rbc'} // missing displayName, login, etc.
+            });
+
+            await loader.loadPlugins();
+
+            expect(mockRegistry.register).not.toHaveBeenCalled();
+        });
+
+        it('should skip a plugin whose default export is missing inputSchema', async () => {
+            mockConfig.get.mockReturnValue('/plugins');
+            vi.mocked(readdir).mockResolvedValue([makeDirent('bad.js')]);
+
+            // All required fields present EXCEPT inputSchema
+            const {inputSchema: _omitted, ...withoutInputSchema} = makePlugin('rbc');
+            spyLoadModule(loader).mockResolvedValue({default: withoutInputSchema});
+
+            await loader.loadPlugins();
+
+            expect(mockRegistry.register).not.toHaveBeenCalled();
+        });
+
+        it('should skip a plugin whose inputSchema is not an array', async () => {
+            mockConfig.get.mockReturnValue('/plugins');
+            vi.mocked(readdir).mockResolvedValue([makeDirent('bad.js')]);
+
+            spyLoadModule(loader).mockResolvedValue({
+                default: {
+                    ...makePlugin('rbc'),
+                    inputSchema: 'not-an-array'
+                }
             });
 
             await loader.loadPlugins();

@@ -19,6 +19,7 @@ const makeScraperInfo = (overrides: Partial<ScraperInfoDto> = {}): ScraperInfoDt
     requiresMfaOnEveryRun: false,
     maxLookbackDays: 90,
     pendingTransactionsIncluded: false,
+    inputSchema: [],
     ...overrides
 });
 

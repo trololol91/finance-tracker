@@ -1,4 +1,43 @@
-import {ApiProperty} from '@nestjs/swagger';
+import {
+    ApiProperty,
+    ApiPropertyOptional
+} from '@nestjs/swagger';
+
+export class PluginFieldDescriptorDto {
+    @ApiProperty({example: 'username', description: 'Field key used in the inputs map'})
+    public key!: string;
+
+    @ApiProperty({example: 'Username', description: 'Human-readable label for the field'})
+    public label!: string;
+
+    @ApiProperty({
+        enum: ['text', 'password', 'number', 'select'],
+        description: 'Input type for the field'
+    })
+    public type!: 'text' | 'password' | 'number' | 'select';
+
+    @ApiProperty({example: true, description: 'Whether this field is required'})
+    public required!: boolean;
+
+    @ApiPropertyOptional({
+        example: 'Your online banking username',
+        description: 'Optional hint text displayed below the field'
+    })
+    public hint?: string;
+
+    @ApiPropertyOptional({
+        type: 'array',
+        items: {
+            type: 'object',
+            properties: {
+                value: {type: 'string'},
+                label: {type: 'string'}
+            }
+        },
+        description: 'Options for select-type fields'
+    })
+    public options?: {value: string, label: string}[];
+}
 
 /**
  * Serialisable scraper metadata returned by GET /scrapers.
@@ -28,4 +67,10 @@ export class ScraperInfoDto {
         description: 'Whether the scraper returns pending (un-posted) transactions'
     })
     public pendingTransactionsIncluded!: boolean;
+
+    @ApiProperty({
+        type: () => [PluginFieldDescriptorDto],
+        description: 'Fields the plugin requires from the user'
+    })
+    public inputSchema!: PluginFieldDescriptorDto[];
 }

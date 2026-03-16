@@ -387,6 +387,7 @@ Implementation plan: [`test-plan/scraper-plugins/milestone-3-implementation-plan
 
 - Milestone 1 (Remove Built-ins, Add Startup Seeding) — see `test-plan/scraper-plugins/milestone-1-implementation-plan.md`.
 - Milestone 2 (Dry-run Test Endpoint) — `POST /admin/scrapers/:bankId/test` implemented, tested, and committed (commit `d7e07fa`). See `test-plan/scraper-plugins/milestone-2-implementation-plan.md`.
+- Milestone 3 (dryRun Flag) — `dryRun?: boolean` on `RunSyncNowDto`, threaded through `ScraperService` → `ScraperWorkerInput`; committed (commit `77056eb`). See `test-plan/scraper-plugins/milestone-3-implementation-plan.md`.
 
 **Recommended next actions:**
 
@@ -398,6 +399,58 @@ Implementation plan: [`test-plan/scraper-plugins/milestone-3-implementation-plan
 6. `@backend-tester` — Run TC-01 through TC-07 from the Backend API Test Plan section. Save plan to `test-plan/scraper-plugins/milestone-3-backend.md` and report to `test-plan/scraper-plugins/milestone-3-backend-report.md`.
 7. `@code-reviewer` — Review all changes in `packages/backend/src/scraper/`. Focus: `@IsOptional()` before `@IsBoolean()` with no `@IsNotEmpty()`; `dryRun` threaded without being dropped or shadowed; gate is `if (!input.dryRun)` not a strict equality check; SSE events emitted identically on dry and real runs with no short-circuit before the scrape; `workerData` typed as non-optional `dryRun: boolean`.
 8. `@backend-dev` — Commit: `feat(scraper): add dryRun flag to run-now sync endpoint`.
+
+---
+
+## Current Focus: Scraper Plugin System — Milestone 4 (Plugin Input Schema)
+
+Implementation plan: [`test-plan/scraper-plugins/milestone-4-implementation-plan.md`](../test-plan/scraper-plugins/milestone-4-implementation-plan.md)
+
+**Goal:** Replace the hardcoded `{username, password}` credential shape with a generic `inputs: Record<string, string>` field. Each plugin declares its required form fields via a new `inputSchema: PluginFieldDescriptor[]` property. The frontend renders those fields dynamically in `SyncScheduleForm`. The database column `credentials_enc` is renamed to `plugin_config_enc`.
+
+**Recommended next actions:**
+
+1. `@figma-designer` — Review the Figma Design Brief in the implementation plan (Part 6) and produce wireframes for the updated `SyncScheduleForm` dynamic input field section.
+
+2. `@backend-dev` — **Step 1**: Add `PluginFieldDescriptor` interface and `PluginInputs` type alias to `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts`; remove `BankCredentials`; add `inputSchema` to `BankScraper`; rename `credentials` to `inputs` in `ScraperWorkerInput`.
+
+3. `@backend-dev` — **Step 2**: Add `inputSchema` arrays to CIBC and TD scrapers in `packages/backend/src/scraper/banks/cibc.scraper.ts` and `td.scraper.ts`; update `login` parameter types.
+
+4. `@backend-dev` — **Step 3**: Add `Array.isArray(v.inputSchema)` check to `isBankScraper` guard in `packages/backend/src/scraper/scraper.plugin-loader.ts`.
+
+5. `@backend-dev` — **Step 4**: Create `packages/backend/src/common/validators/is-string-record.validator.ts` (`IsStringRecordConstraint` + `IsStringRecord` decorator) and `required-inputs.validator.ts` (`RequiredInputsConstraint` injectable). Register `RequiredInputsConstraint` in `ScraperModule.providers`.
+
+6. `@backend-dev` — **Step 5**: Update `packages/backend/src/scraper/sync/dto/create-sync-schedule.dto.ts` — remove `username`/`password`; add `inputs: Record<string, string>` with `@IsObject()` and `@IsStringRecord()`; add class-level `@Validate(RequiredInputsConstraint)`.
+
+7. `@backend-dev` — **Step 6**: Add `PluginFieldDescriptorDto` class to `packages/backend/src/scraper/scraper-info.dto.ts` and add `inputSchema: PluginFieldDescriptorDto[]` to `ScraperInfoDto`.
+
+8. `@backend-dev` — **Step 7**: Add `inputSchema: s.inputSchema` to the mapped object in `ScraperRegistry.listAll()` in `packages/backend/src/scraper/scraper.registry.ts`.
+
+9. `@backend-dev` — **Step 8**: Run Prisma migration (`npx prisma migrate dev --name rename-credentials-enc`) to rename `credentials_enc` → `plugin_config_enc`. Verify generated SQL is only a column rename.
+
+10. `@backend-dev` — **Step 9**: Update `SyncScheduleService` in `packages/backend/src/scraper/sync/sync-schedule.service.ts` — rename `credentialsEnc` → `pluginConfigEnc` throughout; update `create()` encrypt call to use `dto.inputs`; update `update()` merge logic; add `inputSchema: []` to `unknownScraperFallback()`.
+
+11. `@backend-dev` — **Step 10**: Update `ScraperService.runWorker()` in `packages/backend/src/scraper/scraper.service.ts` — rename `schedule.credentialsEnc` → `schedule.pluginConfigEnc`; cast decrypt result to `Record<string, string>`; rename `credentials` → `inputs` in `workerInput`.
+
+12. `@backend-dev` — **Step 11**: Update `packages/backend/src/scraper/scraper.worker.ts` — destructure `inputs` not `credentials`; pass to `login()`.
+
+13. `@backend-dev` — **Step 12**: Add `useContainer(app.select(AppModule), {fallbackOnErrors: true})` to `packages/backend/src/main.ts` after `NestFactory.create`.
+
+14. `@test-writer` — Backend unit tests: update `makePlugin` factory and `makeScraper` factory with `inputSchema: []`; add 2 new guard rejection tests in `scraper.plugin-loader.spec.ts`; update `listAll()` assertion in `scraper.registry.spec.ts`; create `is-string-record.validator.spec.ts` and `required-inputs.validator.spec.ts`; update `sync-schedule.service.spec.ts` and `scraper.service.spec.ts` for renamed fields.
+
+15. `@backend-tester` — Run 10-TC Backend API Test Plan (Part 3 of the implementation plan). Save plan to `test-plan/scraper-plugins/milestone-4-backend.md` and report to `test-plan/scraper-plugins/milestone-4-backend-report.md`.
+
+16. `@code-reviewer` — Review all backend changes.
+
+17. Run `cd packages/frontend && npm run generate:api` once backend Swagger is stable.
+
+18. `@frontend-dev` — Implement frontend changes: update `scraper.types.ts` → `useSyncSchedule.ts` → `SyncScheduleForm.tsx` per Steps 17–19 of the implementation plan.
+
+19. `@test-writer` — Frontend unit tests per the Frontend Test Scope (Part 5 of the implementation plan).
+
+20. `@code-reviewer` — Frontend review.
+
+21. `@frontend-tester` — Execute E2E tests from Part 5 of the implementation plan. Save to `test-plan/scraper-plugins/milestone-4-frontend.md` and report to `test-plan/scraper-plugins/milestone-4-frontend-report.md`.
 
 ---
 

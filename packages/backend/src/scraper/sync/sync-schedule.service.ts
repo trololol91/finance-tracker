@@ -85,9 +85,9 @@ export class SyncScheduleService {
             throw new BadRequestException(`Invalid cron expression: '${dto.cron}'`);
         }
 
-        // Encrypt credentials
-        const credentialsEnc = this.cryptoService.encrypt(
-            JSON.stringify({username: dto.username, password: dto.password})
+        // Encrypt plugin inputs
+        const pluginConfigEnc = this.cryptoService.encrypt(
+            JSON.stringify(dto.inputs)
         );
 
         try {
@@ -96,7 +96,7 @@ export class SyncScheduleService {
                     userId,
                     accountId: dto.accountId,
                     bankId: dto.bankId,
-                    credentialsEnc,
+                    pluginConfigEnc,
                     cron: dto.cron,
                     lookbackDays: dto.lookbackDays ?? 3
                 }
@@ -117,7 +117,10 @@ export class SyncScheduleService {
         }
     }
 
-    /** Update an existing sync schedule. Re-encrypts credentials if password provided. */
+    /**
+     * Update an existing sync schedule.
+     * Re-encrypts plugin inputs if `inputs` is provided; merges with existing stored values.
+     */
     public async update(
         userId: string,
         id: string,
@@ -133,28 +136,14 @@ export class SyncScheduleService {
             throw new BadRequestException(`Invalid cron expression: '${dto.cron}'`);
         }
 
-        // Re-encrypt credentials if password provided
-        let credentialsEnc: string | undefined;
-        if (dto.password !== undefined) {
-            const existing_creds = JSON.parse(
-                this.cryptoService.decrypt(existing.credentialsEnc)
-            ) as {username: string, password: string};
-            credentialsEnc = this.cryptoService.encrypt(
-                JSON.stringify({
-                    username: dto.username ?? existing_creds.username,
-                    password: dto.password
-                })
-            );
-        } else if (dto.username !== undefined) {
-            // Username changed but no new password — re-encrypt with new username
-            const existing_creds = JSON.parse(
-                this.cryptoService.decrypt(existing.credentialsEnc)
-            ) as {username: string, password: string};
-            credentialsEnc = this.cryptoService.encrypt(
-                JSON.stringify({
-                    username: dto.username,
-                    password: existing_creds.password
-                })
+        // Re-encrypt plugin inputs if provided (merge with existing)
+        let pluginConfigEnc: string | undefined;
+        if (dto.inputs !== undefined) {
+            const existingInputs = JSON.parse(
+                this.cryptoService.decrypt(existing.pluginConfigEnc)
+            ) as Record<string, string>;
+            pluginConfigEnc = this.cryptoService.encrypt(
+                JSON.stringify({...existingInputs, ...dto.inputs})
             );
         }
 
@@ -162,7 +151,7 @@ export class SyncScheduleService {
             const updated = await this.prisma.syncSchedule.update({
                 where: {id},
                 data: {
-                    ...(credentialsEnc !== undefined && {credentialsEnc}),
+                    ...(pluginConfigEnc !== undefined && {pluginConfigEnc}),
                     ...(dto.cron !== undefined && {cron: dto.cron}),
                     ...(dto.lookbackDays !== undefined && {lookbackDays: dto.lookbackDays}),
                     ...(dto.enabled !== undefined && {enabled: dto.enabled})
@@ -278,6 +267,7 @@ export class SyncScheduleService {
         requiresMfaOnEveryRun: boolean;
         maxLookbackDays: number;
         pendingTransactionsIncluded: boolean;
+        inputSchema: never[];
         login: () => Promise<void>;
         scrapeTransactions: () => Promise<never[]>;
     } {
@@ -287,6 +277,7 @@ export class SyncScheduleService {
             requiresMfaOnEveryRun: false,
             maxLookbackDays: 90,
             pendingTransactionsIncluded: false,
+            inputSchema: [],
             login: (): Promise<void> => Promise.resolve(),
             scrapeTransactions: (): Promise<never[]> => Promise.resolve([])
         };
