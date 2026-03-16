@@ -9,11 +9,10 @@ Detailed implementation plans for each milestone live in
 
 | # | Milestone | Status |
 |---|-----------|--------|
-| 1 | Remove Built-ins, Add Startup Seeding | ⬜ In Progress |
+| 1 | Remove Built-ins, Add Startup Seeding | ✅ Done |
 | 2 | Dry-run Test Endpoint | ⬜ Not Started |
 | 3 | dryRun Flag on Run-Now | ⬜ Not Started |
-| 4 | Polymorphic Credentials | ⬜ Not Started |
-| 5 | Custom Scraper Type | ⬜ Not Started |
+| 4 | Plugin Input Schema | ⬜ Not Started |
 
 ---
 
@@ -70,7 +69,7 @@ writing any data to the database.
 
 - Add `POST /admin/scrapers/:bankId/test` to `ScraperAdminController`.
   - Guard: `JwtAuthGuard` + `AdminGuard` (ADMIN role only).
-  - Request body: `TestScraperDto` — `username`, `password`, `lookbackDays`.
+  - Request body: `TestScraperDto` — `inputs: Record<string, string>`, `lookbackDays`.
   - Behaviour: decrypt credentials, run the full scrape through `ScraperService`
     (or a new `ScraperAdminService` method), skip the `prisma.transaction.createMany`
     call, and return the raw `RawTransaction[]`.
@@ -94,7 +93,7 @@ writing any data to the database.
 - The endpoint runs in the main process using a direct scraper call rather than
   spawning a worker thread — avoids SSE plumbing for a synchronous dev tool.
 - Returns `404` if `bankId` is not registered in `ScraperRegistry`.
-- Credentials are not persisted; they are passed directly to the scraper's
+- Inputs are not persisted; they are passed directly to the scraper's
   `login()` method and discarded after the call.
 
 ---
@@ -140,101 +139,126 @@ the database.
 
 ---
 
-## Milestone 4 — Polymorphic Credentials
+## Milestone 4 — Plugin Input Schema
 
-**Goal:** Support scrapers that authenticate via API token, API key, or OAuth2
-(not only username/password browser automation), with proper DTO validation per
-credential type.
-
-### Key Changes
-
-- Extend `BankCredentials` in `bank-scraper.interface.ts` to a discriminated
-  union:
-  ```
-  type BankCredentials =
-    | { type: 'browser';    username: string; password: string }
-    | { type: 'api_token';  token: string }
-    | { type: 'api_key';    apiKey: string; apiSecret?: string }
-    | { type: 'oauth2';     clientId: string; clientSecret: string; refreshToken: string }
-  ```
-- Add `ApiScraper` interface alongside `BankScraper` for API-based scrapers
-  (no Playwright `page` parameter; direct HTTP calls).
-- Update `CreateSyncScheduleDto` to accept the union using `@ValidateIf` on
-  each credential field, keyed on the `credentialType` discriminant property.
-- `credentials_enc` column already stores encrypted JSON — no Prisma migration
-  needed.
-- Update `CryptoService` encrypt/decrypt callers to handle the new union shape.
-
-### Files Affected
-
-| File | Change |
-|------|--------|
-| `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts` | Extend `BankCredentials` union; add `ApiScraper` interface |
-| `packages/backend/src/scraper/sync/dto/create-sync-schedule.dto.ts` | Add `credentialType` + conditional credential fields |
-| `packages/backend/src/scraper/scraper.service.ts` | Update credential decryption to handle union |
-| `packages/backend/src/scraper/__TEST__/create-sync-schedule.dto.spec.ts` | Validate each credential shape |
-
-### Decision Notes
-
-- No schema migration — `credentials_enc` is an opaque `String` column that
-  holds arbitrary encrypted JSON. The union type is enforced at the DTO layer
-  only.
-- Existing `browser` scrapers (CIBC, TD) continue to work: their persisted
-  credential JSON already contains `username` + `password`; a migration script
-  can backfill `type: 'browser'` if needed, or the decrypt path can default to
-  `'browser'` when the `type` field is absent.
-- `ApiScraper` is additive — `ScraperRegistry` and the plugin loader accept
-  any object satisfying either interface (a type union in the type guard).
-
----
-
-## Milestone 5 — Custom Scraper Type
-
-**Goal:** Allow plugin authors to declare what credential fields their scraper
-needs at runtime, so the frontend can render the correct form dynamically
-without hardcoding per-bank field lists.
+**Goal:** Allow plugin authors to declare any inputs their plugin needs from
+the user — authentication fields, account selectors, configuration values, or
+anything else. The platform stores and passes inputs as opaque encrypted JSON;
+it does not interpret or constrain the field set. The frontend renders the
+correct form dynamically from the schema with no hardcoded field lists.
 
 ### Key Changes
 
-- Add an optional `credentialSchema: CredentialFieldDescriptor[]` property to
-  `BankScraper` (and `ApiScraper`), where `CredentialFieldDescriptor` is:
+#### Backend
+
+- Add `PluginFieldDescriptor` interface and replace `BankCredentials` with
+  `PluginInputs = Record<string, string>` in `bank-scraper.interface.ts`:
   ```typescript
-  interface CredentialFieldDescriptor {
-      key: string;           // field name stored in credentials JSON
-      label: string;         // human-readable label
-      type: 'text' | 'password' | 'select';
+  interface PluginFieldDescriptor {
+      key: string;           // field name in stored JSON
+      label: string;         // shown in the UI form
+      type: 'text' | 'password' | 'select' | 'number';
       required: boolean;
-      options?: string[];    // for type: 'select'
+      hint?: string;         // optional helper text below the field
+      options?: string[];    // values for type: 'select'
   }
   ```
-- Add `scraperType: 'browser' | 'api' | 'custom'` to `ScraperInfoDto` so the
-  frontend knows whether to show the built-in browser-credential form or
-  render from `credentialSchema`.
-- Extend `GET /scrapers` response to include `scraperType` and
-  `credentialSchema` (omitted when absent).
-- Credentials are stored as `Record<string, string>` encrypted in the existing
-  `credentials_enc` column — no migration needed.
-- `isBankScraper` type guard in `scraper.plugin-loader.ts` is updated to
-  treat `credentialSchema` as optional (presence is not required for
-  validation).
+- Add `inputSchema: PluginFieldDescriptor[]` as a **required** field on
+  `BankScraper`. Update `isBankScraper` type guard to check for its presence.
+- Update CIBC and TD plugins to declare their `inputSchema`:
+  ```typescript
+  inputSchema: [
+      { key: 'username', label: 'Username', type: 'text',     required: true },
+      { key: 'password', label: 'Password', type: 'password', required: true },
+  ]
+  ```
+- Extend `ScraperInfoDto` and `GET /scrapers` response to include `inputSchema`
+  per entry so the frontend always has the full field descriptor available.
+- Update `CreateSyncScheduleDto`: replace `username` + `password` fields with
+  `inputs: Record<string, string>`. Validate that all `required: true` keys
+  from the plugin's registered `inputSchema` are present in the submitted
+  `inputs` object (dynamic cross-field validation against the registry).
+- Update `UpdateSyncScheduleDto`: replace `username?` + `password?` with
+  `inputs?: Record<string, string>` (partial update — absent means unchanged).
+- Rename `credentials_enc` → `plugin_config_enc` in the Prisma schema
+  (one-column rename migration; no data migration needed — column is opaque
+  encrypted JSON).
+- Update `CryptoService` callers to use the renamed column.
+
+#### Frontend
+
+- Regenerate Orval types after backend OpenAPI update:
+  - `scraperInfoDto.ts` gains `inputSchema: PluginFieldDescriptor[]`
+  - `createSyncScheduleDto.ts` replaces `username`/`password` with `inputs`
+  - `updateSyncScheduleDto.ts` same replacement
+- Update `SyncScheduleFormValues` in `scraper.types.ts`: drop `username` and
+  `password`; add `inputs: Record<string, string>`.
+- Update `useSyncSchedule.ts`:
+  - `openCreate()` initialises `inputs: {}`
+  - `openEdit()` resets `inputs: {}` (stored inputs are never transmitted back)
+  - Validation checks that all `required: true` keys in the selected plugin's
+    `inputSchema` have a non-empty value in `inputs`
+- Replace hardcoded username/password fields in `SyncScheduleForm.tsx` with a
+  loop over the selected plugin's `inputSchema`:
+  - `type: 'text'` → `<input type="text">`
+  - `type: 'password'` → `<input type="password">`
+  - `type: 'number'` → `<input type="number">`
+  - `type: 'select'` + `options` → `<select>`
+  - `hint` → helper text rendered below the field
+  - `required: true` → field is marked required and blocks form submission
 
 ### Files Affected
 
+#### Backend
+
 | File | Change |
 |------|--------|
-| `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts` | Add `CredentialFieldDescriptor`; add optional `credentialSchema` to `BankScraper` |
-| `packages/backend/src/scraper/scraper-info.dto.ts` | Add `scraperType`, `credentialSchema` fields |
-| `packages/backend/src/scraper/scraper.registry.ts` | Pass `credentialSchema` through `listAll()` |
-| `packages/backend/src/scraper/__TEST__/scraper.registry.spec.ts` | Add `credentialSchema` serialisation test |
+| `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts` | Add `PluginFieldDescriptor`; add `inputSchema` to `BankScraper`; replace `BankCredentials` with `PluginInputs` |
+| `packages/backend/src/scraper/banks/cibc.scraper.ts` | Add `inputSchema` declaration |
+| `packages/backend/src/scraper/banks/td.scraper.ts` | Add `inputSchema` declaration |
+| `packages/backend/src/scraper/scraper.plugin-loader.ts` | Update `isBankScraper` guard to check `inputSchema` |
+| `packages/backend/src/scraper/scraper-info.dto.ts` | Add `inputSchema: PluginFieldDescriptor[]` field |
+| `packages/backend/src/scraper/scraper.registry.ts` | Pass `inputSchema` through `listAll()` |
+| `packages/backend/src/scraper/sync/dto/create-sync-schedule.dto.ts` | Replace `username`/`password` with `inputs: Record<string, string>` |
+| `packages/backend/src/scraper/sync/dto/update-sync-schedule.dto.ts` | Replace `username?`/`password?` with `inputs?: Record<string, string>` |
+| `packages/backend/src/scraper/scraper.service.ts` | Update encrypt/decrypt to use `inputs` and `plugin_config_enc` |
+| `packages/backend/prisma/schema.prisma` | Rename `credentials_enc` → `plugin_config_enc` on `SyncSchedule` model |
+| `packages/backend/prisma/migrations/` | New migration for column rename |
+| `packages/backend/src/scraper/__TEST__/scraper.plugin-loader.spec.ts` | Update `isBankScraper` guard tests; add `inputSchema` validation case |
+| `packages/backend/src/scraper/__TEST__/scraper.registry.spec.ts` | Add `inputSchema` serialisation test |
+| `packages/backend/src/scraper/__TEST__/create-sync-schedule.dto.spec.ts` | Replace credential field tests with `inputs` validation tests |
+
+#### Frontend
+
+| File | Change |
+|------|--------|
+| `packages/frontend/src/api/model/scraperInfoDto.ts` | Regenerated — gains `inputSchema` |
+| `packages/frontend/src/api/model/createSyncScheduleDto.ts` | Regenerated — `inputs` replaces `username`/`password` |
+| `packages/frontend/src/api/model/updateSyncScheduleDto.ts` | Regenerated — `inputs?` replaces `username?`/`password?` |
+| `packages/frontend/src/features/scraper/types/scraper.types.ts` | `SyncScheduleFormValues`: drop `username`/`password`; add `inputs: Record<string, string>` |
+| `packages/frontend/src/features/scraper/hooks/useSyncSchedule.ts` | Update `openCreate`, `openEdit`, and validation to use `inputs` + `inputSchema` |
+| `packages/frontend/src/features/scraper/components/SyncScheduleForm.tsx` | Replace hardcoded credential fields with `inputSchema`-driven render loop |
 
 ### Decision Notes
 
-- `credentialSchema` is intentionally a runtime descriptor array rather than a
-  JSON Schema object — it is simpler to render in React without a JSON Schema
-  form library, and covers all real-world scraper credential patterns.
-- Milestone 4 and Milestone 5 are complementary: M4 handles typed union
-  validation for the DTO layer; M5 handles dynamic form rendering for the
-  frontend. They can be implemented independently.
+- **No fixed credential taxonomy.** There is no `browser | api_token | api_key`
+  union. The plugin declares exactly what it needs — a password field, an
+  account number, a region selector, a list of sub-accounts — with no platform
+  constraint on field count or meaning.
+- **Dynamic validation without hardcoding.** The DTO validates `inputs` by
+  looking up the plugin's `inputSchema` from `ScraperRegistry` at request time.
+  Required field enforcement is driven by the schema, not by static DTO
+  decorators.
+- **One form component for all plugins.** `SyncScheduleForm.tsx` renders
+  entirely from `inputSchema`. A newly installed plugin with novel fields works
+  immediately — no frontend changes required.
+- **Column rename is the only migration.** `credentials_enc` → `plugin_config_enc`
+  is a rename only; the column type and existing encrypted JSON values are
+  unchanged. Existing rows remain valid.
+- **Edit mode behaviour unchanged.** Stored inputs are never transmitted back
+  to the client. On edit, `inputs` resets to `{}` — the user must re-enter
+  values they wish to change, identical to the current username/password
+  behaviour.
 
 ---
 
