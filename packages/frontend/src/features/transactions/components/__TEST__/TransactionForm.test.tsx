@@ -320,7 +320,7 @@ describe('TransactionForm', () => {
             expect(screen.getByLabelText(/account/i)).not.toBeDisabled();
         });
 
-        it('account select is disabled in edit mode', () => {
+        it('account select is not disabled in edit mode', () => {
             render(
                 <TransactionForm
                     {...defaultProps}
@@ -328,10 +328,10 @@ describe('TransactionForm', () => {
                     editTarget={mockTx}
                 />
             );
-            expect(screen.getByLabelText(/account/i)).toBeDisabled();
+            expect(screen.getByLabelText(/account/i)).not.toBeDisabled();
         });
 
-        it('shows account-locked hint in edit mode', () => {
+        it('shows only the type-locked hint in edit mode', () => {
             render(
                 <TransactionForm
                     {...defaultProps}
@@ -339,9 +339,9 @@ describe('TransactionForm', () => {
                     editTarget={mockTx}
                 />
             );
-            // Both type and account show cannot-change hints; at least two should appear
+            // Only transaction type shows a cannot-change hint; account no longer does
             const hints = screen.getAllByText(/cannot be changed/i);
-            expect(hints.length).toBeGreaterThanOrEqual(2);
+            expect(hints).toHaveLength(1);
         });
 
         it('does not show account-locked hint in create mode', () => {
