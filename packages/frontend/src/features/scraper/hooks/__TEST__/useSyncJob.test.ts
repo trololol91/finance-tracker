@@ -135,13 +135,13 @@ describe('useSyncJob', () => {
     });
 
     describe('submitMfa', () => {
-        it('calls mfa mutation with scheduleId and code', () => {
+        it('calls mfa mutation with sessionId and code', () => {
             const mutate = vi.fn();
             mockMfa.mockReturnValue(makeMfa(mutate));
             const {result} = renderHook(() => useSyncJob(), {wrapper: createWrapper()});
-            act(() => { result.current.submitMfa('sched-1', '123456', 'sess-abc'); });
+            act(() => { result.current.submitMfa('sess-abc', '123456'); });
             expect(mutate).toHaveBeenCalledWith(
-                {id: 'sched-1', data: {code: '123456'}},
+                {id: 'sess-abc', data: {code: '123456'}},
                 expect.any(Object)
             );
         });
@@ -161,7 +161,7 @@ describe('useSyncJob', () => {
             );
             mockMfa.mockReturnValue(makeMfa(mutate));
             const {result} = renderHook(() => useSyncJob(), {wrapper: createWrapper()});
-            act(() => { result.current.submitMfa('sched-1', '000000', 'sess-mfa'); });
+            act(() => { result.current.submitMfa('sess-mfa', '000000'); });
             expect(consoleSpy).toHaveBeenCalled();
             consoleSpy.mockRestore();
         });

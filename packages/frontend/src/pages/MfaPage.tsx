@@ -40,7 +40,7 @@ const MfaPageInner = (): React.JSX.Element => {
     const handleMfaSubmit = useCallback(
         (code: string): void => {
             if (scheduleId !== '' && sessionId !== null) {
-                submitMfa(scheduleId, code, sessionId);
+                submitMfa(sessionId, code);
             }
         },
         [scheduleId, sessionId, submitMfa]

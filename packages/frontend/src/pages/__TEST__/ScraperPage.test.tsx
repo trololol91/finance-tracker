@@ -541,11 +541,7 @@ describe('ScraperPage', () => {
             await user.click(screen.getByRole('tab', {name: 'Sync'}));
             await user.click(screen.getByTestId('trigger-mfa'));
             await user.click(screen.getByTestId('mfa-submit'));
-            expect(submitMfa).toHaveBeenCalledWith(
-                expect.any(String), // activeScheduleId
-                '654321',
-                'sess-submit'
-            );
+            expect(submitMfa).toHaveBeenCalledWith('sess-submit', '654321');
         });
 
         it('closes MFA modal after submitting code', async () => {

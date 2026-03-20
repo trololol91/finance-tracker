@@ -20,7 +20,7 @@ const ScraperPageInner = (): React.JSX.Element => {
     const [activeTab, setActiveTab] = useState<Tab>('import');
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [mfaChallenge, setMfaChallenge] = useState<string>('');
-    const [activeScheduleId, setActiveScheduleId] = useState<string>('');
+    const [_activeScheduleId, setActiveScheduleId] = useState<string>('');
 
     // Import hooks
     const {jobs, isLoading: jobsLoading, isError: jobsError, upload, isUploading} = useImportJob();
@@ -77,11 +77,11 @@ const ScraperPageInner = (): React.JSX.Element => {
     const handleMfaSubmit = useCallback(
         (code: string): void => {
             if (sessionId !== null) {
-                submitMfa(activeScheduleId, code, sessionId);
+                submitMfa(sessionId, code);
                 setMfaChallenge('');
             }
         },
-        [sessionId, activeScheduleId, submitMfa]
+        [sessionId, submitMfa]
     );
 
     const handleMfaCancel = useCallback((): void => {

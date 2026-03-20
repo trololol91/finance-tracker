@@ -13,7 +13,7 @@ export interface UseSyncJobReturn {
     sessionId: string | null;
     isTriggeringId: string | null;
     trigger: (scheduleId: string, startDate?: string) => void;
-    submitMfa: (scheduleId: string, mfaCode: string, sessionId: string) => void;
+    submitMfa: (sessionId: string, mfaCode: string) => void;
     clearSession: () => void;
     isSubmittingMfa: boolean;
 }
@@ -47,9 +47,9 @@ export const useSyncJob = (): UseSyncJobReturn => {
     );
 
     const submitMfa = useCallback(
-        (scheduleId: string, mfaCode: string, _sessionId: string): void => {
+        (sessionId: string, mfaCode: string): void => {
             mfaMutation.mutate(
-                {id: scheduleId, data: {code: mfaCode}},
+                {id: sessionId, data: {code: mfaCode}},
                 {
                     onError: (err: unknown) => { console.error('[useSyncJob] MFA', err); }
                 }

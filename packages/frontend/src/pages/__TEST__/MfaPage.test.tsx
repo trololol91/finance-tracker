@@ -316,7 +316,7 @@ describe('MfaPage', () => {
     });
 
     describe('MFA submission', () => {
-        it('calls submitMfa with scheduleId, code, and sessionId from searchParams', async () => {
+        it('calls submitMfa with sessionId and code from searchParams', async () => {
             const user = userEvent.setup();
             const submitMfa = vi.fn();
             mockUseSearchParams.mockReturnValue([
@@ -329,7 +329,7 @@ describe('MfaPage', () => {
             mockUseSyncJob.mockReturnValue(makeSyncJobReturn({submitMfa}));
             render(<MfaPage />);
             await user.click(screen.getByTestId('mfa-submit'));
-            expect(submitMfa).toHaveBeenCalledWith('sched-123', '999888', 'sess-xyz');
+            expect(submitMfa).toHaveBeenCalledWith('sess-xyz', '999888');
         });
 
         it('does not call submitMfa when scheduleId is missing', async () => {
