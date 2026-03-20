@@ -175,5 +175,11 @@ export default [
             '@typescript-eslint/no-unsafe-member-access': 'off',
             '@typescript-eslint/no-unsafe-return': 'off'
         }
+    },
+    {
+        files: ['src/scraper/banks/*.ts'],
+        rules: {
+            'no-restricted-imports': 'off'
+        }
     }
 ];

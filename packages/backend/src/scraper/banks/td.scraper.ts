@@ -39,7 +39,7 @@ const tdScraper: BankScraper = {
      * Phase 7 stub — navigate to TD login page and authenticate.
      * Real implementation uses Playwright; deferred to Phase 8.
      */
-    login(_page: unknown, _inputs: PluginInputs): Promise<void> {
+    login(_inputs: PluginInputs): Promise<void> {
         return Promise.resolve();
     },
 
@@ -48,7 +48,7 @@ const tdScraper: BankScraper = {
      * Real implementation uses Playwright; deferred to Phase 8.
      * Returns an empty array for all Phase 7 sync runs.
      */
-    scrapeTransactions(_page: unknown, _options: ScrapeOptions): Promise<RawTransaction[]> {
+    scrapeTransactions(_input: PluginInputs, _options: ScrapeOptions): Promise<RawTransaction[]> {
         return Promise.resolve([]);
     }
 };

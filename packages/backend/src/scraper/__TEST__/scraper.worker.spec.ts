@@ -5,7 +5,7 @@
  *
  * The worker uses top-level execution code — it runs imperatively on import
  * rather than exporting a class or function. Testing it requires:
- *   1. Mocking `worker_threads`, `playwright`, `#generated/prisma/client.js`,
+ *   1. Mocking `worker_threads`, `#generated/prisma/client.js`,
  *      and `@prisma/adapter-pg` before the module executes.
  *   2. Using `vi.resetModules()` + dynamic `await import(...)` to re-execute
  *      the module for each test (a cached module import is a no-op).
@@ -50,22 +50,6 @@ const mockState = vi.hoisted(() => ({
         pluginPath: '',       // filled in beforeEach after STUB_PLUGIN_URL resolves
         databaseUrl: 'postgresql://test:test@localhost:5432/test'
     } as ScraperWorkerInput
-}));
-
-// ---------------------------------------------------------------------------
-// Playwright mock
-// ---------------------------------------------------------------------------
-
-const mockPage = {};
-const mockBrowser = {
-    newPage: vi.fn().mockResolvedValue(mockPage),
-    close: vi.fn().mockResolvedValue(undefined)
-};
-
-vi.mock('playwright', () => ({
-    chromium: {
-        launch: vi.fn().mockResolvedValue(mockBrowser)
-    }
 }));
 
 // ---------------------------------------------------------------------------
@@ -152,8 +136,6 @@ describe('scraper.worker.ts (Phase 8)', () => {
     beforeEach(() => {
         mockState.postMessage.mockReset();
         mockState.once.mockReset();
-        mockBrowser.newPage.mockReset().mockResolvedValue(mockPage);
-        mockBrowser.close.mockReset().mockResolvedValue(undefined);
         mockPrismaFindMany.mockReset().mockResolvedValue([]);
         mockPrismaCreateMany.mockReset().mockResolvedValue({count: 0});
         mockPrismaDisconnect.mockReset().mockResolvedValue(undefined);
@@ -300,7 +282,7 @@ describe('scraper.worker.ts (Phase 8)', () => {
         expect(mockState.postMessage).toHaveBeenCalledWith(
             expect.objectContaining({type: 'mfa_required', prompt: 'Enter your OTP'})
         );
-        expect(submitMfaSpy).toHaveBeenCalledWith(mockPage, '123456');
+        expect(submitMfaSpy).toHaveBeenCalledWith('123456');
     });
 
     // TC-W-08
@@ -326,15 +308,14 @@ describe('scraper.worker.ts (Phase 8)', () => {
     });
 
     // TC-W-09
-    it('prisma.$disconnect and browser.close are called in finally on success', async () => {
+    it('prisma.$disconnect is called in finally on success', async () => {
         await importWorker();
 
         expect(mockPrismaDisconnect).toHaveBeenCalledOnce();
-        expect(mockBrowser.close).toHaveBeenCalledOnce();
     });
 
     // TC-W-10
-    it('prisma.$disconnect and browser.close are called in finally on error', async () => {
+    it('prisma.$disconnect is called in finally on error', async () => {
         const errorScraper: BankScraper = {
             ...stubScraper,
             scrapeTransactions: vi.fn().mockRejectedValue(new Error('Network error'))
@@ -349,7 +330,6 @@ describe('scraper.worker.ts (Phase 8)', () => {
         vi.doUnmock(STUB_PLUGIN_URL);
 
         expect(mockPrismaDisconnect).toHaveBeenCalledOnce();
-        expect(mockBrowser.close).toHaveBeenCalledOnce();
         expect(mockState.postMessage).not.toHaveBeenCalledWith(
             expect.objectContaining({type: 'result'})
         );

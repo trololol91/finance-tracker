@@ -12,9 +12,6 @@ import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {RawTransaction} from '#scraper/interfaces/bank-scraper.interface.js';
 import {TestScraperDto} from '#scraper/admin/dto/test-scraper.dto.js';
 import {TestScraperResponseDto} from '#scraper/admin/dto/test-scraper-response.dto.js';
-import type {
-    Browser, Page
-} from 'playwright';
 
 /**
  * ScraperAdminService provides the business logic for the admin plugin
@@ -98,24 +95,14 @@ export class ScraperAdminService {
         const endDate      = new Date();
         const startDate    = new Date(endDate.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
 
-        const {chromium} = await import('playwright');
-        let browser: Browser | undefined;
-        let page: Page | undefined;
-
         let transactions: RawTransaction[] = [];
 
-        try {
-            browser = await chromium.launch({headless: true});
-            page = await browser.newPage();
-            await plugin.login(page, dto.inputs);
-            transactions = await plugin.scrapeTransactions(page, {
-                startDate,
-                endDate,
-                includePending: plugin.pendingTransactionsIncluded
-            });
-        } finally {
-            await browser?.close();
-        }
+        await plugin.login(dto.inputs);
+        transactions = await plugin.scrapeTransactions(dto.inputs, {
+            startDate,
+            endDate,
+            includePending: plugin.pendingTransactionsIncluded
+        });
 
         this.logger.log(
             `Dry-run scrape for '${bankId}' returned ${transactions.length} transaction(s)`

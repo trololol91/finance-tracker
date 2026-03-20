@@ -49,20 +49,23 @@ export interface BankScraper {
     readonly inputSchema: PluginFieldDescriptor[];
 
     /** Navigate to the login page and complete authentication. */
-    login(page: unknown, inputs: PluginInputs): Promise<void>;
+    login(inputs: PluginInputs): Promise<void>;
 
     /**
      * Called by the worker after the main thread delivers an MFA code.
      * `page` is still positioned on the MFA/OTP screen that login() left it on.
      * Only required for banks that use MFA (requiresMfaOnEveryRun: true or session-expiry MFA).
      */
-    submitMfa?(page: unknown, code: string): Promise<void>;
+    submitMfa?(code: string): Promise<void>;
 
     /**
      * Navigate to the transactions page, apply the date range, and return all
      * visible rows as structured data.
      */
-    scrapeTransactions(page: unknown, options: ScrapeOptions): Promise<RawTransaction[]>;
+    scrapeTransactions(
+        inputs: PluginInputs,
+        options: ScrapeOptions
+    ): Promise<RawTransaction[]>;
 }
 
 export interface ScrapeOptions {

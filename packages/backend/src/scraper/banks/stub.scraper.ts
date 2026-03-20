@@ -24,11 +24,11 @@ const stubScraper: BankScraper = {
         }
     ] satisfies PluginFieldDescriptor[],
 
-    login(_page: unknown, _inputs: PluginInputs): Promise<void> {
+    login(_inputs: PluginInputs): Promise<void> {
         return Promise.resolve();
     },
 
-    scrapeTransactions(_page: unknown, _options: ScrapeOptions): Promise<RawTransaction[]> {
+    scrapeTransactions(_input: PluginInputs, _options: ScrapeOptions): Promise<RawTransaction[]> {
         return Promise.resolve([
             {
                 date: '2026-01-01',

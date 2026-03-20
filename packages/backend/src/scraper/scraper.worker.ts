@@ -13,7 +13,6 @@ import {
     parentPort,
     workerData
 } from 'worker_threads';
-import {chromium} from 'playwright';
 import {PrismaClient} from '#generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import type {
@@ -37,9 +36,6 @@ parentPort.postMessage({
     message: `Connecting to ${input.bankId}...`
 });
 
-const browser = await chromium.launch({headless: true});
-const page    = await browser.newPage();
-
 const adapter = new PrismaPg({connectionString: input.databaseUrl});
 const prisma = new PrismaClient({adapter});
 
@@ -51,7 +47,7 @@ try {
     const scraper = mod.default;
 
     try {
-        await scraper.login(page, input.inputs);
+        await scraper.login(input.inputs);
     } catch (err) {
         // Use a duck-type check instead of instanceof so this works correctly
         // when vi.resetModules() causes the interface module to be re-evaluated
@@ -68,15 +64,18 @@ try {
         );
 
         if (typeof scraper.submitMfa === 'function') {
-            await scraper.submitMfa(page, code);
+            await scraper.submitMfa(code);
         }
     }
 
-    const transactions: RawTransaction[] = await scraper.scrapeTransactions(page, {
-        startDate: new Date(input.startDate),
-        endDate: new Date(input.endDate),
-        includePending: true
-    });
+    const transactions: RawTransaction[] = await scraper.scrapeTransactions(
+        input.inputs, 
+        {
+            startDate: new Date(input.startDate),
+            endDate: new Date(input.endDate),
+            includePending: true
+        }
+    );
 
     const syntheticIds = transactions.map(t => t.syntheticId);
     const existing = await prisma.transaction.findMany({
@@ -119,5 +118,4 @@ try {
 
 } finally {
     await prisma.$disconnect();
-    await browser.close();
 }

@@ -13,20 +13,12 @@ import type {ConfigService} from '@nestjs/config';
 import type {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
 import type {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
-import type {Browser} from 'playwright';
 
 vi.mock('fs/promises', () => ({
     writeFile: vi.fn()
 }));
 
-vi.mock('playwright', () => ({
-    chromium: {
-        launch: vi.fn()
-    }
-}));
-
 import {writeFile} from 'fs/promises';
-import {chromium} from 'playwright';
 
 describe('ScraperAdminService', () => {
     let service: ScraperAdminService;
@@ -188,27 +180,16 @@ describe('ScraperAdminService', () => {
             ...overrides
         } as unknown as BankScraper);
 
-        const makeMockBrowser = () => {
-            const mockPage    = {};
-            const mockBrowser = {
-                newPage: vi.fn().mockResolvedValue(mockPage),
-                close: vi.fn().mockResolvedValue(undefined)
-            };
-            vi.mocked(chromium.launch).mockResolvedValue(mockBrowser as unknown as Browser);
-            return {mockBrowser, mockPage};
-        };
-
         it('should call plugin.login() and plugin.scrapeTransactions() with correct arguments', async () => {
             const plugin = makeMockPlugin();
             mockRegistry.findByBankId.mockReturnValue(plugin);
-            const {mockPage} = makeMockBrowser();
 
             const dto = {inputs: {username: 'u', password: 'p'}};
             await service.testScraper('cibc', dto);
 
-            expect(plugin.login).toHaveBeenCalledWith(mockPage, dto.inputs);
+            expect(plugin.login).toHaveBeenCalledWith(dto.inputs);
             expect(plugin.scrapeTransactions).toHaveBeenCalledWith(
-                mockPage,
+                dto.inputs,
                 {
                     startDate: expect.any(Date),
                     endDate: expect.any(Date),
@@ -223,7 +204,6 @@ describe('ScraperAdminService', () => {
                 scrapeTransactions: vi.fn().mockResolvedValue([txn])
             });
             mockRegistry.findByBankId.mockReturnValue(plugin);
-            makeMockBrowser();
 
             const result = await service.testScraper('cibc', {inputs: {}});
 
@@ -233,7 +213,6 @@ describe('ScraperAdminService', () => {
         it('should use plugin.maxLookbackDays when lookbackDays is not provided in dto', async () => {
             const plugin = makeMockPlugin({maxLookbackDays: 90});
             mockRegistry.findByBankId.mockReturnValue(plugin);
-            makeMockBrowser();
 
             const before = new Date();
             await service.testScraper('cibc', {inputs: {}});
@@ -245,7 +224,6 @@ describe('ScraperAdminService', () => {
 
             expect(windowDays).toBeGreaterThanOrEqual(89);
             expect(windowDays).toBeLessThanOrEqual(91);
-            // endDate should be within the test execution window
             expect(call.endDate.getTime()).toBeGreaterThanOrEqual(before.getTime());
             expect(call.endDate.getTime()).toBeLessThanOrEqual(after.getTime());
         });
@@ -253,7 +231,6 @@ describe('ScraperAdminService', () => {
         it('should use dto.lookbackDays when provided', async () => {
             const plugin = makeMockPlugin({maxLookbackDays: 90});
             mockRegistry.findByBankId.mockReturnValue(plugin);
-            makeMockBrowser();
 
             await service.testScraper('cibc', {inputs: {}, lookbackDays: 7});
 
@@ -271,74 +248,28 @@ describe('ScraperAdminService', () => {
             await expect(
                 service.testScraper('unknown', {inputs: {}})
             ).rejects.toThrow(NotFoundException);
-            expect(vi.mocked(chromium.launch)).not.toHaveBeenCalled();
         });
 
-        it('should close the browser and propagate the error when login() throws', async () => {
+        it('should propagate the error when login() throws', async () => {
             const plugin = makeMockPlugin({
                 login: vi.fn().mockRejectedValue(new Error('Login failed'))
             });
             mockRegistry.findByBankId.mockReturnValue(plugin);
-            const {mockBrowser} = makeMockBrowser();
 
             await expect(
                 service.testScraper('cibc', {inputs: {username: 'u', password: 'p'}})
             ).rejects.toThrow('Login failed');
-            expect(mockBrowser.close).toHaveBeenCalledOnce();
         });
 
-        it('should close the browser and propagate the error when scrapeTransactions() throws', async () => {
+        it('should propagate the error when scrapeTransactions() throws', async () => {
             const plugin = makeMockPlugin({
                 scrapeTransactions: vi.fn().mockRejectedValue(new Error('Scrape failed'))
             });
             mockRegistry.findByBankId.mockReturnValue(plugin);
-            const {mockBrowser} = makeMockBrowser();
 
             await expect(
                 service.testScraper('cibc', {inputs: {username: 'u', password: 'p'}})
             ).rejects.toThrow('Scrape failed');
-            expect(mockBrowser.close).toHaveBeenCalledOnce();
-        });
-
-        it('should always close the browser on a successful run', async () => {
-            const plugin = makeMockPlugin();
-            mockRegistry.findByBankId.mockReturnValue(plugin);
-            const {mockBrowser} = makeMockBrowser();
-
-            await service.testScraper('cibc', {inputs: {username: 'u', password: 'p'}});
-
-            expect(mockBrowser.close).toHaveBeenCalledOnce();
-        });
-
-        it('should close the browser and propagate the error when newPage() throws', async () => {
-            const plugin = makeMockPlugin();
-            mockRegistry.findByBankId.mockReturnValue(plugin);
-
-            const mockBrowser = {
-                newPage: vi.fn().mockRejectedValue(new Error('newPage failed')),
-                close: vi.fn().mockResolvedValue(undefined)
-            };
-            vi.mocked(chromium.launch).mockResolvedValue(mockBrowser as unknown as Browser);
-
-            await expect(
-                service.testScraper('cibc', {inputs: {username: 'u', password: 'p'}})
-            ).rejects.toThrow('newPage failed');
-
-            expect(mockBrowser.close).toHaveBeenCalledOnce();
-        });
-
-        it('should propagate the error when chromium.launch() throws', async () => {
-            const plugin = makeMockPlugin();
-            mockRegistry.findByBankId.mockReturnValue(plugin);
-
-            vi.mocked(chromium.launch).mockRejectedValue(new Error('launch failed'));
-
-            await expect(
-                service.testScraper('cibc', {inputs: {username: 'u', password: 'p'}})
-            ).rejects.toThrow('launch failed');
-
-            // browser was never assigned — close() must not have been called on anything
-            expect(plugin.login).not.toHaveBeenCalled();
         });
     });
 });
