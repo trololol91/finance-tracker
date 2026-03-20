@@ -97,12 +97,16 @@ export class ScraperAdminService {
 
         let transactions: RawTransaction[] = [];
 
-        await plugin.login(dto.inputs);
-        transactions = await plugin.scrapeTransactions(dto.inputs, {
-            startDate,
-            endDate,
-            includePending: plugin.pendingTransactionsIncluded
-        });
+        try {
+            await plugin.login(dto.inputs);
+            transactions = await plugin.scrapeTransactions(dto.inputs, {
+                startDate,
+                endDate,
+                includePending: plugin.pendingTransactionsIncluded
+            });
+        } finally {
+            await plugin.cleanup?.();
+        }
 
         this.logger.log(
             `Dry-run scrape for '${bankId}' returned ${transactions.length} transaction(s)`

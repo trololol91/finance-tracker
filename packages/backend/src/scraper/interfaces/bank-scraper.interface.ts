@@ -1,12 +1,3 @@
-/**
- * Every built-in and external scraper satisfies this contract.
- * Built-in scrapers live under `banks/`; external plugins are loaded from `SCRAPER_PLUGIN_DIR`.
- *
- * Note: `page` parameters use `unknown` here so the interface compiles without
- * requiring `playwright` as a dependency. In real scraper implementations,
- * cast `page as import('playwright').Page` inside the method body.
- */
-
 export interface PluginFieldDescriptor {
     key: string;
     label: string;
@@ -17,13 +8,6 @@ export interface PluginFieldDescriptor {
 }
 
 export type PluginInputs = Record<string, string>;
-
-export class MfaRequiredError extends Error {
-    constructor(public readonly prompt: string) {
-        super(`MFA required: ${prompt}`);
-        this.name = 'MfaRequiredError';
-    }
-}
 
 export interface BankScraper {
     /** Unique key stored in SyncSchedule.bankId — plain string, no enum. */
@@ -48,15 +32,18 @@ export interface BankScraper {
     /** Describes the fields this plugin requires from the user (username, password, etc.). */
     readonly inputSchema: PluginFieldDescriptor[];
 
-    /** Navigate to the login page and complete authentication. */
-    login(inputs: PluginInputs): Promise<void>;
-
     /**
-     * Called by the worker after the main thread delivers an MFA code.
-     * `page` is still positioned on the MFA/OTP screen that login() left it on.
-     * Only required for banks that use MFA (requiresMfaOnEveryRun: true or session-expiry MFA).
+     * Navigate to the login page and complete authentication.
+     *
+     * If the bank presents an MFA/OTP screen during login, call:
+     *   const code = await resolveMfa('Enter the code sent to your device');
+     * then fill the code and complete the login flow inline.
+     *
+     * `resolveMfa` is undefined in contexts where MFA is not supported
+     * (e.g. admin dry-run test). If MFA is required but no resolver is
+     * provided, throw a plain Error so the job fails with a clear message.
      */
-    submitMfa?(code: string): Promise<void>;
+    login(inputs: PluginInputs, resolveMfa?: (prompt: string) => Promise<string>): Promise<void>;
 
     /**
      * Navigate to the transactions page, apply the date range, and return all
@@ -66,6 +53,14 @@ export interface BankScraper {
         inputs: PluginInputs,
         options: ScrapeOptions
     ): Promise<RawTransaction[]>;
+
+    /**
+     * Called by the worker and admin service in a `finally` block — guaranteed
+     * to run whether the scrape succeeded or failed.
+     * Plugins that own a browser (e.g. CIBC) use this to close it.
+     * Plugins with no browser resource (e.g. stub) may omit this method.
+     */
+    cleanup?(): Promise<void>;
 }
 
 export interface ScrapeOptions {

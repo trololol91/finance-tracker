@@ -20,7 +20,6 @@ import type {
     RawTransaction,
     BankScraper
 } from '#scraper/interfaces/bank-scraper.interface.js';
-import {MfaRequiredError} from '#scraper/interfaces/bank-scraper.interface.js';
 import {SyncJobStatus} from '#scraper/sync-job-status.js';
 
 const input = workerData as ScraperWorkerInput;
@@ -41,32 +40,20 @@ const prisma = new PrismaClient({adapter});
 
 let importedCount = 0;
 let skippedCount  = 0;
+let scraper: BankScraper | undefined;
 
 try {
     const mod = await import(input.pluginPath) as {default: BankScraper};
-    const scraper = mod.default;
+    scraper = mod.default;
 
-    try {
-        await scraper.login(input.inputs);
-    } catch (err) {
-        // Use a duck-type check instead of instanceof so this works correctly
-        // when vi.resetModules() causes the interface module to be re-evaluated
-        // in a different module realm (test environment only; no production impact).
-        const isMfaError =
-            err instanceof MfaRequiredError ||
-            (err instanceof Error && err.name === 'MfaRequiredError' && 'prompt' in err);
-        if (!isMfaError) throw err;
-
-        const prompt = (err as MfaRequiredError).prompt;
-        parentPort.postMessage({type: 'mfa_required', prompt});
-        const {code} = await new Promise<{code: string}>(r =>
-            parentPort!.once('message', r)
+    const resolver = (prompt: string): Promise<string> => {
+        parentPort!.postMessage({type: 'mfa_required', prompt});
+        return new Promise<string>(r =>
+            parentPort!.once('message', ({code}: {code: string}) => { r(code); })
         );
+    };
 
-        if (typeof scraper.submitMfa === 'function') {
-            await scraper.submitMfa(code);
-        }
-    }
+    await scraper.login(input.inputs, resolver);
 
     const transactions: RawTransaction[] = await scraper.scrapeTransactions(
         input.inputs, 
@@ -117,5 +104,6 @@ try {
     });
 
 } finally {
+    await scraper?.cleanup?.();
     await prisma.$disconnect();
 }

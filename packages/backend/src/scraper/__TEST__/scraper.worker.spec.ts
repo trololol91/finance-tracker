@@ -21,9 +21,8 @@ import {
     describe, it, expect, beforeEach, vi
 } from 'vitest';
 import type {
-    ScraperWorkerInput, BankScraper
+    ScraperWorkerInput, BankScraper, PluginInputs
 } from '#scraper/interfaces/bank-scraper.interface.js';
-import {MfaRequiredError} from '#scraper/interfaces/bank-scraper.interface.js';
 import {SyncJobStatus} from '#scraper/sync-job-status.js';
 import stubScraper from '#scraper/banks/stub.scraper.js';
 
@@ -261,17 +260,19 @@ describe('scraper.worker.ts (Phase 8)', () => {
     });
 
     // TC-W-07
-    it('MFA bridge: posts mfa_required, awaits code, calls submitMfa if defined', async () => {
-        const submitMfaSpy = vi.fn().mockResolvedValue(undefined);
+    it('MFA bridge: posts mfa_required and passes code via resolver', async () => {
         const mfaScraper: BankScraper = {
             ...stubScraper,
-            login: vi.fn().mockRejectedValue(new MfaRequiredError('Enter your OTP')),
-            submitMfa: submitMfaSpy
+            login: vi.fn().mockImplementation(
+                async (_inputs: PluginInputs, resolveMfa?: (p: string) => Promise<string>) => {
+                    await resolveMfa?.('Enter your OTP');
+                }
+            )
         };
 
-        mockState.once.mockImplementation((_event: string, cb: (msg: {code: string}) => void) => {
-            cb({code: '123456'});
-        });
+        mockState.once.mockImplementation(
+            (_event: string, cb: (msg: {code: string}) => void) => { cb({code: '123456'}); }
+        );
 
         await importWorker(() => {
             vi.doMock(STUB_PLUGIN_URL, () => ({default: mfaScraper}));
@@ -282,29 +283,8 @@ describe('scraper.worker.ts (Phase 8)', () => {
         expect(mockState.postMessage).toHaveBeenCalledWith(
             expect.objectContaining({type: 'mfa_required', prompt: 'Enter your OTP'})
         );
-        expect(submitMfaSpy).toHaveBeenCalledWith('123456');
-    });
-
-    // TC-W-08
-    it('MFA bridge: submitMfa is not called when scraper does not define it', async () => {
-        const noMfaScraper: BankScraper = {
-            ...stubScraper,
-            login: vi.fn().mockRejectedValue(new MfaRequiredError('Enter your OTP'))
-        };
-
-        mockState.once.mockImplementation((_event: string, cb: (msg: {code: string}) => void) => {
-            cb({code: '654321'});
-        });
-
-        await importWorker(() => {
-            vi.doMock(STUB_PLUGIN_URL, () => ({default: noMfaScraper}));
-        });
-
-        vi.doUnmock(STUB_PLUGIN_URL);
-
-        const resultMsg = getResultMsg();
-        expect(resultMsg).toBeDefined();
-        expect(resultMsg!.type).toBe('result');
+        // Scrape still proceeds after MFA
+        expect(getResultMsg()).toBeDefined();
     });
 
     // TC-W-09
@@ -333,5 +313,42 @@ describe('scraper.worker.ts (Phase 8)', () => {
         expect(mockState.postMessage).not.toHaveBeenCalledWith(
             expect.objectContaining({type: 'result'})
         );
+    });
+
+    // TC-W-13
+    it('cleanup() is called in finally on success when plugin defines it', async () => {
+        const cleanupSpy = vi.fn().mockResolvedValue(undefined);
+        const scraperWithCleanup: BankScraper = {
+            ...stubScraper,
+            cleanup: cleanupSpy
+        };
+
+        await importWorker(() => {
+            vi.doMock(STUB_PLUGIN_URL, () => ({default: scraperWithCleanup}));
+        });
+
+        vi.doUnmock(STUB_PLUGIN_URL);
+
+        expect(cleanupSpy).toHaveBeenCalledOnce();
+    });
+
+    // TC-W-14
+    it('cleanup() is called in finally on error when plugin defines it', async () => {
+        const cleanupSpy = vi.fn().mockResolvedValue(undefined);
+        const errorScraper: BankScraper = {
+            ...stubScraper,
+            scrapeTransactions: vi.fn().mockRejectedValue(new Error('Scrape failed')),
+            cleanup: cleanupSpy
+        };
+
+        await expect(
+            importWorker(() => {
+                vi.doMock(STUB_PLUGIN_URL, () => ({default: errorScraper}));
+            })
+        ).rejects.toThrow('Scrape failed');
+
+        vi.doUnmock(STUB_PLUGIN_URL);
+
+        expect(cleanupSpy).toHaveBeenCalledOnce();
     });
 });

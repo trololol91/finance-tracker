@@ -3,15 +3,12 @@ import {
     type PluginInputs,
     type PluginFieldDescriptor,
     type ScrapeOptions,
-    type RawTransaction,
-    MfaRequiredError
+    type RawTransaction
 } from '../interfaces/bank-scraper.interface.js';
 import type {
     Browser,
     ElementHandle, Page
 } from 'playwright';
-
-export {MfaRequiredError} from '../interfaces/bank-scraper.interface.js';
 
 let page: Page | undefined;
 let browser: Browser | undefined;
@@ -226,18 +223,21 @@ const cibcScraper: BankScraper = {
         }
     ] satisfies PluginFieldDescriptor[],
 
-    async login(inputs: PluginInputs): Promise<void> {
+    async login(
+        inputs: PluginInputs,
+        resolveMfa?: (prompt: string) => Promise<string>
+    ): Promise<void> {
         // Launch Chrome using Playwright
         const {chromium} = await import('playwright');
         browser = await chromium.launch({headless: false, channel: 'chrome'});
         page = await browser.newPage();
         // Go to CIBC website
         await page.goto('https://www.cibc.com/');
-        
+
         // Click on "Sign On" and wait for navigation to login page
         const signonButton = await page.waitForSelector('.centralized-signon', {timeout: 15000});
         await signonButton.click();
-        
+
         // Input Card number
         const cardField = await page.waitForSelector('input[data-test-id="card-number-input"]', {timeout: 15000});
         await cardField.fill(inputs.cardNumber);
@@ -254,35 +254,31 @@ const cibcScraper: BankScraper = {
         const signOnButton = await page.waitForSelector('button[data-test-id="sign-on-form-primary-button"]', {timeout: 15000});
         await signOnButton.click();
 
+        let mfaInput: ElementHandle<SVGElement | HTMLElement> | undefined;
         try {
-            // Check if MFA prompt appears, if so throw MfaRequiredError with the prompt text
-            await page.waitForSelector('input[data-test-id="verification-code-input"]', {timeout: 15000});
+            // Check if MFA screen appeared — save the handle so we can fill it
+            // without a second waitForSelector after resolveMfa returns
+            mfaInput = await page.waitForSelector(
+                'input[data-test-id="verification-code-input"]', {timeout: 15000}
+            );
         } catch {
-            console.log('No MFA prompt detected');
-            
-            // Wait for dashboard indicator (e.g., sign-out button)
+            // No MFA — wait for dashboard and return
             await page.waitForSelector('button[data-test-id="sign-out-btn"]', {timeout: 15000});
             return;
         }
-            
-        throw new MfaRequiredError('Enter the verification code sent to your device');
-    },
-    async submitMfa(code: string): Promise<void> {
 
-        if (!page) {
-            throw new Error('Page not initialized in submitMfa');
+        // MFA screen is visible
+        if (!resolveMfa) {
+            throw new Error('MFA required but no resolver was provided');
         }
-        
-        // Wait for the MFA code input to appear, fill it with the provided code, and submit
-        const mfaInput = await page.waitForSelector('input[data-test-id="verification-code-input"]', {timeout: 15000});
+
+        const code = await resolveMfa('Enter the verification code sent to your device');
+
         await mfaInput.fill(code);
 
-        // Click continue/submit button after entering MFA code
         const submitButton = await page.waitForSelector('button[data-test-id="action-bar-primary-button"]', {timeout: 15000});
         await submitButton.click();
 
-        // Wait for the dashboard to load and return
-        // Wait for dashboard indicator (e.g., sign-out button)
         await page.waitForSelector('button[data-test-id="sign-out-btn"]', {timeout: 15000});
     },
     async scrapeTransactions(
@@ -328,9 +324,13 @@ const cibcScraper: BankScraper = {
         const transactionListSection = await transactionsContainer.waitForSelector('section.transaction-list', {timeout: 15000});
         const transactions = await scrapeTransactionsFromSection(transactionListSection, input.flipTransactions === 'yes');
 
-        await page.close();
-        await browser.close();
         return transactions;
+    },
+    async cleanup(): Promise<void> {
+        await page?.close();
+        await browser?.close();
+        page = undefined;
+        browser = undefined;
     }
 };
 

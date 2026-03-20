@@ -177,6 +177,7 @@ describe('ScraperAdminService', () => {
             pendingTransactionsIncluded: true,
             login: vi.fn().mockResolvedValue(undefined),
             scrapeTransactions: vi.fn().mockResolvedValue([]),
+            cleanup: vi.fn().mockResolvedValue(undefined),
             ...overrides
         } as unknown as BankScraper);
 
@@ -270,6 +271,44 @@ describe('ScraperAdminService', () => {
             await expect(
                 service.testScraper('cibc', {inputs: {username: 'u', password: 'p'}})
             ).rejects.toThrow('Scrape failed');
+        });
+
+        it('should call cleanup() after a successful scrape', async () => {
+            const plugin = makeMockPlugin();
+            mockRegistry.findByBankId.mockReturnValue(plugin);
+
+            await service.testScraper('cibc', {inputs: {}});
+
+            expect(plugin.cleanup).toHaveBeenCalledOnce();
+        });
+
+        it('should call cleanup() even when login() throws', async () => {
+            const plugin = makeMockPlugin({
+                login: vi.fn().mockRejectedValue(new Error('Login failed'))
+            });
+            mockRegistry.findByBankId.mockReturnValue(plugin);
+
+            await expect(service.testScraper('cibc', {inputs: {}})).rejects.toThrow('Login failed');
+
+            expect(plugin.cleanup).toHaveBeenCalledOnce();
+        });
+
+        it('should call cleanup() even when scrapeTransactions() throws', async () => {
+            const plugin = makeMockPlugin({
+                scrapeTransactions: vi.fn().mockRejectedValue(new Error('Scrape failed'))
+            });
+            mockRegistry.findByBankId.mockReturnValue(plugin);
+
+            await expect(service.testScraper('cibc', {inputs: {}})).rejects.toThrow('Scrape failed');
+
+            expect(plugin.cleanup).toHaveBeenCalledOnce();
+        });
+
+        it('should not throw when plugin has no cleanup() method', async () => {
+            const plugin = makeMockPlugin({cleanup: undefined});
+            mockRegistry.findByBankId.mockReturnValue(plugin);
+
+            await expect(service.testScraper('cibc', {inputs: {}})).resolves.toBeDefined();
         });
     });
 });
