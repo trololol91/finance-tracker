@@ -79,7 +79,10 @@ export interface RawTransaction {
     pending: boolean;
     /**
      * Stable deduplication key computed by the scraper:
-     *   sha256(bankId + accountId + date + description + amount.toFixed(2) + String(pending))
+     *   sha256(bankId + accountId + date + description + amount.toString())
+     * pending is intentionally excluded so the same key matches both the
+     * pending and cleared versions of a transaction, allowing the worker to
+     * update isPending → false rather than inserting a duplicate.
      * Stored in Transaction.fitid.
      */
     syntheticId: string;

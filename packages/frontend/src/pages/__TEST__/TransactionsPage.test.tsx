@@ -242,6 +242,7 @@ const makeTx = (id: string): TransactionResponseDto => ({
     date: '2026-02-10T00:00:00.000Z',
     originalDate: '2026-02-10T00:00:00.000Z',
     isActive: true,
+    isPending: false,
     createdAt: '2026-02-10T00:00:00.000Z',
     updatedAt: '2026-02-10T00:00:00.000Z'
 });

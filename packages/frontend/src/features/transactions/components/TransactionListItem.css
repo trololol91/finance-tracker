@@ -96,6 +96,12 @@
     white-space: nowrap;
 }
 
+.tx-item__pending-badge {
+    font-size: var(--font-size-xs);
+    color: var(--color-warning, #b45309);
+    font-style: italic;
+}
+
 .tx-item__inactive-badge {
     font-size: var(--font-size-xs);
     color: var(--color-gray-400);

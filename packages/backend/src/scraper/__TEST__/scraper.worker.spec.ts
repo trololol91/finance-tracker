@@ -59,18 +59,21 @@ const mockState = vi.hoisted(() => ({
 const prismaMocks = vi.hoisted(() => ({
     findMany: vi.fn().mockResolvedValue([]),
     createMany: vi.fn().mockResolvedValue({count: 0}),
+    updateMany: vi.fn().mockResolvedValue({count: 0}),
     disconnect: vi.fn().mockResolvedValue(undefined)
 }));
 
 const mockPrismaFindMany = prismaMocks.findMany;
 const mockPrismaCreateMany = prismaMocks.createMany;
+const mockPrismaUpdateMany = prismaMocks.updateMany;
 const mockPrismaDisconnect = prismaMocks.disconnect;
 
 vi.mock('#generated/prisma/client.js', () => ({
     PrismaClient: class MockPrismaClient {
         public transaction = {
             findMany: prismaMocks.findMany,
-            createMany: prismaMocks.createMany
+            createMany: prismaMocks.createMany,
+            updateMany: prismaMocks.updateMany
         };
         public $disconnect = prismaMocks.disconnect;
         constructor(_opts: unknown) {}
@@ -137,6 +140,7 @@ describe('scraper.worker.ts (Phase 8)', () => {
         mockState.once.mockReset();
         mockPrismaFindMany.mockReset().mockResolvedValue([]);
         mockPrismaCreateMany.mockReset().mockResolvedValue({count: 0});
+        mockPrismaUpdateMany.mockReset().mockResolvedValue({count: 0});
         mockPrismaDisconnect.mockReset().mockResolvedValue(undefined);
 
         // Reset to default stub input with the real plugin URL
@@ -230,7 +234,7 @@ describe('scraper.worker.ts (Phase 8)', () => {
 
     // TC-W-05
     it('dedup: existing fitids are skipped; skippedCount reflects real dedup', async () => {
-        mockPrismaFindMany.mockResolvedValue([{fitid: 'stub-aaa-0001'}]);
+        mockPrismaFindMany.mockResolvedValue([{fitid: 'stub-aaa-0001', isPending: false}]);
 
         await importWorker();
 
@@ -245,9 +249,9 @@ describe('scraper.worker.ts (Phase 8)', () => {
     // TC-W-06
     it('dedup: all 3 rows already exist — createMany not called; importedCount 0', async () => {
         mockPrismaFindMany.mockResolvedValue([
-            {fitid: 'stub-aaa-0001'},
-            {fitid: 'stub-bbb-0002'},
-            {fitid: 'stub-ccc-0003'}
+            {fitid: 'stub-aaa-0001', isPending: false},
+            {fitid: 'stub-bbb-0002', isPending: false},
+            {fitid: 'stub-ccc-0003', isPending: false}
         ]);
 
         await importWorker();
@@ -257,6 +261,34 @@ describe('scraper.worker.ts (Phase 8)', () => {
         const resultMsg = getResultMsg();
         expect(resultMsg!.importedCount).toBe(0);
         expect(resultMsg!.skippedCount).toBe(3);
+    });
+
+    // TC-W-15
+    it('pending→cleared: updateMany called for cleared transaction; createMany not called for it', async () => {
+        // DB has stub-ccc-0003 stored as pending; scraper now returns it as cleared
+        mockPrismaFindMany.mockResolvedValue([{fitid: 'stub-ccc-0003', isPending: true}]);
+
+        const clearedScraper: BankScraper = {
+            ...stubScraper,
+            scrapeTransactions: vi.fn().mockResolvedValue([
+                {date: '2026-01-20', description: 'Stub Transaction C', amount: -7.50, pending: false, syntheticId: 'stub-ccc-0003'}
+            ])
+        };
+
+        await importWorker(() => {
+            vi.doMock(STUB_PLUGIN_URL, () => ({default: clearedScraper}));
+        });
+        vi.doUnmock(STUB_PLUGIN_URL);
+
+        expect(mockPrismaUpdateMany).toHaveBeenCalledOnce();
+        expect(mockPrismaUpdateMany).toHaveBeenCalledWith(
+            expect.objectContaining({data: {isPending: false}})
+        );
+        expect(mockPrismaCreateMany).not.toHaveBeenCalled();
+
+        const resultMsg = getResultMsg();
+        expect(resultMsg!.importedCount).toBe(1);
+        expect(resultMsg!.skippedCount).toBe(0);
     });
 
     // TC-W-07

@@ -38,6 +38,7 @@ const makeTx = (overrides: Partial<TransactionResponseDto> = {}): TransactionRes
     date: '2026-02-15T12:00:00.000Z',
     originalDate: '2026-02-15T12:00:00.000Z',
     isActive: true,
+    isPending: false,
     createdAt: '2026-02-15T12:00:00.000Z',
     updatedAt: '2026-02-15T12:00:00.000Z',
     ...overrides
@@ -141,6 +142,16 @@ describe('TransactionListItem', () => {
             const {container} = renderItem(makeTx({isActive: true}));
             const row = container.querySelector('tr');
             expect(row).not.toHaveClass('tx-item--inactive');
+        });
+
+        it('shows Pending badge when isPending is true', () => {
+            renderItem(makeTx({isPending: true}));
+            expect(screen.getByText('Pending')).toBeInTheDocument();
+        });
+
+        it('does not show Pending badge when isPending is false', () => {
+            renderItem(makeTx({isPending: false}));
+            expect(screen.queryByText('Pending')).not.toBeInTheDocument();
         });
     });
 

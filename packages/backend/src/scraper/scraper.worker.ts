@@ -70,30 +70,49 @@ try {
             userId: input.userId,
             fitid: {in: syntheticIds}
         },
-        select: {fitid: true}
+        select: {fitid: true, isPending: true}
     });
-    const existingFitids = new Set(existing.map(r => r.fitid));
-    const newTransactions = transactions.filter(
-        t => !existingFitids.has(t.syntheticId)
-    );
+    const existingByFitid = new Map(existing.map(r => [r.fitid, r]));
 
-    skippedCount  = transactions.length - newTransactions.length;
-    importedCount = newTransactions.length;
+    const toInsert: RawTransaction[] = [];
+    const toClearFitids: string[] = [];
 
-    if (!input.dryRun && newTransactions.length > 0) {
-        await prisma.transaction.createMany({
-            data: newTransactions.map(t => ({
-                userId: input.userId,
-                accountId: input.accountId,
-                fitid: t.syntheticId,
-                date: new Date(t.date),
-                originalDate: new Date(t.date),
-                description: t.description,
-                amount: t.amount,
-                transactionType: t.amount >= 0 ? 'income' : 'expense',
-                isActive: true
-            }))
-        });
+    for (const t of transactions) {
+        const existingRecord = existingByFitid.get(t.syntheticId);
+        if (!existingRecord) {
+            toInsert.push(t);
+        } else if (existingRecord.isPending && !t.pending) {
+            toClearFitids.push(t.syntheticId);
+        }
+        // else: already exists and up to date — skip
+    }
+
+    skippedCount  = transactions.length - toInsert.length - toClearFitids.length;
+    importedCount = toInsert.length + toClearFitids.length;
+
+    if (!input.dryRun) {
+        if (toInsert.length > 0) {
+            await prisma.transaction.createMany({
+                data: toInsert.map(t => ({
+                    userId: input.userId,
+                    accountId: input.accountId,
+                    fitid: t.syntheticId,
+                    date: new Date(t.date),
+                    originalDate: new Date(t.date),
+                    description: t.description,
+                    amount: t.amount,
+                    transactionType: t.amount >= 0 ? 'income' : 'expense',
+                    isActive: true,
+                    isPending: t.pending
+                }))
+            });
+        }
+        if (toClearFitids.length > 0) {
+            await prisma.transaction.updateMany({
+                where: {userId: input.userId, fitid: {in: toClearFitids}},
+                data: {isPending: false}
+            });
+        }
     }
 
     parentPort.postMessage({

@@ -42,6 +42,7 @@ const mockTx: TransactionResponseDto = {
     date: '2026-02-15T12:00:00.000Z',
     originalDate: '2026-02-15T12:00:00.000Z',
     isActive: true,
+    isPending: false,
     createdAt: '2026-02-15T12:00:00.000Z',
     updatedAt: '2026-02-15T12:00:00.000Z'
 };

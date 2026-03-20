@@ -85,6 +85,9 @@ export const TransactionListItem = ({
                 )}
             </td>
             <td className="tx-item__status tx-item__hide-mobile">
+                {transaction.isPending && (
+                    <span className="tx-item__pending-badge">Pending</span>
+                )}
                 {!transaction.isActive && (
                     <span className="tx-item__inactive-badge">Inactive</span>
                 )}

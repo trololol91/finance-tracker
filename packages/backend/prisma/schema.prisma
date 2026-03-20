@@ -111,8 +111,10 @@ model Transaction {
 
   // State
   isActive        Boolean         @default(true) @map("is_active")
+  isPending       Boolean         @default(false) @map("is_pending")
 
   // OFX / scraper dedup key (bank-assigned FITID or sha256 syntheticId)
+  // Partial unique index (userId, fitid) WHERE fitid IS NOT NULL enforced via raw migration.
   fitid           String?
 
   // Timestamps

@@ -79,6 +79,12 @@ export class TransactionResponseDto {
     isActive!: boolean;
 
     @ApiProperty({
+        description: 'Whether the transaction is still pending/unsettled',
+        example: false
+    })
+    isPending!: boolean;
+
+    @ApiProperty({
         description: 'Record creation timestamp',
         example: '2026-02-25T10:30:00.000Z'
     })
@@ -103,6 +109,7 @@ export class TransactionResponseDto {
         dto.date = transaction.date;
         dto.originalDate = transaction.originalDate;
         dto.isActive = transaction.isActive;
+        dto.isPending = transaction.isPending;
         dto.createdAt = transaction.createdAt;
         dto.updatedAt = transaction.updatedAt;
         return dto;

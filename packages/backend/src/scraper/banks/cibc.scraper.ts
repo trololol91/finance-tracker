@@ -54,7 +54,6 @@ interface SyntheticIdParams {
     date: string;
     description: string;
     amount: number;
-    pending: boolean;
 }
 
 const generateSyntheticId = async (params: SyntheticIdParams): Promise<string> => {
@@ -64,8 +63,7 @@ const generateSyntheticId = async (params: SyntheticIdParams): Promise<string> =
         params.accountId,
         params.date,
         params.description,
-        params.amount.toString(),
-        params.pending.toString()
+        params.amount.toString()
     ].join('|');
     return crypto.createHash('sha256').update(hashInput).digest('hex');
 };
@@ -166,8 +164,7 @@ const scrapeTransactionsFromSection = async (
                 accountId: cardText ?? '',
                 date: date.toISOString(),
                 description: descText,
-                amount,
-                pending
+                amount
             });
 
             transactions.push({

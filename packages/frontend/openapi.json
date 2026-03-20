@@ -2632,6 +2632,11 @@
             "description": "Whether the transaction is active",
             "example": true
           },
+          "isPending": {
+            "type": "boolean",
+            "description": "Whether the transaction is still pending/unsettled",
+            "example": false
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -2657,6 +2662,7 @@
           "date",
           "originalDate",
           "isActive",
+          "isPending",
           "createdAt",
           "updatedAt"
         ]
@@ -3334,10 +3340,10 @@
           },
           "inputs": {
             "type": "object",
-            "description": "Plugin-specific input fields (keys defined by the bank's inputSchema)",
+            "description": "Plugin-specific input fields — keys and expected values are defined dynamically by the selected bank's inputSchema",
             "example": {
-              "username": "myuser",
-              "password": "mypass"
+              "key1": "value1",
+              "key2": "value2"
             }
           },
           "cron": {
@@ -3364,10 +3370,10 @@
         "properties": {
           "inputs": {
             "type": "object",
-            "description": "Plugin-specific input fields (keys defined by the bank's inputSchema)",
+            "description": "Plugin-specific input fields — keys and expected values are defined dynamically by the selected bank's inputSchema",
             "example": {
-              "username": "myuser",
-              "password": "mypass"
+              "key1": "value1",
+              "key2": "value2"
             }
           },
           "cron": {
