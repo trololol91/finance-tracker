@@ -402,55 +402,37 @@ Implementation plan: [`test-plan/scraper-plugins/milestone-3-implementation-plan
 
 ---
 
-## Current Focus: Scraper Plugin System — Milestone 4 (Plugin Input Schema)
+## Current Focus: Scraper Plugin System — Milestone 5 (Scraper Worker Implementation)
 
-Implementation plan: [`test-plan/scraper-plugins/milestone-4-implementation-plan.md`](../test-plan/scraper-plugins/milestone-4-implementation-plan.md)
+Implementation plan: [`test-plan/scraper-plugins/milestone-5-implementation-plan.md`](../test-plan/scraper-plugins/milestone-5-implementation-plan.md)
 
-**Goal:** Replace the hardcoded `{username, password}` credential shape with a generic `inputs: Record<string, string>` field. Each plugin declares its required form fields via a new `inputSchema: PluginFieldDescriptor[]` property. The frontend renders those fields dynamically in `SyncScheduleForm`. The database column `credentials_enc` is renamed to `plugin_config_enc`.
+**Goal:** Replace the Phase 7 stub in `scraper.worker.ts` with real Playwright scraping logic. Validate the complete end-to-end pipeline — MFA bridge, dryRun gate, deduplication, `prisma.transaction.createMany`, and SSE events — using a new built-in stub plugin (`banks/stub.scraper.ts`) rather than live CIBC or TD bank automation.
 
-**Recommended next actions:**
+**Milestone 4 completed** — see `test-plan/scraper-plugins/milestone-4-implementation-plan.md`.
 
-1. `@figma-designer` — Review the Figma Design Brief in the implementation plan (Part 6) and produce wireframes for the updated `SyncScheduleForm` dynamic input field section.
+**Recommended next actions — Milestone 5:**
 
-2. `@backend-dev` — **Step 1**: Add `PluginFieldDescriptor` interface and `PluginInputs` type alias to `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts`; remove `BankCredentials`; add `inputSchema` to `BankScraper`; rename `credentials` to `inputs` in `ScraperWorkerInput`.
+1. ✅ `@planner` — Full implementation plan produced at `test-plan/scraper-plugins/milestone-5-implementation-plan.md`.
 
-3. `@backend-dev` — **Step 2**: Add `inputSchema` arrays to CIBC and TD scrapers in `packages/backend/src/scraper/banks/cibc.scraper.ts` and `td.scraper.ts`; update `login` parameter types.
+2. `@backend-dev` — **Step 1**: Add `MfaRequiredError` class, optional `submitMfa?`, `pluginPath: string`, and `databaseUrl: string` to `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts`. Extend the `result` variant of `WorkerMessage` with `importedCount: number` and `skippedCount: number`. Remove the `MfaRequiredError` class from `cibc.scraper.ts` and replace it with `export { MfaRequiredError } from '#scraper/interfaces/bank-scraper.interface.js'`.
 
-4. `@backend-dev` — **Step 3**: Add `Array.isArray(v.inputSchema)` check to `isBankScraper` guard in `packages/backend/src/scraper/scraper.plugin-loader.ts`.
+3. `@backend-dev` — **Step 2**: Create `packages/backend/src/scraper/banks/stub.scraper.ts` — built-in stub plugin with `bankId: 'stub'`, no real browser calls, 3 hardcoded `RawTransaction` rows with stable `syntheticId` values (`stub-aaa-0001`, `stub-bbb-0002`, `stub-ccc-0003`).
 
-5. `@backend-dev` — **Step 4**: Create `packages/backend/src/common/validators/is-string-record.validator.ts` (`IsStringRecordConstraint` + `IsStringRecord` decorator) and `required-inputs.validator.ts` (`RequiredInputsConstraint` injectable). Register `RequiredInputsConstraint` in `ScraperModule.providers`.
+4. `@backend-dev` — **Step 3**: Update `packages/backend/src/scraper/scraper.registry.ts` — change internal map from `Map<string, BankScraper>` to `Map<string, { scraper: BankScraper; pluginPath: string }>`; update `register(scraper: BankScraper, pluginPath = '')` signature; update `findByBankId()` and `listAll()` to destructure the new shape; add `getPluginPath(bankId: string): string | undefined` (returns `undefined` if entry missing or `pluginPath === ''`).
 
-6. `@backend-dev` — **Step 5**: Update `packages/backend/src/scraper/sync/dto/create-sync-schedule.dto.ts` — remove `username`/`password`; add `inputs: Record<string, string>` with `@IsObject()` and `@IsStringRecord()`; add class-level `@Validate(RequiredInputsConstraint)`.
+5. `@backend-dev` — **Step 4**: Update `packages/backend/src/scraper/scraper.plugin-loader.ts` — add `'stub.scraper.js'` to `BUILTIN_PLUGINS`; change `this.registry.register(plugin)` to `this.registry.register(plugin, pathToFileURL(filePath).href)` in `loadPlugins()`.
 
-7. `@backend-dev` — **Step 6**: Add `PluginFieldDescriptorDto` class to `packages/backend/src/scraper/scraper-info.dto.ts` and add `inputSchema: PluginFieldDescriptorDto[]` to `ScraperInfoDto`.
+6. `@backend-dev` — **Step 5**: Update `packages/backend/src/scraper/scraper.service.ts` — inject `ScraperRegistry` as 5th constructor parameter; in `runWorker()` call `registry.getPluginPath(schedule.bankId)` and throw `NotFoundException` if `undefined`; add `pluginPath` and `databaseUrl: process.env['DATABASE_URL'] ?? ''` to `workerInput`; change `handleResult()` signature to accept `result: { transactions: RawTransaction[]; importedCount: number; skippedCount: number }` and read counts from it (remove the Phase 7 TODO comment and recomputed lines).
 
-8. `@backend-dev` — **Step 7**: Add `inputSchema: s.inputSchema` to the mapped object in `ScraperRegistry.listAll()` in `packages/backend/src/scraper/scraper.registry.ts`.
+7. `@backend-dev` — **Step 6**: Replace lines 86–94 (Phase 7 stub) and the Phase 8 comment block (lines 42–85) in `packages/backend/src/scraper/scraper.worker.ts` with the full Phase 8 implementation: `chromium.launch({ headless: true })`, `new PrismaClient({ datasources: { db: { url: input.databaseUrl } } })`, dynamic `import(input.pluginPath)`, login + MFA bridge with `parentPort.once`, `scrapeTransactions`, dedup `findMany`, dryRun-gated `createMany`, `prisma.$disconnect()` and `browser.close()` in finally, result message with `importedCount` and `skippedCount`.
 
-9. `@backend-dev` — **Step 8**: Run Prisma migration (`npx prisma migrate dev --name rename-credentials-enc`) to rename `credentials_enc` → `plugin_config_enc`. Verify generated SQL is only a column rename.
+8. `@test-writer` — Update spec files per Sections 9–12 of the implementation plan: 6 new registry tests, 4 updated + 2 new plugin-loader tests, ScraperRegistry mock injection + 5 updated call sites + 2 new service tests, full Phase 8 worker spec replacement (12 test cases covering dryRun, dedup, MFA bridge, finally block).
 
-10. `@backend-dev` — **Step 9**: Update `SyncScheduleService` in `packages/backend/src/scraper/sync/sync-schedule.service.ts` — rename `credentialsEnc` → `pluginConfigEnc` throughout; update `create()` encrypt call to use `dto.inputs`; update `update()` merge logic; add `inputSchema: []` to `unknownScraperFallback()`.
+9. `@backend-tester` — Run TC-API-01 through TC-API-07 from Section 13 of the implementation plan. Save plan to `test-plan/scraper-plugins/milestone-5-backend.md` and report to `test-plan/scraper-plugins/milestone-5-backend-report.md`.
 
-11. `@backend-dev` — **Step 10**: Update `ScraperService.runWorker()` in `packages/backend/src/scraper/scraper.service.ts` — rename `schedule.credentialsEnc` → `schedule.pluginConfigEnc`; cast decrypt result to `Record<string, string>`; rename `credentials` → `inputs` in `workerInput`.
+10. `@code-reviewer` — Review all Milestone 5 backend changes. Key checklist: `MfaRequiredError` moved to interface file (not duplicated); `getPluginPath()` returns `undefined` not `''` when path is missing; `dryRun` gate wraps only `createMany` (dedup query always runs); `prisma.$disconnect()` called before `browser.close()` in finally; `transactionType` inferred from sign of amount; `import(input.pluginPath)` uses `file://` URL not OS path.
 
-12. `@backend-dev` — **Step 11**: Update `packages/backend/src/scraper/scraper.worker.ts` — destructure `inputs` not `credentials`; pass to `login()`.
-
-13. `@backend-dev` — **Step 12**: Add `useContainer(app.select(AppModule), {fallbackOnErrors: true})` to `packages/backend/src/main.ts` after `NestFactory.create`.
-
-14. `@test-writer` — Backend unit tests: update `makePlugin` factory and `makeScraper` factory with `inputSchema: []`; add 2 new guard rejection tests in `scraper.plugin-loader.spec.ts`; update `listAll()` assertion in `scraper.registry.spec.ts`; create `is-string-record.validator.spec.ts` and `required-inputs.validator.spec.ts`; update `sync-schedule.service.spec.ts` and `scraper.service.spec.ts` for renamed fields.
-
-15. `@backend-tester` — Run 10-TC Backend API Test Plan (Part 3 of the implementation plan). Save plan to `test-plan/scraper-plugins/milestone-4-backend.md` and report to `test-plan/scraper-plugins/milestone-4-backend-report.md`.
-
-16. `@code-reviewer` — Review all backend changes.
-
-17. Run `cd packages/frontend && npm run generate:api` once backend Swagger is stable.
-
-18. `@frontend-dev` — Implement frontend changes: update `scraper.types.ts` → `useSyncSchedule.ts` → `SyncScheduleForm.tsx` per Steps 17–19 of the implementation plan.
-
-19. `@test-writer` — Frontend unit tests per the Frontend Test Scope (Part 5 of the implementation plan).
-
-20. `@code-reviewer` — Frontend review.
-
-21. `@frontend-tester` — Execute E2E tests from Part 5 of the implementation plan. Save to `test-plan/scraper-plugins/milestone-4-frontend.md` and report to `test-plan/scraper-plugins/milestone-4-frontend-report.md`.
+11. `@backend-dev` — Commit: `feat(scraper): implement Phase 8 scraper worker with stub plugin and dedup`.
 
 ---
 

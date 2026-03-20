@@ -1,11 +1,15 @@
 # Milestone 5 — Scraper Worker Implementation (Phase 8)
 
 **Feature area:** `packages/backend/src/scraper/`
-**Goal:** Replace the Phase 7 stub in `scraper.worker.ts` with a full Playwright scraping pipeline:
+**Goal:** Replace the Phase 7 stub in `scraper.worker.ts` with a full scraping pipeline:
 dynamic plugin loading, login, MFA bridge, `scrapeTransactions`, deduplication, dryRun-gated
 `createMany`, and direct `PrismaClient` usage in the worker thread. Validate the pipeline end-to-end
 with a new built-in stub plugin (`banks/stub.scraper.ts`) that returns 3 hardcoded transactions
 without launching a real browser.
+
+> **Design note:** Plugins own their own browser lifecycle. The framework (worker, admin service)
+> never calls `chromium.launch()` or passes `Page` objects. Each plugin instantiates and closes its
+> own browser internally. The `BankScraper` interface has no `page` parameters anywhere.
 
 **No schema migrations required.** The `Transaction.fitid` column already exists.
 
@@ -89,10 +93,10 @@ Add the following optional method to the `BankScraper` interface:
 ```typescript
 /**
  * Called by the worker after the main thread delivers an MFA code.
- * `page` is still positioned on the MFA/OTP screen that login() left it on.
  * Only required for banks that use MFA (requiresMfaOnEveryRun: true or session-expiry MFA).
+ * The plugin is responsible for its own browser/page state.
  */
-submitMfa?(page: unknown, code: string): Promise<void>;
+submitMfa?(code: string): Promise<void>;
 ```
 
 This is `?` optional because:
@@ -188,11 +192,11 @@ const stubScraper: BankScraper = {
         }
     ] satisfies PluginFieldDescriptor[],
 
-    login(_page: unknown, _inputs: PluginInputs): Promise<void> {
+    login(_inputs: PluginInputs): Promise<void> {
         return Promise.resolve();
     },
 
-    scrapeTransactions(_page: unknown, _options: ScrapeOptions): Promise<RawTransaction[]> {
+    scrapeTransactions(_inputs: PluginInputs, _options: ScrapeOptions): Promise<RawTransaction[]> {
         return Promise.resolve([
             {
                 date: '2026-01-01',
@@ -226,7 +230,7 @@ export default stubScraper;
 - `bankId: 'stub'` is the lookup key. The worker resolves the plugin path via registry.
 - `syntheticId` values are stable string literals — not computed from hashes — so tests can assert
   exact values without mocking a hash function.
-- `login()` is a no-op — no browser is needed, so the worker can run in test mode without Playwright.
+- `login()` is a no-op — no browser instantiation needed; demonstrates plugin-owned browser pattern.
 - `scrapeTransactions()` ignores `_options` (date range, includePending) and always returns all 3
   rows, making test assertions simple and stable.
 - The amounts cover the three debit/credit/pending variants that tests need to check after dedup.
@@ -485,25 +489,20 @@ Replace the existing Phase 7 imports block with:
 
 ```typescript
 import { parentPort, workerData } from 'worker_threads';
-import { chromium } from 'playwright';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '#generated/prisma/client.js';
+import { PrismaPg } from '@prisma/adapter-pg';
 import type {
     ScraperWorkerInput,
     RawTransaction,
-    BankScraper,
-    MfaRequiredError as MfaRequiredErrorType
+    BankScraper
 } from '#scraper/interfaces/bank-scraper.interface.js';
+import { MfaRequiredError } from '#scraper/interfaces/bank-scraper.interface.js';
 import { SyncJobStatus } from '#scraper/sync-job-status.js';
 ```
 
-Note: `MfaRequiredError` must be the **runtime class** for `instanceof` checks, not just the type.
-Import it as a value:
-
-```typescript
-import {
-    MfaRequiredError
-} from '#scraper/interfaces/bank-scraper.interface.js';
-```
+Note: `MfaRequiredError` must be the **runtime class** for `instanceof` checks, not just the type —
+import it as a value (not `import type`). No `playwright` import is needed; plugins manage their
+own browsers.
 
 ### 7.2 Full replacement block (lines 86–94 in Phase 7)
 
@@ -511,12 +510,8 @@ Delete lines 86–94 entirely and replace with the following. The comment block 
 describing the Phase 8 implementation should also be removed (it becomes the actual code).
 
 ```typescript
-const browser = await chromium.launch({ headless: true });
-const page    = await browser.newPage();
-
-const prisma = new PrismaClient({
-    datasources: { db: { url: input.databaseUrl } }
-});
+const adapter = new PrismaPg({ connectionString: input.databaseUrl });
+const prisma = new PrismaClient({ adapter });
 
 let importedCount = 0;
 let skippedCount  = 0;
@@ -528,8 +523,9 @@ try {
     const scraper = mod.default;
 
     // 2. Attempt login — throws MfaRequiredError if bank shows OTP screen.
+    //    The plugin owns its own browser/page; no page is passed from the worker.
     try {
-        await scraper.login(page, input.inputs);
+        await scraper.login(input.inputs);
     } catch (err) {
         if (!(err instanceof MfaRequiredError)) throw err;
 
@@ -541,12 +537,12 @@ try {
 
         // 4. Submit the MFA code if the plugin supports it.
         if (typeof scraper.submitMfa === 'function') {
-            await scraper.submitMfa(page, code);
+            await scraper.submitMfa(code);
         }
     }
 
     // 5. Scrape — only reached once the session is fully authenticated.
-    const transactions: RawTransaction[] = await scraper.scrapeTransactions(page, {
+    const transactions: RawTransaction[] = await scraper.scrapeTransactions(input.inputs, {
         startDate:      new Date(input.startDate),
         endDate:        new Date(input.endDate),
         includePending: true,
@@ -595,7 +591,7 @@ try {
 
 } finally {
     await prisma.$disconnect();
-    await browser.close();
+    // Note: browser lifecycle is the plugin's responsibility — no browser.close() here.
 }
 ```
 
@@ -622,9 +618,10 @@ the `dryRun` field from the job record.
 
 ### 7.5 finally block
 
-`prisma.$disconnect()` is called before `browser.close()` in the finally block. Both are called
-regardless of whether the scrape succeeded or failed. The order matters: disconnect Prisma first so
-the database connection pool is not left open if `browser.close()` were to throw.
+`prisma.$disconnect()` is called in the finally block and runs regardless of whether the scrape
+succeeded or failed. There is no `browser.close()` call in the worker — plugins are responsible
+for closing their own browser. This keeps the framework plugin-agnostic and avoids double-close
+errors if a plugin's `login()` or `scrapeTransactions()` already closes the browser on failure.
 
 ### 7.6 Worker file-level comment update
 
@@ -661,7 +658,7 @@ references and describe the final implementation:
 
 | File | What runs for real | Playwright needed? |
 |------|-------------------|--------------------|
-| `scraper.worker.spec.ts` | Dynamic `import(stub.scraper.js)`, `scrapeTransactions()` returning 3 rows, `prisma.transaction.findMany` (mocked), `prisma.transaction.createMany` (mocked), MFA bridge via `parentPort.once` | No — `stubScraper` ignores `page` entirely |
+| `scraper.worker.spec.ts` | Dynamic `import(stub.scraper.js)`, `scrapeTransactions()` returning 3 rows, `prisma.transaction.findMany` (mocked), `prisma.transaction.createMany` (mocked), MFA bridge via `parentPort.once` | No — plugins own their own browser; `stubScraper` has no browser calls |
 
 The worker spec should not mock `import()` — it should let the worker load the real
 `stub.scraper.ts` module. This is the integration point that validates the dynamic plugin loading
@@ -681,10 +678,9 @@ compiled-output path resolution issues.
 
 | Scenario | Why manual |
 |----------|-----------|
-| Real CIBC login | Requires live credentials, VPN, and a real browser. |
+| Real CIBC login | Requires live credentials, VPN, and a real browser launched by the plugin. |
 | Real TD login | Same as above. |
 | MFA code via phone/SMS | Cannot be automated without physical device access. |
-| Playwright browser launch | Headless Chromium requires a display server (or `--no-sandbox`); not appropriate for unit test CI. |
 
 ---
 
@@ -994,46 +990,36 @@ The existing Phase 7 tests are replaced in their entirety. The describe block na
 ### 12.1 Additional mocks required
 
 The worker now uses:
-1. `playwright` (`chromium.launch`)
-2. `@prisma/client` (`PrismaClient`)
-3. `import(input.pluginPath)` (dynamic plugin load)
+1. `#generated/prisma/client.js` (`PrismaClient`) and `@prisma/adapter-pg` (`PrismaPg`)
+2. `import(input.pluginPath)` (dynamic plugin load)
 
-All three must be mocked.
-
-#### playwright mock
-
-```typescript
-const mockPage = {
-    // stub — stubScraper ignores the page object entirely
-};
-
-const mockBrowser = {
-    newPage: vi.fn().mockResolvedValue(mockPage),
-    close: vi.fn().mockResolvedValue(undefined)
-};
-
-vi.mock('playwright', () => ({
-    chromium: {
-        launch: vi.fn().mockResolvedValue(mockBrowser)
-    }
-}));
-```
+No `playwright` mock is needed — plugins own their own browser, and `stubScraper` has no browser
+calls at all.
 
 #### PrismaClient mock
 
 ```typescript
-const mockPrismaFindMany = vi.fn().mockResolvedValue([]);
-const mockPrismaCreateMany = vi.fn().mockResolvedValue({ count: 0 });
-const mockPrismaDisconnect = vi.fn().mockResolvedValue(undefined);
+const prismaMocks = vi.hoisted(() => ({
+    findMany:   vi.fn().mockResolvedValue([]),
+    createMany: vi.fn().mockResolvedValue({ count: 0 }),
+    disconnect: vi.fn().mockResolvedValue(undefined)
+}));
 
-vi.mock('@prisma/client', () => ({
-    PrismaClient: vi.fn().mockImplementation(() => ({
-        transaction: {
-            findMany: mockPrismaFindMany,
-            createMany: mockPrismaCreateMany
-        },
-        $disconnect: mockPrismaDisconnect
-    }))
+vi.mock('#generated/prisma/client.js', () => ({
+    PrismaClient: class MockPrismaClient {
+        public transaction = {
+            findMany:   prismaMocks.findMany,
+            createMany: prismaMocks.createMany
+        };
+        public $disconnect = prismaMocks.disconnect;
+        constructor(_opts: unknown) {}
+    }
+}));
+
+vi.mock('@prisma/adapter-pg', () => ({
+    PrismaPg: class MockPrismaPg {
+        constructor(_opts: unknown) {}
+    }
 }));
 ```
 
@@ -1147,19 +1133,20 @@ vi.mock('worker_threads', () => ({
   `new MfaRequiredError('Enter your OTP')` and `submitMfa` is a spy.
 - Configure `mockState.once` to immediately call its callback with `{ code: '123456' }`.
 - Assert `postMessage` was called with `{type:'mfa_required', prompt: 'Enter your OTP'}`.
-- Assert the `submitMfa` spy was called with `(mockPage, '123456')`.
+- Assert the `submitMfa` spy was called with `('123456')` — no page argument.
 
 **TC-W-08:** `'MFA bridge: submitMfa is not called when scraper does not define it'`
 - Same as TC-W-07 but the mock scraper has no `submitMfa` field.
 - Assert no error is thrown and the result message is still posted.
 
-**TC-W-09:** `'prisma.$disconnect and browser.close are called in finally on success'`
-- After a clean run: assert both `mockPrismaDisconnect` and `mockBrowser.close` were called once.
+**TC-W-09:** `'prisma.$disconnect is called in finally on success'`
+- After a clean run: assert `mockPrismaDisconnect` was called once.
+- No `browser.close()` assertion — the plugin owns browser lifecycle.
 
-**TC-W-10:** `'prisma.$disconnect and browser.close are called in finally on error'`
+**TC-W-10:** `'prisma.$disconnect is called in finally on error'`
 - Configure `scrapeTransactions()` to throw `new Error('Network error')`.
-- Import the worker and let it execute.
-- Assert both `mockPrismaDisconnect` and `mockBrowser.close` were called.
+- Import the worker and expect it to reject.
+- Assert `mockPrismaDisconnect` was called once.
 - Assert `postMessage` was NOT called with `{type:'result', ...}`.
 - The worker exits with an unhandled rejection — the error propagates to the main thread's
   `worker.on('error', ...)` handler in real usage.

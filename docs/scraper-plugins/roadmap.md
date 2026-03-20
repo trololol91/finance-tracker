@@ -11,8 +11,9 @@ Detailed implementation plans for each milestone live in
 |---|-----------|--------|
 | 1 | Remove Built-ins, Add Startup Seeding | ✅ Done |
 | 2 | Dry-run Test Endpoint | ✅ Done |
-| 3 | dryRun Flag on Run-Now | 🟨 In Progress |
-| 4 | Plugin Input Schema | ⬜ Not Started |
+| 3 | dryRun Flag on Run-Now | ✅ Done |
+| 4 | Plugin Input Schema | ✅ Done |
+| 5 | Scraper Worker Implementation (Phase 8) | ✅ Done |
 
 ---
 
@@ -193,12 +194,11 @@ Test cases to execute:
 @test-plan/scraper-plugins/milestone-2-implementation-plan.md
 
 code-reviewer — Review the Milestone 2 changes in packages/backend/src/scraper/.
-Focus on: guard ordering on the new controller action, correct Playwright
-browser lifecycle (browser always closed in finally), DTO validation coverage,
-error propagation from login() and scrapeTransactions(), and whether the
-service method could leak a browser handle if an unexpected exception is thrown.
-Also confirm the response DTO is fully decorated with @ApiProperty so the
-OpenAPI spec stays accurate.
+Focus on: guard ordering on the new controller action, DTO validation coverage,
+error propagation from login() and scrapeTransactions(). Browser lifecycle is the
+plugin's responsibility — the service calls login() and scrapeTransactions() directly
+with no page argument and no Playwright import. Confirm the response DTO is fully
+decorated with @ApiProperty so the OpenAPI spec stays accurate.
 ```
 
 #### Step 6 — Commit
@@ -900,6 +900,546 @@ Frontend:
 
 backend-dev — Commit the Milestone 4 changes with message:
 feat(scraper): add plugin input schema and dynamic credential fields
+```
+
+---
+
+## Milestone 5 — Scraper Worker Implementation (Phase 8)
+
+**Goal:** Replace the Phase 7 stub in `scraper.worker.ts` with real scraping logic.
+Validate the complete end-to-end pipeline — MFA bridge, dryRun gate, deduplication,
+`prisma.transaction.createMany`, and SSE events — using a new built-in stub plugin
+(`banks/stub.scraper.ts`) rather than live CIBC or TD bank automation. After this
+milestone, the worker is production-ready for any plugin whose `BankScraper`
+implementation handles the real browser automation.
+
+> **Design change (implemented):** Browser/page lifecycle is the plugin's responsibility.
+> The worker does not launch Playwright or create a `Page` — plugins call
+> `chromium.launch()` and `browser.newPage()` themselves inside `login()` and
+> `scrapeTransactions()`. `scraper-admin.service.ts` (the dry-run test endpoint) follows
+> the same contract. This was a deliberate deviation from the original plan to keep the
+> framework agnostic of browser technology.
+
+### Key Changes
+
+#### 1. `scraper.worker.ts` — replace Phase 7 stub with real implementation
+
+The worker implements the full Phase 8 pipeline without managing browser lifecycle
+directly — that is the plugin's responsibility:
+
+- Dynamically import the plugin by absolute file path:
+  `const mod = await import(input.pluginPath)` — no NestJS DI in the worker.
+- Call `scraper.login(input.inputs)`.
+  - If `login` throws `MfaRequiredError`: post `{ type: 'mfa_required', prompt }` to
+    the main thread, then `await` a `parentPort.once('message')` reply carrying
+    `{ type: 'mfa_code', code }`. Call `scraper.submitMfa(code)` to resume.
+- Call `scraper.scrapeTransactions(input.inputs, { startDate, endDate, includePending: true })`.
+- Run deduplication (see item 8 below).
+- Gate `prisma.transaction.createMany` behind `if (!input.dryRun)` — this is where
+  Milestone 3's `dryRun` flag is actually enforced at the write step.
+- Post `{ type: 'result', transactions: newRows, importedCount, skippedCount }` to the
+  main thread.
+- Always `await prisma.$disconnect()` in a `finally` block.
+
+> **Note:** The worker does not call `chromium.launch()` or `browser.close()` — plugins
+> own their browser session entirely. The `finally` block only disconnects Prisma.
+
+Worker timeout: `ScraperService` already terminates the worker after 5 minutes
+(`WORKER_TIMEOUT_MS = 5 * 60 * 1000`) and marks the job `failed`. No change needed
+in the service for this milestone.
+
+#### 2. `ScraperWorkerInput` — add `pluginPath` and `databaseUrl` fields
+
+Add two new required fields to the interface in `bank-scraper.interface.ts`:
+
+```typescript
+pluginPath: string;    // absolute path to the compiled .js plugin file
+databaseUrl: string;   // DATABASE_URL passed explicitly — process.env is not shared
+                       // across worker_thread V8 isolates
+```
+
+`userId`, `accountId`, and `dryRun` are already present in the interface. No further
+additions are needed there.
+
+#### 3. `ScraperService.runWorker()` — resolve `pluginPath` before spawning
+
+Before constructing `workerInput`, call `registry.getPluginPath(schedule.bankId)` to
+obtain the absolute plugin file path, then add it — along with
+`process.env.DATABASE_URL` — to the `workerInput` object:
+
+```typescript
+const pluginPath = this.registry.getPluginPath(schedule.bankId);
+if (!pluginPath) throw new NotFoundException(`No plugin path for bankId ${schedule.bankId}`);
+
+const workerInput: ScraperWorkerInput = {
+    ...existingFields,
+    pluginPath,
+    databaseUrl: process.env.DATABASE_URL ?? '',
+};
+```
+
+`ScraperService` gains a constructor dependency on `ScraperRegistry`.
+
+#### 4. `ScraperRegistry` — store plugin file path alongside scraper instance
+
+Change the internal map from `Map<string, BankScraper>` to
+`Map<string, { scraper: BankScraper; pluginPath: string }>`.
+
+Update the public API:
+
+| Method | Change |
+|--------|--------|
+| `register(scraper, pluginPath)` | Add `pluginPath: string` second parameter |
+| `findByBankId(bankId)` | Returns `BankScraper \| undefined` — unchanged |
+| `has(bankId)` | Unchanged |
+| `listAll()` | Unchanged (maps scraper fields; `pluginPath` not exposed in DTO) |
+| `getPluginPath(bankId)` | **New** — returns `string \| undefined` |
+
+Update the NestJS constructor injection path: scrapers injected via the
+`BANK_SCRAPER` multi-provider token are registered without a file path
+(`pluginPath: ''`). Only plugins loaded by `ScraperPluginLoader` have a real path.
+
+#### 5. `ScraperPluginLoader` — pass file path to `register()`
+
+In `loadPlugins()`, after a successful `isBankScraper(plugin)` check, call:
+
+```typescript
+this.registry.register(plugin, filePath);
+```
+
+`filePath` is already available in the loop as the absolute path used for the dynamic
+`import()`. No other changes to the loader are needed.
+
+#### 6. `MfaRequiredError` class — new shared error
+
+Add `MfaRequiredError` to `bank-scraper.interface.ts` (or a co-located
+`bank-scraper.errors.ts` — either is acceptable):
+
+```typescript
+export class MfaRequiredError extends Error {
+    constructor(public readonly prompt: string) {
+        super(`MFA required: ${prompt}`);
+        this.name = 'MfaRequiredError';
+    }
+}
+```
+
+Plugin authors throw this from `login()` when the bank presents an OTP/MFA screen.
+The worker catches it, suspends, forwards the prompt to the main thread, and resumes
+once the user submits a code.
+
+Also add `submitMfa` as an **optional** method on the `BankScraper` interface:
+
+```typescript
+submitMfa?(code: string): Promise<void>;
+```
+
+The worker checks `typeof scraper.submitMfa === 'function'` before calling it.
+Banks where sessions persist between runs and MFA is rare may omit the method; banks
+with `requiresMfaOnEveryRun: true` should implement it. The plugin is responsible for
+retaining any browser/page reference needed to submit the code — the worker passes
+only the code string.
+
+#### 7. `banks/stub.scraper.ts` — new built-in test plugin
+
+A minimal `BankScraper` implementation that validates the full pipeline in CI and
+local dev without live bank credentials or a real browser:
+
+```typescript
+export default {
+    bankId: 'stub',
+    displayName: 'Stub Bank (test only)',
+    requiresMfaOnEveryRun: false,
+    maxLookbackDays: 365,
+    pendingTransactionsIncluded: false,
+    inputSchema: [
+        { key: 'username', label: 'Username', type: 'text', required: true },
+    ],
+
+    async login(_inputs: PluginInputs): Promise<void> {
+        // No-op — resolves immediately without launching a browser.
+    },
+
+    async scrapeTransactions(
+        _inputs: PluginInputs,
+        _options: ScrapeOptions
+    ): Promise<RawTransaction[]> {
+        // Returns 3 hardcoded rows with predictable syntheticId values.
+        return [
+            { date: '2024-01-15', description: 'Stub Grocery',   amount: -42.00,  pending: false, syntheticId: 'stub-aaa-0001' },
+            { date: '2024-01-16', description: 'Stub Coffee',     amount: -4.50,   pending: false, syntheticId: 'stub-bbb-0002' },
+            { date: '2024-01-17', description: 'Stub Salary',     amount: 2500.00, pending: false, syntheticId: 'stub-ccc-0003' },
+        ];
+    },
+};
+```
+
+The stub does not launch a browser or reference any page object — it is safe to run
+in unit tests with no Playwright dependency. The `syntheticId` values match what the
+real `stub.scraper.ts` emits so dedup tests are deterministic.
+
+Add `'stub.scraper.js'` to `BUILTIN_PLUGINS` in `ScraperPluginLoader` so the stub is
+seeded into `SCRAPER_PLUGIN_DIR` alongside CIBC and TD on startup.
+
+#### 8. Worker database access — instantiate `PrismaClient` directly
+
+The worker does not have access to NestJS DI. It instantiates its own `PrismaClient`
+using the `databaseUrl` from `workerData`:
+
+```typescript
+const prisma = new PrismaClient({ datasources: { db: { url: input.databaseUrl } } });
+```
+
+After writing (or after the dryRun skip), call `await prisma.$disconnect()` in the
+`finally` block. Browser cleanup is the plugin's responsibility — the worker has no
+browser reference to close.
+
+#### 9. Deduplication query before write
+
+Before calling `createMany`, query existing `fitid` values for the scraped rows to
+identify duplicates:
+
+```typescript
+const existingFitids = new Set(
+    (await prisma.transaction.findMany({
+        where: { userId: input.userId, fitid: { in: transactions.map(t => t.syntheticId) } },
+        select: { fitid: true },
+    })).map(r => r.fitid)
+);
+const newRows = transactions.filter(t => !existingFitids.has(t.syntheticId));
+const skippedCount = transactions.length - newRows.length;
+```
+
+Map `RawTransaction` fields to `Transaction` Prisma model fields before passing to
+`createMany`. The `fitid` column maps to `RawTransaction.syntheticId`.
+
+#### 10. Worker `result` message — updated shape
+
+After writing (or skipping the write on dryRun), post:
+
+```typescript
+parentPort!.postMessage({
+    type: 'result',
+    transactions: newRows,
+    importedCount: input.dryRun ? 0 : newRows.length,
+    skippedCount,
+});
+```
+
+Update the `WorkerMessage` union type to include `importedCount` and `skippedCount`
+on the `result` variant:
+
+```typescript
+| { type: 'result'; transactions: RawTransaction[]; importedCount: number; skippedCount: number }
+```
+
+Update `ScraperService.handleResult()` to read `importedCount` and `skippedCount`
+from the message directly instead of computing them from `transactions.length`. Remove
+the Phase 7 `// TODO Phase 8` comment block.
+
+### Files Affected
+
+| File | Change |
+|------|--------|
+| `packages/backend/src/scraper/interfaces/bank-scraper.interface.ts` | Add `MfaRequiredError` class; add optional `submitMfa?(code: string)` to `BankScraper` (no page — plugin retains its own browser reference); update `login` and `scrapeTransactions` signatures (no page param); add `pluginPath: string` and `databaseUrl: string` to `ScraperWorkerInput`; extend `result` variant of `WorkerMessage` with `importedCount` and `skippedCount` |
+| `packages/backend/src/scraper/scraper.worker.ts` | Replace Phase 7 stub with full Phase 8 implementation: dynamic plugin import, login + MFA bridge, scrapeTransactions, dedup query, dryRun-gated createMany, result message, `prisma.$disconnect()` in finally (no Playwright in worker — plugins own browser lifecycle) |
+| `packages/backend/src/scraper/banks/stub.scraper.ts` | **New** — built-in stub test plugin (`bankId: 'stub'`) returning 3 hardcoded transactions; no real browser calls |
+| `packages/backend/src/scraper/scraper.registry.ts` | Internal map changed to `Map<string, { scraper: BankScraper; pluginPath: string }>`; `register()` gains `pluginPath` parameter; add `getPluginPath(bankId)` method |
+| `packages/backend/src/scraper/scraper.plugin-loader.ts` | Add `'stub.scraper.js'` to `BUILTIN_PLUGINS`; pass `filePath` as second arg to `registry.register()` |
+| `packages/backend/src/scraper/scraper.service.ts` | Inject `ScraperRegistry`; call `registry.getPluginPath()` in `runWorker()`; add `pluginPath` and `databaseUrl` to `workerInput`; update `handleResult()` to read `importedCount`/`skippedCount` from message |
+| `packages/backend/src/scraper/__TEST__/scraper.worker.spec.ts` | Replace Phase 7 stub tests with Phase 8 real-logic tests using stub scraper |
+| `packages/backend/src/scraper/__TEST__/scraper.registry.spec.ts` | Update `register()` call sites to pass `pluginPath`; add `getPluginPath()` tests |
+| `packages/backend/src/scraper/__TEST__/scraper.plugin-loader.spec.ts` | Update `registry.register` spy assertion to include `filePath` argument; add `stub.scraper.js` seeding test |
+| `packages/backend/src/scraper/__TEST__/scraper.service.spec.ts` | Add `ScraperRegistry` mock; assert `pluginPath` and `databaseUrl` in worker input; assert `importedCount`/`skippedCount` read from message not recomputed |
+
+### Decision Notes
+
+- **Why pass `pluginPath` not the scraper object:** Worker threads run in a separate
+  V8 isolate. `workerData` serialisation only works for plain objects — class
+  instances, closures, and NestJS DI context cannot be transferred across thread
+  boundaries. The worker must re-import the plugin module independently using the
+  file path.
+
+- **Why a stub plugin, not CIBC/TD:** Real bank scrapers require live credentials, a
+  visible browser session, and an accessible bank website. These are unavailable in CI
+  and in most local dev environments. The stub lets us validate the complete worker
+  pipeline — dynamic import, MFA bridge, dryRun gate, dedup query,
+  `prisma.transaction.createMany`, and all SSE events — with deterministic hardcoded
+  data and no external dependencies.
+
+- **Why `submitMfa` is optional on `BankScraper`:** Banks that use
+  `requiresMfaOnEveryRun: true` must implement it. Banks where sessions persist
+  between runs may never encounter an MFA challenge in normal operation and can omit
+  it. The worker checks `typeof scraper.submitMfa === 'function'` before calling,
+  providing a safe default for plugins that do not declare the method. The signature
+  is `submitMfa(code: string)` — no `page` parameter. The plugin retains its own
+  browser/page reference (e.g. a module-level variable) between `login()` and
+  `submitMfa()` calls.
+
+- **Why `DATABASE_URL` in `workerData`:** Worker threads are separate V8 isolates.
+  `process.env` is not automatically inherited from the main thread in all Node.js
+  versions and hosting environments. Passing the URL explicitly via `workerData`
+  ensures the worker can always instantiate `PrismaClient` regardless of environment
+  configuration.
+
+- **Why dedup runs in the worker, not in `ScraperService`:** The Phase 7 architecture
+  deferred dedup to Phase 8 with a comment stub in `handleResult()`. Placing the dedup
+  and write inside the worker keeps the thread self-contained and ensures
+  `importedCount`/`skippedCount` are computed atomically alongside the write. The
+  service no longer needs to know about transaction contents — it only forwards counts
+  from the message.
+
+- **`ScraperService.handleResult()` simplification:** The Phase 7 stub in
+  `handleResult()` set `importedCount = transactions.length` and `skippedCount = 0`
+  directly. In Phase 8, these values arrive in the `result` message from the worker.
+  The service reads them verbatim — no recomputation.
+
+### Recommended Next Actions
+
+#### Step 1 — Plan ✅ Done
+
+```
+@docs/scraper-plugins/roadmap.md
+
+planner — Produce a full implementation plan for Milestone 5 — Scraper Worker
+Implementation. Research the following files before writing anything:
+
+1. packages/backend/src/scraper/scraper.worker.ts — understand the Phase 7 stub
+   (lines 86–94) and the Phase 8 comment block (lines 43–85) that describes the
+   intended implementation
+2. packages/backend/src/scraper/interfaces/bank-scraper.interface.ts — understand
+   BankScraper, PluginInputs, ScraperWorkerInput, RawTransaction, and WorkerMessage;
+   identify the fields that need to be added (pluginPath, databaseUrl, MfaRequiredError,
+   submitMfa?, importedCount, skippedCount)
+3. packages/backend/src/scraper/scraper.service.ts — understand how runWorker()
+   constructs workerInput; identify where pluginPath and databaseUrl must be added;
+   understand handleResult() and what the Phase 7 TODO comment says
+4. packages/backend/src/scraper/scraper.registry.ts — understand the current
+   Map<string, BankScraper> structure; plan the metadata change and getPluginPath()
+5. packages/backend/src/scraper/scraper.plugin-loader.ts — understand how register()
+   is called today; plan the filePath argument addition and stub seeding
+6. packages/backend/src/scraper/banks/cibc.scraper.ts — read to understand the plugin
+   file export shape; the stub must match the same pattern
+7. packages/backend/src/scraper/__TEST__/scraper.worker.spec.ts — read the existing
+   Phase 7 stub tests; plan how to replace them with Phase 8 stub-plugin tests
+8. packages/backend/src/scraper/__TEST__/scraper.registry.spec.ts — read the
+   makeScraper() factory and register() call sites; plan the pluginPath additions
+9. packages/backend/src/scraper/__TEST__/scraper.service.spec.ts — read the existing
+   mock setup; plan ScraperRegistry injection and new assertions
+
+Save the plan to test-plan/scraper-plugins/milestone-5-implementation-plan.md.
+
+The plan must cover:
+- bank-scraper.interface.ts: MfaRequiredError class, optional submitMfa?, pluginPath
+  and databaseUrl additions to ScraperWorkerInput, updated WorkerMessage result variant
+- scraper.worker.ts: full Phase 8 implementation replacing the stub — chromium.launch,
+  dynamic import(input.pluginPath), login + MFA bridge, scrapeTransactions, dedup
+  query, dryRun-gated createMany, PrismaClient instantiation with databaseUrl,
+  $disconnect in finally, result message with importedCount and skippedCount
+- banks/stub.scraper.ts: complete implementation of the stub plugin
+- scraper.registry.ts: internal metadata map change, register() signature, getPluginPath()
+- scraper.plugin-loader.ts: stub added to BUILTIN_PLUGINS, filePath passed to register()
+- scraper.service.ts: ScraperRegistry injection, pluginPath + databaseUrl in workerInput,
+  handleResult() reading counts from message
+- Test strategy: which parts to unit-test (stub plugin, registry, service), which parts
+  to integration-test (worker with real stub scraper — no Playwright browser needed
+  because the stub ignores the page argument), which parts to mark as manual-only
+  (real CIBC/TD browser automation)
+```
+
+#### Step 2 — Implement Backend ✅ Done
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-5-implementation-plan.md
+
+backend-dev — Implement Milestone 5 — Scraper Worker Implementation using the plan
+above. Work through the files in this order to avoid type errors cascading:
+
+1. packages/backend/src/scraper/interfaces/bank-scraper.interface.ts
+   - Add MfaRequiredError class (export it — the worker and plugin authors both need it)
+   - Update login(inputs) and scrapeTransactions(inputs, options) — no page parameter
+   - Add optional submitMfa?(code: string): Promise<void> to BankScraper (no page —
+     plugin retains its own browser reference between login() and submitMfa())
+   - Add pluginPath: string and databaseUrl: string to ScraperWorkerInput
+   - Extend the result variant of WorkerMessage: add importedCount: number and
+     skippedCount: number alongside the existing transactions field
+
+2. packages/backend/src/scraper/banks/stub.scraper.ts (new file)
+   - Implement the stub plugin as described in the roadmap Key Changes section 7
+   - Default export only — same shape as cibc.scraper.ts and td.scraper.ts
+   - login() and scrapeTransactions() must NOT call any page methods
+
+3. packages/backend/src/scraper/scraper.registry.ts
+   - Change internal map type to Map<string, { scraper: BankScraper; pluginPath: string }>
+   - Update register() to accept pluginPath: string as second parameter (default '' for
+     NestJS constructor injection path)
+   - Update findByBankId() to return scraper from the metadata object
+   - Update has() and listAll() accordingly
+   - Add getPluginPath(bankId: string): string | undefined
+
+4. packages/backend/src/scraper/scraper.plugin-loader.ts
+   - Add 'stub.scraper.js' to BUILTIN_PLUGINS
+   - In loadPlugins(), change registry.register(plugin) to registry.register(plugin, filePath)
+
+5. packages/backend/src/scraper/scraper.service.ts
+   - Inject ScraperRegistry via constructor (add to constructor parameters and DI)
+   - In runWorker(), call registry.getPluginPath(schedule.bankId); throw NotFoundException
+     if undefined
+   - Add pluginPath and databaseUrl: process.env.DATABASE_URL ?? '' to workerInput
+   - In handleResult(), read importedCount and skippedCount from the message object
+     instead of computing them; remove the Phase 7 TODO comment block
+
+6. packages/backend/src/scraper/scraper.worker.ts
+   - Replace the Phase 7 stub block with the full Phase 8 implementation
+   - Import MfaRequiredError and PrismaClient; do NOT import or launch Playwright —
+     plugins own browser lifecycle entirely
+   - Call scraper.login(input.inputs) and scraper.scrapeTransactions(input.inputs, {...})
+     with no page argument
+   - Call scraper.submitMfa(code) — no page argument
+   - finally block: only prisma.$disconnect(); no browser.close()
+   - See the roadmap Key Changes sections 1, 8, 9, and 10 for the exact implementation
+
+Follow all backend conventions: # path aliases, .js ESM extensions on internal imports.
+The worker is exempt from NestJS DI conventions — use direct imports and direct
+PrismaClient instantiation. After implementing, run npm run typecheck and npm run lint
+to confirm the build is clean before finishing.
+```
+
+#### Step 3 — Tests
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-5-implementation-plan.md
+
+test-writer — Write Vitest tests for the Milestone 5 changes. Read every existing spec
+file before writing anything — match the existing mock setup, factory patterns, and
+assertion style exactly.
+
+packages/backend/src/scraper/__TEST__/scraper.registry.spec.ts:
+- Update all register() call sites to pass a second pluginPath argument (e.g. '/tmp/test.js')
+- Update the BANK_SCRAPER constructor injection path: confirm register() with no
+  pluginPath (or empty string) does not throw
+- Add: getPluginPath() returns the path that was passed to register()
+- Add: getPluginPath() returns undefined for an unregistered bankId
+- Add: register() with a pluginPath overwrites a previous registration including its path
+
+packages/backend/src/scraper/__TEST__/scraper.plugin-loader.spec.ts:
+- Update the registry.register spy assertion: confirm the second argument (filePath)
+  is the absolute path to the loaded .js file
+- Add: stub.scraper.js is copied to SCRAPER_PLUGIN_DIR on seedBuiltins() if absent
+- Add: stub.scraper.js seeding is skipped if the file already exists (idempotent)
+
+packages/backend/src/scraper/__TEST__/scraper.service.spec.ts:
+- Add ScraperRegistry to the mock module — mock getPluginPath() to return a test path
+- Add: runWorker() includes pluginPath from registry.getPluginPath() in workerData
+- Add: runWorker() includes databaseUrl in workerData
+- Add: runWorker() throws NotFoundException when registry.getPluginPath() returns undefined
+- Add: handleResult() reads importedCount and skippedCount from the worker message
+  rather than computing from transactions.length
+- Update existing workerData assertions to include the new required fields
+
+packages/backend/src/scraper/__TEST__/scraper.worker.spec.ts:
+- Replace the Phase 7 stub tests with Phase 8 tests using the stub plugin
+- Do NOT mock playwright — the worker does not import or use it
+- Mock PrismaClient: mock transaction.findMany() to return [] (no existing fitids) and
+  transaction.createMany() to resolve; assert prisma.$disconnect() called in finally
+- Mock import() for input.pluginPath to return the stub plugin default export
+- Test: result message contains importedCount: 3 and skippedCount: 0 for a clean run
+  (stub returns 3 rows, no existing fitids)
+- Test: dedup — when findMany returns existing fitids for 1 of 3 stub rows, skippedCount
+  is 1 and importedCount is 2 and createMany is called with only the 2 new rows
+- Test: dryRun: true — createMany is NOT called; importedCount is 0; skippedCount still
+  computed correctly
+- Test: MFA bridge — mock login() to throw MfaRequiredError('Enter OTP'); assert
+  mfa_required message posted with correct prompt; simulate mfa_code reply from main;
+  assert submitMfa(code) called with just the code string (no page argument)
+- Test: prisma.$disconnect() called in finally when login throws a non-MFA error
+
+Run the full spec suite after writing and fix any failures before finishing.
+```
+
+#### Step 3 — Tests ✅ Done
+
+#### Step 4 — Live API Testing
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-5-implementation-plan.md
+
+backend-tester — Run the Milestone 5 API test plan against the running server at
+http://localhost:3001. Save the test plan to
+test-plan/scraper-plugins/milestone-5-backend.md and the execution report to
+test-plan/scraper-plugins/milestone-5-backend-report.md.
+
+Test cases to execute:
+
+POST /scraper/sync/run-now with bankId: 'stub' and dryRun: false, USER token:
+- Expect: SSE stream emits logging_in, then complete; terminal event has
+  importedCount: 3, skippedCount: 0 (first run — no existing fitids)
+
+POST /scraper/sync/run-now with bankId: 'stub' and dryRun: false, USER token (second run):
+- Expect: all 3 stub rows deduplicated; terminal event has importedCount: 0,
+  skippedCount: 3
+
+POST /scraper/sync/run-now with bankId: 'stub' and dryRun: true, USER token:
+- Expect: SSE complete event has importedCount: 0; no Transaction rows written to DB
+
+GET /admin/scrapers with ADMIN token:
+- Expect: 200; response includes a 'stub' entry with displayName 'Stub Bank (test only)'
+  and inputSchema containing a 'username' text field
+
+POST /scraper/sync/run-now without auth token:
+- Expect: 401
+
+POST /admin/scrapers/:bankId/test with bankId: 'stub', ADMIN token:
+- Expect: dry-run result with 3 transactions and importedCount: 3 (this endpoint
+  already existed — confirm it still works after the worker change)
+```
+
+#### Step 5 — Code Review
+
+```
+@docs/scraper-plugins/roadmap.md
+@test-plan/scraper-plugins/milestone-5-implementation-plan.md
+
+code-reviewer — Review the Milestone 5 changes in packages/backend/src/scraper/.
+Focus on:
+
+- scraper.worker.ts: confirm the worker does NOT import or call playwright/chromium —
+  browser lifecycle is entirely the plugin's responsibility; confirm PrismaClient.$disconnect()
+  is in a finally block and fires even when login() throws a non-MFA error; confirm the
+  dryRun gate is if (!input.dryRun) not a strict equality check; confirm dedup query
+  uses userId as a filter to prevent cross-user collisions; confirm importedCount is 0
+  on dryRun (not newRows.length)
+- MFA bridge: confirm the worker posts mfa_required before awaiting the reply; confirm
+  parentPort.once('message') is used (not 'on') so the listener is removed after the
+  first code submission; confirm submitMfa(code) is called with only the code string
+  (no page argument) and only when typeof scraper.submitMfa === 'function'
+- Dynamic import: confirm import(input.pluginPath) is awaited; confirm the worker does
+  not assume a specific export shape before validating the default export
+- scraper.registry.ts: confirm register() does not crash when pluginPath is empty string
+  (NestJS constructor injection path); confirm getPluginPath() returns undefined for
+  unknown bankIDs rather than throwing
+- scraper.service.ts: confirm getPluginPath() failure path throws NotFoundException
+  (not a generic Error) before spawning the worker; confirm databaseUrl is
+  process.env.DATABASE_URL and a missing env var results in an empty string (not
+  undefined) to avoid workerData serialisation issues; confirm the Phase 7 TODO block
+  in handleResult() is fully removed
+- stub.scraper.ts: confirm login() and scrapeTransactions() accept (inputs, options)
+  with no page argument; confirm syntheticId values are stable strings that will reliably
+  trigger dedup on second run
+- WorkerMessage result variant: confirm importedCount and skippedCount are required
+  (not optional) on the result variant so the service never reads undefined
+```
+
+#### Step 6 — Commit
+
+```
+@docs/scraper-plugins/roadmap.md
+
+backend-dev — Commit the Milestone 5 changes with message:
+feat(scraper): implement Phase 8 scraper worker with stub plugin and dedup
 ```
 
 ---
