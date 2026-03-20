@@ -1,0 +1,21 @@
+{
+  "name": "@finance-tracker/scraper-stub",
+  "version": "0.1.0",
+  "description": "Stub scraper plugin for finance-tracker (test only)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "pack": "node ../../scripts/pack-plugin.mjs"
+  },
+  "devDependencies": {
+    "@finance-tracker/plugin-sdk": "*",
+    "typescript": "5.7.3",
+    "vitest": "4.0.15"
+  },
+  "engines": {
+    "node": "24.13.0"
+  }
+}

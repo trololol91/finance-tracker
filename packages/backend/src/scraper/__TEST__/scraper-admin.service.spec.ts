@@ -14,11 +14,28 @@ import type {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
 import type {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
 
+// Mock fs/promises operations used by installPlugin
 vi.mock('fs/promises', () => ({
-    writeFile: vi.fn()
+    mkdir: vi.fn(),
+    rename: vi.fn(),
+    rm: vi.fn()
 }));
 
-import {writeFile} from 'fs/promises';
+// Mock adm-zip — provide a minimal stub
+vi.mock('adm-zip', () => ({
+    default: vi.fn()
+}));
+
+// Mock the SDK validatePlugin so we control whether the plugin is valid
+vi.mock('@finance-tracker/plugin-sdk/testing', () => ({
+    validatePlugin: vi.fn()
+}));
+
+import {
+    mkdir, rename, rm
+} from 'fs/promises';
+import AdmZip from 'adm-zip';
+import {validatePlugin} from '@finance-tracker/plugin-sdk/testing';
 
 describe('ScraperAdminService', () => {
     let service: ScraperAdminService;
@@ -53,114 +70,73 @@ describe('ScraperAdminService', () => {
     });
 
     // -----------------------------------------------------------------------
-    // sanitiseFilename
-    // -----------------------------------------------------------------------
-
-    describe('sanitiseFilename', () => {
-        it('should return the basename for a safe filename', () => {
-            expect(service.sanitiseFilename('cibc-plugin.js')).toBe('cibc-plugin.js');
-        });
-
-        it('should strip directory prefix from filename', () => {
-            expect(service.sanitiseFilename('/etc/passwd/../cibc.js')).toBe('cibc.js');
-        });
-
-        it('should throw BadRequestException for an empty basename after stripping', () => {
-            expect(() => service.sanitiseFilename('/')).toThrow(BadRequestException);
-            expect(() => service.sanitiseFilename('/')).toThrow('must not be empty');
-        });
-
-        it('should throw BadRequestException for a non-js file', () => {
-            expect(() => service.sanitiseFilename('plugin.ts')).toThrow(BadRequestException);
-            expect(() => service.sanitiseFilename('plugin.ts')).toThrow('Only .js plugin files');
-        });
-
-        it('should normalise an uppercase extension to lowercase', () => {
-            expect(service.sanitiseFilename('CIBC.JS')).toBe('cibc.js');
-        });
-
-        it('should throw BadRequestException for a filename with invalid characters', () => {
-            expect(() => service.sanitiseFilename('bad file!.js')).toThrow(BadRequestException);
-            expect(() => service.sanitiseFilename('bad file!.js')).toThrow('Invalid plugin filename');
-        });
-
-        it('should throw BadRequestException for a leading-dot filename', () => {
-            expect(() => service.sanitiseFilename('.hidden.js')).toThrow(BadRequestException);
-            expect(() => service.sanitiseFilename('.hidden.js')).toThrow('Invalid plugin filename');
-        });
-
-        it('should throw BadRequestException for a double-dot filename', () => {
-            expect(() => service.sanitiseFilename('..cibc.js')).toThrow(BadRequestException);
-            expect(() => service.sanitiseFilename('..cibc.js')).toThrow('Invalid plugin filename');
-        });
-
-        it('should allow filenames with hyphens, dots, and digits', () => {
-            expect(service.sanitiseFilename('my-bank-v2.1.js')).toBe('my-bank-v2.1.js');
-        });
-    });
-
-    // -----------------------------------------------------------------------
     // installPlugin
     // -----------------------------------------------------------------------
 
     describe('installPlugin', () => {
+        // Shared setup for installPlugin tests: mocks fs ops, AdmZip, and the
+        // two protected methods so no real processes or filesystem work happens.
+        const setupInstallMocks = (fakePlugin: object, validates = true) => {
+            vi.mocked(mkdir).mockResolvedValue(undefined);
+            vi.mocked(rename).mockResolvedValue(undefined);
+            vi.mocked(rm).mockResolvedValue(undefined);
+            vi.mocked(AdmZip).mockImplementation(function () {
+                return {
+                    getEntries: vi.fn().mockReturnValue([]),
+                    extractAllTo: vi.fn(),
+                    readAsText: vi.fn().mockReturnValue('{}')
+                };
+            } as unknown as typeof AdmZip);
+            vi.mocked(validatePlugin).mockReturnValue(validates);
+            vi.spyOn(
+                service as unknown as {importModule: () => Promise<unknown>},
+                'importModule'
+            ).mockResolvedValue({default: fakePlugin});
+            return vi.spyOn(
+                service as unknown as {runNpmInstall: (dir: string) => Promise<void>},
+                'runNpmInstall'
+            ).mockResolvedValue(undefined);
+        };
+
         it('should throw BadRequestException when SCRAPER_PLUGIN_DIR is not set', async () => {
             mockConfig.get.mockReturnValue(undefined);
 
             await expect(
-                service.installPlugin('plugin.js', Buffer.from(''))
+                service.installPlugin(Buffer.from(''))
             ).rejects.toThrow(BadRequestException);
             await expect(
-                service.installPlugin('plugin.js', Buffer.from(''))
+                service.installPlugin(Buffer.from(''))
             ).rejects.toThrow('SCRAPER_PLUGIN_DIR is not configured');
         });
 
-        it('should write the file to SCRAPER_PLUGIN_DIR and call loadPlugins', async () => {
+        it('should extract zip, validate plugin, move to pluginDir/<bankId> and reload', async () => {
             mockConfig.get.mockReturnValue('/plugins');
-            vi.mocked(writeFile).mockResolvedValue(undefined);
-            const buf = Buffer.from('export default {}');
+            setupInstallMocks({bankId: 'test-bank'});
 
-            const filename = await service.installPlugin('cibc.js', buf);
+            const result = await service.installPlugin(Buffer.from('fake-zip'));
 
-            expect(vi.mocked(writeFile)).toHaveBeenCalledOnce();
-            expect(vi.mocked(writeFile)).toHaveBeenCalledWith(
-                expect.stringContaining('cibc.js'),
-                buf
-            );
+            expect(result.bankId).toBe('test-bank');
+            expect(result.pluginDir).toContain('test-bank');
             expect(mockLoader.loadPlugins).toHaveBeenCalledOnce();
-            expect(filename).toBe('cibc.js');
         });
 
-        it('should sanitise the filename before writing', async () => {
+        it('should call npm install in the final plugin directory', async () => {
             mockConfig.get.mockReturnValue('/plugins');
-            vi.mocked(writeFile).mockResolvedValue(undefined);
+            const npmSpy = setupInstallMocks({bankId: 'my-bank'});
 
-            const filename = await service.installPlugin('/malicious/../cibc.js', Buffer.from(''));
+            await service.installPlugin(Buffer.from('fake-zip'));
 
-            expect(filename).toBe('cibc.js');
-            expect(vi.mocked(writeFile)).toHaveBeenCalledWith(
-                expect.stringContaining('cibc.js'),
-                expect.anything()
-            );
+            expect(npmSpy).toHaveBeenCalledOnce();
+            expect(npmSpy).toHaveBeenCalledWith(expect.stringContaining('my-bank'));
         });
 
-        it('should throw BadRequestException for an invalid filename without writing', async () => {
+        it('should throw BadRequestException when plugin fails validation', async () => {
             mockConfig.get.mockReturnValue('/plugins');
+            setupInstallMocks({}, false);
 
             await expect(
-                service.installPlugin('bad file!.js', Buffer.from(''))
+                service.installPlugin(Buffer.from('fake-zip'))
             ).rejects.toThrow(BadRequestException);
-            expect(vi.mocked(writeFile)).not.toHaveBeenCalled();
-        });
-
-        it('should re-throw when writeFile fails', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            vi.mocked(writeFile).mockRejectedValue(new Error('EACCES'));
-
-            await expect(
-                service.installPlugin('cibc.js', Buffer.from(''))
-            ).rejects.toThrow('EACCES');
-            expect(mockLoader.loadPlugins).not.toHaveBeenCalled();
         });
     });
 

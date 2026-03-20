@@ -1,0 +1,24 @@
+{
+  "name": "@finance-tracker/scraper-cibc",
+  "version": "0.1.0",
+  "description": "CIBC scraper plugin for finance-tracker",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "pack": "node ../../scripts/pack-plugin.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.58.2"
+  },
+  "devDependencies": {
+    "@finance-tracker/plugin-sdk": "*",
+    "typescript": "5.7.3",
+    "vitest": "4.0.15"
+  },
+  "engines": {
+    "node": "24.13.0"
+  }
+}

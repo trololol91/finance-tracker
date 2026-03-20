@@ -5,13 +5,26 @@ import {
     Logger
 } from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {writeFile} from 'fs/promises';
-import {join} from 'path';
+import {
+    mkdir, rename, rm
+} from 'fs/promises';
+import {execFile} from 'child_process';
+import {promisify} from 'util';
+import {
+    join, resolve, sep
+} from 'path';
+import {pathToFileURL} from 'url';
+import {tmpdir} from 'os';
+import {randomUUID} from 'crypto';
+import AdmZip from 'adm-zip';
 import {ScraperPluginLoader} from '#scraper/scraper.plugin-loader.js';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {RawTransaction} from '#scraper/interfaces/bank-scraper.interface.js';
 import {TestScraperDto} from '#scraper/admin/dto/test-scraper.dto.js';
 import {TestScraperResponseDto} from '#scraper/admin/dto/test-scraper-response.dto.js';
+import {validatePlugin} from '@finance-tracker/plugin-sdk/testing';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * ScraperAdminService provides the business logic for the admin plugin
@@ -19,8 +32,8 @@ import {TestScraperResponseDto} from '#scraper/admin/dto/test-scraper-response.d
  *
  * - reloadPlugins(): re-scans SCRAPER_PLUGIN_DIR and registers any plugins
  *   found, picking up files added since the last load without restarting.
- * - installPlugin(): writes a validated .js buffer to SCRAPER_PLUGIN_DIR
- *   and then calls reloadPlugins() so the plugin is immediately active.
+ * - installPlugin(): extracts a .zip plugin package to SCRAPER_PLUGIN_DIR/<bankId>/,
+ *   validates the default export, and reloads plugins so the new scraper is active.
  */
 @Injectable()
 export class ScraperAdminService {
@@ -42,15 +55,19 @@ export class ScraperAdminService {
     }
 
     /**
-     * Write a plugin file to SCRAPER_PLUGIN_DIR and reload all plugins.
+     * Extract a .zip plugin package to SCRAPER_PLUGIN_DIR/<bankId>/ and reload.
      *
-     * @param originalname - The original filename from the upload (will be sanitised).
-     * @param buffer       - Raw file bytes to write.
-     * @returns The sanitised filename that was written.
-     * @throws BadRequestException when SCRAPER_PLUGIN_DIR is not configured,
-     *         the filename is invalid, or the file is not a .js file.
+     * Steps:
+     *  1. Extract zip to a temp directory, guarding against path traversal.
+     *  2. Dynamically import the entry point and validate the default export.
+     *  3. Move the temp directory to SCRAPER_PLUGIN_DIR/<bankId>/.
+     *  4. Reload all plugins so the new scraper is immediately active.
+     *
+     * @param buffer - Raw zip bytes from the multipart upload.
+     * @returns {bankId, pluginDir} — the resolved bankId and final install path.
+     * @throws BadRequestException on config, zip, or validation errors.
      */
-    public async installPlugin(originalname: string, buffer: Buffer): Promise<string> {
+    public async installPlugin(buffer: Buffer): Promise<{bankId: string, pluginDir: string}> {
         const pluginDir = this.config.get<string>('SCRAPER_PLUGIN_DIR');
         if (!pluginDir) {
             throw new BadRequestException(
@@ -58,17 +75,95 @@ export class ScraperAdminService {
             );
         }
 
-        const filename = this.sanitiseFilename(originalname);
+        // 1. Extract zip to a unique temp directory
+        const tempDir = join(tmpdir(), `finance-plugin-${randomUUID()}`);
+        await mkdir(tempDir, {recursive: true});
 
-        const dest = join(pluginDir, filename);
-        this.logger.log(`Admin installing plugin to '${dest}'`);
+        try {
+            const zip = new AdmZip(buffer);
+            const entries = zip.getEntries();
 
-        await writeFile(dest, buffer);
-        this.logger.log(`Plugin file written: ${dest}`);
+            // Hoist resolved temp path — used in every loop iteration
+            const resolvedTempDir = resolve(tempDir);
+            for (const entry of entries) {
+                // Guard against path traversal (e.g. ../../etc/passwd)
+                const entryDest = resolve(tempDir, entry.entryName);
+                if (
+                    !entryDest.startsWith(resolvedTempDir + sep) &&
+                    entryDest !== resolvedTempDir
+                ) {
+                    throw new BadRequestException(
+                        `Unsafe zip entry rejected: '${entry.entryName}'`
+                    );
+                }
+            }
 
-        await this.pluginLoader.loadPlugins();
+            zip.extractAllTo(tempDir, /*overwrite*/ true);
 
-        return filename;
+            // 2. Read package.json to find the entry point
+            let entryRelPath = 'dist/index.js';
+            try {
+                const pkgRaw = zip.readAsText('package.json');
+                const pkg = JSON.parse(pkgRaw) as {main?: string};
+                if (typeof pkg.main === 'string') {
+                    entryRelPath = pkg.main;
+                }
+            } catch {
+                // no package.json in zip — fall back to dist/index.js
+            }
+
+            const entryAbsPath = join(tempDir, entryRelPath);
+            const mod = await this.importModule(pathToFileURL(entryAbsPath).href);
+            const plugin = mod.default;
+
+            if (!validatePlugin(plugin)) {
+                throw new BadRequestException(
+                    'Plugin default export does not satisfy the BankScraper interface'
+                );
+            }
+
+            const bankId = plugin.bankId;
+
+            // 3. Move temp dir to final destination
+            const finalDir = join(pluginDir, bankId);
+            // Ensure pluginDir exists (may have been removed since startup)
+            await mkdir(pluginDir, {recursive: true});
+            // Remove existing install if present so rename succeeds
+            await rm(finalDir, {recursive: true, force: true});
+            await rename(tempDir, finalDir);
+
+            // Install runtime deps; --omit=dev keeps the footprint lean.
+            await this.runNpmInstall(finalDir);
+
+            this.logger.log(`Plugin '${bankId}' installed to '${finalDir}'`);
+
+            // 4. Reload
+            await this.pluginLoader.loadPlugins();
+
+            return {bankId, pluginDir: finalDir};
+        } catch (err) {
+            // Clean up temp dir on any failure
+            await rm(tempDir, {recursive: true, force: true});
+            throw err;
+        }
+    }
+
+    /**
+     * Wraps the dynamic import() call so unit tests can spy on it.
+     * @internal
+     */
+    protected importModule(href: string): Promise<Record<string, unknown>> {
+        return import(href) as Promise<Record<string, unknown>>;
+    }
+
+    /**
+     * Runs `npm install --omit=dev` in the given directory.
+     * Wrapped in a protected method so unit tests can spy on it without
+     * spawning a real process.
+     * @internal
+     */
+    protected async runNpmInstall(dir: string): Promise<void> {
+        await execFileAsync('npm', ['install', '--omit=dev'], {cwd: dir});
     }
 
     /**
@@ -113,37 +208,5 @@ export class ScraperAdminService {
         );
 
         return {bankId, transactions, count: transactions.length};
-    }
-
-    /**
-     * Strip path components and validate that the filename is a .js file.
-     * Allows only word chars, hyphens, dots, and digits with a .js extension.
-     *
-     * @throws BadRequestException for invalid or unsafe filenames.
-     */
-    public sanitiseFilename(originalname: string): string {
-        // Strip any directory prefix an attacker might inject, then normalise
-        // to lowercase so that 'CIBC.JS' and 'cibc.js' are treated the same
-        // and the written filename is always lowercase.
-        const basename = originalname.replace(/^.*[\\/]/, '').toLowerCase();
-
-        if (!basename) {
-            throw new BadRequestException('Plugin filename must not be empty');
-        }
-
-        if (!basename.endsWith('.js')) {
-            throw new BadRequestException('Only .js plugin files are accepted');
-        }
-
-        // Allow only safe characters: word chars, hyphens, dots, digits.
-        // First char must be a word char (letter, digit, underscore) to prevent
-        // leading-dot filenames such as '.hidden.js' or '..cibc.js'.
-        if (!/^\w[\w.-]*\.js$/.test(basename)) {
-            throw new BadRequestException(
-                `Invalid plugin filename '${basename}' — use only letters, digits, hyphens, and dots`
-            );
-        }
-
-        return basename;
     }
 }

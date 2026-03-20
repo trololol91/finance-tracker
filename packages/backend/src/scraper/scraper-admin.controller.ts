@@ -28,7 +28,7 @@ import {InstallPluginResponseDto} from '#scraper/install-plugin-response.dto.js'
 import {TestScraperDto} from '#scraper/admin/dto/test-scraper.dto.js';
 import {TestScraperResponseDto} from '#scraper/admin/dto/test-scraper-response.dto.js';
 
-const MAX_PLUGIN_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_PLUGIN_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 /**
  * Admin-only endpoints for managing external bank scraper plugins at runtime.
@@ -110,13 +110,11 @@ export class ScraperAdminController {
     @UseInterceptors(
         FileInterceptor('file', {
             limits: {fileSize: MAX_PLUGIN_SIZE_BYTES},
-            // Early rejection before multer buffers the file into memory.
-            // sanitiseFilename performs a second, more thorough validation.
             fileFilter: (_req, file, cb) => {
-                if (file.originalname.toLowerCase().endsWith('.js')) {
+                if (file.originalname.toLowerCase().endsWith('.zip')) {
                     cb(null, true);
                 } else {
-                    cb(new BadRequestException('Only .js plugin files are accepted'), false);
+                    cb(new BadRequestException('Only .zip plugin packages are accepted'), false);
                 }
             }
         })
@@ -125,17 +123,15 @@ export class ScraperAdminController {
         @UploadedFile() file: Express.Multer.File | undefined
     ): Promise<InstallPluginResponseDto> {
         if (!file) {
-            throw new BadRequestException('A .js plugin file must be uploaded under the "file" field');
+            throw new BadRequestException('A .zip plugin package must be uploaded under the "file" field');
         }
 
-        const filename = await this.adminService.installPlugin(
-            file.originalname,
-            file.buffer
-        );
+        const {bankId, pluginDir} = await this.adminService.installPlugin(file.buffer);
 
         return {
-            message: `Plugin ${filename} installed and loaded successfully`,
-            filename
+            message: `Plugin ${bankId} installed and loaded successfully`,
+            bankId,
+            pluginDir
         };
     }
 

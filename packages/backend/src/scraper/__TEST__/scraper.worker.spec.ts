@@ -24,11 +24,11 @@ import type {
     ScraperWorkerInput, BankScraper, PluginInputs
 } from '#scraper/interfaces/bank-scraper.interface.js';
 import {SyncJobStatus} from '#scraper/sync-job-status.js';
-import stubScraper from '#scraper/banks/stub.scraper.js';
+import stubScraper from '@finance-tracker/scraper-stub';
 
 // Resolve the real file:// URL of the compiled stub scraper so the worker's
 // dynamic import() can load it without requiring a fake URL mock.
-const STUB_PLUGIN_URL = import.meta.resolve('#scraper/banks/stub.scraper.js');
+const STUB_PLUGIN_URL = import.meta.resolve('@finance-tracker/scraper-stub');
 
 // ---------------------------------------------------------------------------
 // Shared mock state — must be hoisted so vi.mock factory can close over it.

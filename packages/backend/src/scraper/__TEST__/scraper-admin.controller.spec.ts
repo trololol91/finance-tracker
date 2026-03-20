@@ -88,28 +88,26 @@ describe('ScraperAdminController', () => {
             );
         });
 
-        it('should call adminService.installPlugin with filename and buffer', async () => {
-            const file = makeFile('cibc.js');
-            mockService.installPlugin.mockResolvedValue('cibc.js');
+        it('should call adminService.installPlugin with the file buffer', async () => {
+            const file = makeFile('cibc.zip');
+            mockService.installPlugin.mockResolvedValue({bankId: 'cibc', pluginDir: '/plugins/cibc'});
 
             await controller.install(file);
 
             expect(mockService.installPlugin).toHaveBeenCalledOnce();
-            expect(mockService.installPlugin).toHaveBeenCalledWith(
-                'cibc.js',
-                file.buffer
-            );
+            expect(mockService.installPlugin).toHaveBeenCalledWith(file.buffer);
         });
 
-        it('should return a success response with filename', async () => {
-            const file = makeFile('cibc.js');
-            mockService.installPlugin.mockResolvedValue('cibc.js');
+        it('should return a success response with bankId and pluginDir', async () => {
+            const file = makeFile('cibc.zip');
+            mockService.installPlugin.mockResolvedValue({bankId: 'cibc', pluginDir: '/plugins/cibc'});
 
             const result = await controller.install(file);
 
             expect(result).toEqual({
-                message: 'Plugin cibc.js installed and loaded successfully',
-                filename: 'cibc.js'
+                message: 'Plugin cibc installed and loaded successfully',
+                bankId: 'cibc',
+                pluginDir: '/plugins/cibc'
             });
         });
 

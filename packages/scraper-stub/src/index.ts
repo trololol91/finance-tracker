@@ -5,7 +5,7 @@ import type {
     PluginFieldDescriptor,
     ScrapeOptions,
     RawTransaction
-} from '#scraper/interfaces/bank-scraper.interface.js';
+} from '@finance-tracker/plugin-sdk';
 
 const stubScraper: BankScraper = {
     bankId: 'stub',

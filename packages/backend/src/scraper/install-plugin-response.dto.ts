@@ -4,13 +4,19 @@ import {ApiProperty} from '@nestjs/swagger';
 export class InstallPluginResponseDto {
     @ApiProperty({
         description: 'Human-readable summary of the install operation',
-        example: 'Plugin cibc-plugin.js installed and loaded successfully'
+        example: 'Plugin cibc installed and loaded successfully'
     })
     public message!: string;
 
     @ApiProperty({
-        description: 'Sanitised filename that was written to SCRAPER_PLUGIN_DIR',
-        example: 'cibc-plugin.js'
+        description: 'bankId from the plugin\'s default export',
+        example: 'cibc'
     })
-    public filename!: string;
+    public bankId!: string;
+
+    @ApiProperty({
+        description: 'Absolute path of the directory written to SCRAPER_PLUGIN_DIR',
+        example: '/plugins/cibc'
+    })
+    public pluginDir!: string;
 }

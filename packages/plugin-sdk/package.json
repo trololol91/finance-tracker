@@ -1,0 +1,38 @@
+{
+  "name": "@finance-tracker/plugin-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript contract for finance-tracker scraper plugins",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.18.0",
+    "@stylistic/eslint-plugin": "4.2.0",
+    "@types/node": "22.10.7",
+    "eslint": "9.27.0",
+    "globals": "16.0.0",
+    "typescript": "5.7.3",
+    "typescript-eslint": "8.20.0",
+    "vitest": "4.0.15"
+  },
+  "engines": {
+    "node": "24.13.0"
+  }
+}

@@ -6,49 +6,30 @@ import {
 import {ConfigService} from '@nestjs/config';
 import {constants} from 'fs';
 import {
-    readdir, copyFile, access
+    readdir, access, readFile, cp
 } from 'fs/promises';
-import {
-    join, basename
-} from 'path';
+import {join} from 'path';
 import {
     pathToFileURL, fileURLToPath
 } from 'url';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
-import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
-
-/** Built-in plugin filenames compiled alongside this module under `banks/`. */
-const BUILTIN_PLUGINS = ['cibc.scraper.js', 'td.scraper.js', 'stub.scraper.js'];
+import {validatePlugin} from '@finance-tracker/plugin-sdk/testing';
 
 /**
- * Type guard — returns true only when the value satisfies every field of the
- * BankScraper interface. Used to validate dynamic plugin exports at runtime.
+ * Names of the built-in scraper workspace packages under packages/.
+ * Each is copied in full (dist/ + node_modules/) to SCRAPER_PLUGIN_DIR/<bankId>/
+ * during seeding, giving every plugin an isolated node_modules.
  */
-const isBankScraper = (value: unknown): value is BankScraper => {
-    if (typeof value !== 'object' || value === null) {
-        return false;
-    }
-    const v = value as Record<string, unknown>;
-    return (
-        typeof v.bankId === 'string' &&
-        typeof v.displayName === 'string' &&
-        typeof v.requiresMfaOnEveryRun === 'boolean' &&
-        typeof v.maxLookbackDays === 'number' &&
-        typeof v.pendingTransactionsIncluded === 'boolean' &&
-        Array.isArray(v.inputSchema) &&
-        typeof v.login === 'function' &&
-        typeof v.scrapeTransactions === 'function'
-    );
-};
+const BUILTIN_PLUGINS = ['scraper-cibc', 'scraper-stub'];
 
 /**
  * ScraperPluginLoader loads external BankScraper implementations from
  * the directory specified by the SCRAPER_PLUGIN_DIR environment variable.
  *
- * On module init it first seeds built-in plugins (cibc, td) into
+ * On module init it first seeds built-in plugins (cibc, stub) into
  * SCRAPER_PLUGIN_DIR if they are not already present (idempotent — an
  * operator-modified file is never overwritten). It then scans the directory
- * and registers all valid .js plugins into ScraperRegistry.
+ * and registers all valid plugins into ScraperRegistry.
  *
  * Called automatically on module init and by the admin reload endpoint
  * (POST /admin/scrapers/reload) to pick up newly installed plugins without
@@ -69,8 +50,8 @@ export class ScraperPluginLoader implements OnModuleInit {
     }
 
     /**
-     * Copy each built-in plugin file into SCRAPER_PLUGIN_DIR if it is not
-     * already present. An existing file (including an operator-modified one)
+     * Copy each built-in plugin directory into SCRAPER_PLUGIN_DIR if it is not
+     * already present. An existing install (including an operator-modified one)
      * is never overwritten — the copy is strictly copy-on-missing.
      *
      * Non-ENOENT filesystem errors (e.g. EACCES) are re-thrown so the
@@ -84,31 +65,37 @@ export class ScraperPluginLoader implements OnModuleInit {
             return;
         }
 
-        const builtinDir = join(fileURLToPath(new URL('.', import.meta.url)), 'banks');
+        // Compiled file lives at dist/scraper/ — four levels up reaches the repo root
+        const workspaceRoot = join(fileURLToPath(new URL('.', import.meta.url)), '../../../..');
 
-        for (const filename of BUILTIN_PLUGINS) {
-            const src = join(builtinDir, filename);
-            const dest = join(pluginDir, filename);
+        await Promise.all(BUILTIN_PLUGINS.map(async pkgName => {
+            // 'scraper-cibc' → dest dir name 'cibc'
+            const bankId = pkgName.replace(/^scraper-/, '');
+            const srcDir = join(workspaceRoot, 'packages', pkgName);
+            const destDir = join(pluginDir, bankId);
+            // Skip seed if the compiled entry point already exists (idempotent)
+            const entryPoint = join(destDir, 'dist', 'index.js');
 
             try {
-                await access(dest, constants.F_OK);
+                await access(entryPoint, constants.F_OK);
                 this.logger.log(
-                    `Built-in plugin '${basename(dest)}' already exists — skipping seed`
+                    `Built-in plugin '${bankId}' already exists — skipping seed`
                 );
             } catch (err) {
                 if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
                     throw err;
                 }
-                await copyFile(src, dest);
+                await cp(srcDir, destDir, {recursive: true});
                 this.logger.log(
-                    `Seeded built-in plugin '${filename}' → ${dest}`
+                    `Seeded built-in plugin '${bankId}' from '${srcDir}' → '${destDir}'`
                 );
             }
-        }
+        }));
     }
 
     /**
-     * Scan SCRAPER_PLUGIN_DIR for .js files, dynamically import each one,
+     * Scan SCRAPER_PLUGIN_DIR for subdirectories, resolve each one's entry
+     * point (via package.json#main or index.js), dynamically import it,
      * validate the default export, and register valid scrapers into
      * ScraperRegistry.
      *
@@ -125,11 +112,11 @@ export class ScraperPluginLoader implements OnModuleInit {
             return;
         }
 
-        let files: string[];
+        let subdirs: string[];
         try {
             const entries = await readdir(pluginDir, {withFileTypes: true});
-            files = entries
-                .filter(e => e.isFile() && e.name.endsWith('.js'))
+            subdirs = entries
+                .filter(e => e.isDirectory())
                 .map(e => join(pluginDir, e.name));
         } catch (err) {
             this.logger.error(
@@ -139,43 +126,62 @@ export class ScraperPluginLoader implements OnModuleInit {
             throw err;
         }
 
-        if (files.length === 0) {
-            this.logger.log(`No plugin files found in '${pluginDir}'`);
+        if (subdirs.length === 0) {
+            this.logger.log(`No plugin subdirectories found in '${pluginDir}'`);
             return;
         }
 
         let registered = 0;
-        for (const filePath of files) {
+        for (const subdir of subdirs) {
             try {
+                const filePath = await this.findEntryPoint(subdir);
                 const href = pathToFileURL(filePath).href;
                 // Sequential import is intentional — isolates per-plugin failures
 
                 const mod = await this.loadModule(href);
                 const plugin = mod.default;
 
-                if (!isBankScraper(plugin)) {
+                if (!validatePlugin(plugin)) {
                     this.logger.warn(
-                        `Plugin '${filePath}' skipped — default export does not ` +
+                        `Plugin in '${subdir}' skipped — default export does not ` +
                         'satisfy BankScraper interface'
                     );
                     continue;
                 }
 
-                this.registry.register(plugin, pathToFileURL(filePath).href);
+                this.registry.register(plugin, href);
                 registered++;
                 this.logger.log(
                     `Plugin '${plugin.bankId}' registered from '${filePath}'`
                 );
             } catch (err) {
                 this.logger.warn(
-                    `Plugin '${filePath}' failed to load: ${(err as Error).message}`
+                    `Plugin in '${subdir}' failed to load: ${(err as Error).message}`
                 );
             }
         }
 
         this.logger.log(
-            `Plugin loading complete — ${registered}/${files.length} plugin(s) registered`
+            `Plugin loading complete — ${registered}/${subdirs.length} plugin(s) registered`
         );
+    }
+
+    /**
+     * Resolves the entry-point file for a plugin subdirectory.
+     * Reads `package.json#main` if present; falls back to `index.js`.
+     * Any error reading or parsing `package.json` is silently ignored.
+     */
+    private async findEntryPoint(subdir: string): Promise<string> {
+        try {
+            const content = await readFile(join(subdir, 'package.json'), {encoding: 'utf-8'});
+            const pkg = JSON.parse(content) as {main?: string};
+            if (typeof pkg.main === 'string') {
+                return join(subdir, pkg.main);
+            }
+        } catch {
+            // no package.json or parse error — fall through to index.js
+        }
+        return join(subdir, 'index.js');
     }
 
     /**

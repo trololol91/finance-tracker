@@ -1,10 +1,10 @@
-import {
-    type BankScraper,
-    type PluginInputs,
-    type PluginFieldDescriptor,
-    type ScrapeOptions,
-    type RawTransaction
-} from '../interfaces/bank-scraper.interface.js';
+import type {
+    BankScraper,
+    PluginInputs,
+    PluginFieldDescriptor,
+    ScrapeOptions,
+    RawTransaction
+} from '@finance-tracker/plugin-sdk';
 import type {
     Browser,
     ElementHandle, Page
@@ -285,7 +285,7 @@ const cibcScraper: BankScraper = {
         if (!browser || !page) {
             throw new Error('Browser or page not initialized in scrapeTransactions');
         }
-        
+
         const accountTile = await findAccountElement(input.accountName);
         await accountTile.click();
 

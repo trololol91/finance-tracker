@@ -69,3 +69,6 @@ screenshots/
 *.png
 transaction.json
 transaction.jsonbash.exe.stackdump
+
+# Packaged plugins
+*.zip
