@@ -116,7 +116,6 @@ export const TransactionForm = ({
                     className="tx-form__select"
                     value={formValues.accountId}
                     onChange={(e) => { onFieldChange('accountId', e.target.value); }}
-                    disabled={isEditing}
                 >
                     <option value="">None</option>
                     {activeAccounts.map((a) => (
@@ -125,9 +124,6 @@ export const TransactionForm = ({
                         </option>
                     ))}
                 </select>
-                {isEditing && (
-                    <span className="tx-form__hint">Account cannot be changed after creation.</span>
-                )}
             </div>
 
             <Input
