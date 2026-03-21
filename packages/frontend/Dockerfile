@@ -14,6 +14,7 @@ COPY templates/plugin-starter/package.json ./templates/plugin-starter/
 RUN npm ci
 
 COPY packages/frontend ./packages/frontend
+RUN npm run generate:api -w packages/frontend
 RUN npm run build -w packages/frontend
 
 # Stage 2: serve
