@@ -22,6 +22,10 @@
     gap: 0.75rem;
 }
 
+.register-form__name-row > * {
+    min-width: 0;
+}
+
 @media (max-width: 400px) {
     .register-form__name-row {
         grid-template-columns: 1fr;

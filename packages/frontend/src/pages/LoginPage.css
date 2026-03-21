@@ -16,6 +16,10 @@
     max-width: 26rem;
 }
 
+.login-page__card--wide {
+    max-width: 34rem;
+}
+
 .login-page__header {
     text-align: center;
     margin-bottom: 2rem;
