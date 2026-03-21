@@ -20,8 +20,11 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 // devDependencies: build/test tools not needed at runtime; including them
 //   causes `npm install` to hit the registry for local-only packages like
 //   @finance-tracker/plugin-sdk.
-// scripts: cannot be run from an extracted zip on the server.
-const {devDependencies: _dev, scripts: _scripts, ...deployPkg} = pkg;
+// scripts: strip build/lint/test lifecycle scripts that cannot run on the server.
+//   postinstall is kept so plugins can declare binary setup (e.g. playwright install chromium).
+const {devDependencies: _dev, scripts, ...deployPkg} = pkg;
+const {postinstall, install} = scripts ?? {};
+if (postinstall || install) deployPkg.scripts = {postinstall, install};
 
 const baseName = pkg.name.replace(/^@[^/]+\//, '');
 const outFile = `${baseName}-${pkg.version}.zip`;

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {
-    mkdir, rename, rm
+    mkdir, rename, rm, cp
 } from 'fs/promises';
 import {execFile} from 'child_process';
 import {promisify} from 'util';
@@ -130,7 +130,14 @@ export class ScraperAdminService {
             await mkdir(pluginDir, {recursive: true});
             // Remove existing install if present so rename succeeds
             await rm(finalDir, {recursive: true, force: true});
-            await rename(tempDir, finalDir);
+            // rename is atomic but fails across filesystems (EXDEV); fall back to copy+delete
+            try {
+                await rename(tempDir, finalDir);
+            } catch (err: unknown) {
+                if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err;
+                await cp(tempDir, finalDir, {recursive: true});
+                await rm(tempDir, {recursive: true, force: true});
+            }
 
             // Install runtime deps; --omit=dev keeps the footprint lean.
             await this.runNpmInstall(finalDir);

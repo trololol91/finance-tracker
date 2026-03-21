@@ -206,7 +206,7 @@ const cibcScraper: BankScraper = {
             label: 'Account Name',
             type: 'text',
             required: false,
-            hint: 'Optional nickname for this account (e.g. "My CIBC Visa")'
+            hint: 'Name in the account tile on the CIBC dashboard (e.g. "Visa Infinite")'
         },
         {
             key: 'flipTransactions',
@@ -226,8 +226,14 @@ const cibcScraper: BankScraper = {
     ): Promise<void> {
         // Launch Chrome using Playwright
         const {chromium} = await import('playwright');
-        browser = await chromium.launch({headless: false, channel: 'chrome'});
+        const serverUrl = process.env.PLAYWRIGHT_SERVER_URL;
+        browser = await (serverUrl
+            ? chromium.connect(serverUrl)
+            : chromium.launch({headless: false, args: ['--enable-logging', '--v=1']}));
         page = await browser.newPage();
+        page.on('console', msg => console.log(`[BROWSER ${msg.type()}]`, msg.text()));
+        page.on('pageerror', err => console.error('[PAGE ERROR]', err.message));
+        page.on('crash', () => console.error('[PAGE CRASHED]'));
         // Go to CIBC website
         await page.goto('https://www.cibc.com/');
 

@@ -46,20 +46,11 @@ RUN npm run build -w packages/backend
 # ---- Stage 2: Production -----------------------------------------------------
 FROM node:24.13.0-alpine AS production
 
-RUN apk add --no-cache \
-    dumb-init \
-    xvfb \
-    # Fonts and libs required by Chromium when running with headless:false
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    fontconfig
+RUN apk add --no-cache dumb-init
 
 # Non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
+RUN addgroup -g 1001 nodejs && \
+    adduser -u 1001 -G nodejs -s /bin/sh -D nestjs
 
 WORKDIR /usr/src/app
 
@@ -73,13 +64,13 @@ COPY --chown=nestjs:nodejs packages/backend/prisma.config.ts  ./packages/backend
 COPY --chown=nestjs:nodejs packages/backend/prisma            ./packages/backend/prisma
 
 # Install production dependencies only.
-# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD prevents the playwright postinstall hook
-# from downloading ~500 MB of browser binaries into the image.
 # HUSKY=0 prevents the `prepare` lifecycle script from trying to run husky,
 # which is a devDependency and is not installed in the production image.
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 # Remove the `prepare` script (husky) before installing — husky is a devDependency
 # and its binary doesn't exist in a production install.
+# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 prevents playwright's postinstall from
+# downloading browsers — browsers run in the separate playwright-server container.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm pkg delete scripts.prepare && npm ci --omit=dev && npm cache clean --force
 
 # Regenerate Prisma client against the production node_modules.
@@ -91,18 +82,16 @@ COPY --chown=nestjs:nodejs --from=builder /usr/src/app/packages/backend/dist    
 # @finance-tracker/plugin-sdk/testing to validate loaded plugins.
 COPY --chown=nestjs:nodejs --from=builder /usr/src/app/packages/plugin-sdk/dist  ./packages/plugin-sdk/dist
 
-# Log directory writeable by the app user.
-RUN mkdir -p packages/backend/logs && chown -R nestjs:nodejs packages/backend/logs
+# Log and data directories writeable by the app user.
+RUN mkdir -p packages/backend/logs /data/scraper-plugins && \
+    chown -R nestjs:nodejs packages/backend/logs /data/scraper-plugins
 
 USER nestjs
 
 EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3001/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 
 ENTRYPOINT ["dumb-init", "--"]
-
-# xvfb-run provides a virtual display for scrapers running with headless:false.
-# When PLAYWRIGHT_HEADLESS=true the display is unused but costs nothing.
-CMD ["xvfb-run", "-a", "node", "packages/backend/dist/main.js"]
+CMD ["node", "packages/backend/dist/main.js"]
