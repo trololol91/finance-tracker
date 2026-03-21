@@ -8,22 +8,21 @@ import {Loading} from '@components/common/Loading/Loading.js';
 import {APP_ROUTES} from '@config/constants';
 
 /**
- * Layout-route compatible auth guard.
- * Used as the `element` of a parent route so that all child routes
- * inherit the authentication check via React Router's nested layout system.
+ * Route guard for the setup page.
+ * Accessible only when no users exist (setupRequired === true) and not authenticated.
  */
-export const AuthGuard = (): React.JSX.Element => {
-    const {isAuthenticated, isLoading, setupRequired} = useAuth();
+export const SetupRoute = (): React.JSX.Element => {
+    const {isLoading, setupRequired, isAuthenticated} = useAuth();
 
     if (isLoading) {
         return <Loading size="large" />;
     }
 
-    if (setupRequired) {
-        return <Navigate to={APP_ROUTES.SETUP} replace />;
+    if (isAuthenticated) {
+        return <Navigate to={APP_ROUTES.DASHBOARD} replace />;
     }
 
-    if (!isAuthenticated) {
+    if (!setupRequired) {
         return <Navigate to={APP_ROUTES.LOGIN} replace />;
     }
 

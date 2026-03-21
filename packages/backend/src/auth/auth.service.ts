@@ -1,5 +1,5 @@
 import {
-    Injectable, UnauthorizedException
+    Injectable, UnauthorizedException, ConflictException
 } from '@nestjs/common';
 import {JwtService} from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -101,6 +101,30 @@ export class AuthService {
         };
 
         return this.jwtService.sign(payload);
+    }
+
+    public async getSetupStatus(): Promise<{required: boolean}> {
+        const hasUsers = await this.usersService.hasUsers();
+        return {required: !hasUsers};
+    }
+
+    public async setupAdmin(createUserDto: CreateUserDto): Promise<AuthResponse> {
+        const hasUsers = await this.usersService.hasUsers();
+        if (hasUsers) {
+            throw new ConflictException('Setup already complete');
+        }
+        const user = await this.usersService.create(createUserDto);
+        await this.usersService.promoteToAdmin(user.id);
+        const accessToken = this.generateToken(user);
+        return {
+            accessToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName
+            }
+        };
     }
 
     /**

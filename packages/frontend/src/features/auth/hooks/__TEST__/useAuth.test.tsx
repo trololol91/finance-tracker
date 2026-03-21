@@ -149,7 +149,9 @@ describe('useAuth', () => {
             login: () => Promise.resolve(),
             register: () => Promise.resolve(),
             logout: () => {},
-            updateUser: () => {}
+            updateUser: () => {},
+            setupRequired: false,
+            completeSetup: () => Promise.resolve()
         };
 
         const wrapper = ({children}: {children: React.ReactNode}): React.JSX.Element => (

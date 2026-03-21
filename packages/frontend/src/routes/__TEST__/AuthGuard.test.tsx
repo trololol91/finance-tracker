@@ -37,10 +37,12 @@ const mockAuthState = {
     isAuthenticated: true,
     isLoading: false,
     authError: null,
+    setupRequired: false,
     login: vi.fn(),
     register: vi.fn(),
     logout: vi.fn(),
-    updateUser: vi.fn()
+    updateUser: vi.fn(),
+    completeSetup: vi.fn()
 };
 
 vi.mock('@features/auth/hooks/useAuth.js', () => ({
@@ -72,6 +74,10 @@ const renderAuthGuard = (initialEntry = '/dashboard'): ReturnType<typeof render>
                 <Route
                     path={APP_ROUTES.LOGIN}
                     element={<div data-testid="login-page">Login</div>}
+                />
+                <Route
+                    path={APP_ROUTES.SETUP}
+                    element={<div data-testid="setup-page">Setup</div>}
                 />
                 {/* Guarded section */}
                 <Route element={<AuthGuard />}>
@@ -174,6 +180,27 @@ describe('AuthGuard', () => {
             renderAuthGuard();
 
             expect(screen.queryByTestId('login-page')).not.toBeInTheDocument();
+        });
+    });
+
+    describe('when setup is required', () => {
+        beforeEach(() => {
+            mockAuthState.isAuthenticated = false;
+            mockAuthState.isLoading = false;
+            mockAuthState.setupRequired = true;
+            mockAuthState.user = null as unknown as typeof mockAuthState.user;
+        });
+
+        it('redirects to the setup page', () => {
+            renderAuthGuard();
+
+            expect(screen.getByTestId('setup-page')).toBeInTheDocument();
+        });
+
+        it('does not render protected content', () => {
+            renderAuthGuard();
+
+            expect(screen.queryByTestId('protected-page')).not.toBeInTheDocument();
         });
     });
 });

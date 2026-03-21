@@ -5,7 +5,9 @@ import {
     beforeEach,
     vi
 } from 'vitest';
-import {UnauthorizedException} from '@nestjs/common';
+import {
+    UnauthorizedException, ConflictException
+} from '@nestjs/common';
 import type {JwtService} from '@nestjs/jwt';
 import {AuthService} from '#auth/auth.service.js';
 import type {UsersService} from '#users/users.service.js';
@@ -45,7 +47,9 @@ describe('AuthService', () => {
         usersService = {
             create: vi.fn(),
             findOne: vi.fn(),
-            findByEmail: vi.fn()
+            findByEmail: vi.fn(),
+            hasUsers: vi.fn(),
+            promoteToAdmin: vi.fn()
         } as unknown as UsersService;
 
         jwtService = {
@@ -242,6 +246,64 @@ describe('AuthService', () => {
                     email: mockUser.email
                 })
             );
+        });
+    });
+
+    describe('getSetupStatus', () => {
+        it('should return required: true when no users exist', async () => {
+            vi.mocked(usersService.hasUsers).mockResolvedValue(false);
+
+            const result = await service.getSetupStatus();
+
+            expect(result).toEqual({required: true});
+        });
+
+        it('should return required: false when users exist', async () => {
+            vi.mocked(usersService.hasUsers).mockResolvedValue(true);
+
+            const result = await service.getSetupStatus();
+
+            expect(result).toEqual({required: false});
+        });
+    });
+
+    describe('setupAdmin', () => {
+        const createUserDto: CreateUserDto = {
+            email: 'admin@example.com',
+            password: 'password123',
+            firstName: 'Admin',
+            lastName: 'User'
+        };
+
+        it('should create admin and return auth response when no users exist', async () => {
+            const mockToken = 'jwt.token.here';
+            vi.mocked(usersService.hasUsers).mockResolvedValue(false);
+            vi.mocked(usersService.create).mockResolvedValue(mockUser);
+            vi.mocked(usersService.promoteToAdmin).mockResolvedValue(undefined);
+            vi.mocked(jwtService.sign).mockReturnValue(mockToken);
+
+            const result = await service.setupAdmin(createUserDto);
+
+            expect(usersService.hasUsers).toHaveBeenCalled();
+            expect(usersService.create).toHaveBeenCalledWith(createUserDto);
+            expect(usersService.promoteToAdmin).toHaveBeenCalledWith(mockUser.id);
+            expect(result).toEqual({
+                accessToken: mockToken,
+                user: {
+                    id: mockUser.id,
+                    email: mockUser.email,
+                    firstName: mockUser.firstName,
+                    lastName: mockUser.lastName
+                }
+            });
+        });
+
+        it('should throw ConflictException when users already exist', async () => {
+            vi.mocked(usersService.hasUsers).mockResolvedValue(true);
+
+            await expect(service.setupAdmin(createUserDto)).rejects.toThrow(ConflictException);
+            await expect(service.setupAdmin(createUserDto)).rejects.toThrow('Setup already complete');
+            expect(usersService.create).not.toHaveBeenCalled();
         });
     });
 

@@ -24,6 +24,7 @@ import type {User} from '@features/auth/types/auth.types.js';
 import type {UserResponseDto} from '@/api/model/userResponseDto.js';
 import {UserResponseDtoRole} from '@/api/model/userResponseDtoRole.js';
 import React from 'react';
+import userEvent from '@testing-library/user-event';
 
 // Mock authStorage
 vi.mock('@services/storage/authStorage.js', () => ({
@@ -44,6 +45,13 @@ vi.mock('@/api/auth/auth.js', () => ({
     authControllerRegister: vi.fn(),
     authControllerGetProfile: vi.fn()
 }));
+
+// Mock customInstance used for /auth/setup-status and /auth/setup calls
+vi.mock('@services/api/mutator.js', () => ({
+    customInstance: vi.fn().mockResolvedValue({required: false})
+}));
+
+import {customInstance} from '@services/api/mutator.js';
 
 describe('AuthProvider', () => {
     const mockUser: User = {
@@ -782,6 +790,42 @@ describe('AuthProvider', () => {
     // -------------------------------------------------------------------------
 
     describe('fetchCurrentUser non-Error rejection', () => {
+        describe('completeSetup method', () => {
+            it('creates admin, saves token, fetches profile and sets auth state', async () => {
+                vi.mocked(authStorage.getToken).mockReturnValue(null);
+                vi.mocked(customInstance)
+                    .mockResolvedValueOnce({required: false}) // setup-status on init
+                    .mockResolvedValueOnce({accessToken: mockToken, user: {}}); // POST /auth/setup
+                vi.mocked(authControllerGetProfile).mockResolvedValue(mockProfileResponse);
+
+                const TestComponent = (): React.JSX.Element => {
+                    const context = React.useContext(AuthContext);
+                    return (
+                        <div>
+                            <span data-testid="authenticated">{context?.isAuthenticated.toString()}</span>
+                            <button
+                                onClick={() => { void context?.completeSetup({email: 'admin@test.com', password: 'pass'}); }}
+                            >
+                                Setup
+                            </button>
+                        </div>
+                    );
+                };
+
+                const testUser = userEvent.setup();
+                render(<AuthProvider><TestComponent /></AuthProvider>);
+
+                await testUser.click(screen.getByRole('button', {name: /setup/i}));
+
+                await waitFor(() => {
+                    expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+                });
+
+                expect(authStorage.saveToken).toHaveBeenCalledWith(mockToken);
+                expect(authStorage.saveUser).toHaveBeenCalled();
+            });
+        });
+
         it('sets authError when a plain object (not an Error) is thrown during profile fetch', async () => {
             vi.mocked(authStorage.getToken).mockReturnValue(mockToken);
             // Reject with a plain non-Error object; instanceof Error returns false

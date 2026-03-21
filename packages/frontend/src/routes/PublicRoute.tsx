@@ -9,10 +9,14 @@ interface PublicRouteProps {
 }
 
 export const PublicRoute = ({children}: PublicRouteProps): React.JSX.Element => {
-    const {isAuthenticated, isLoading} = useAuth();
+    const {isAuthenticated, isLoading, setupRequired} = useAuth();
 
     if (isLoading) {
         return <Loading size="large" />;
+    }
+
+    if (setupRequired) {
+        return <Navigate to={APP_ROUTES.SETUP} replace />;
     }
 
     if (isAuthenticated) {

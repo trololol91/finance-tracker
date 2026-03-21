@@ -38,5 +38,6 @@ export const APP_ROUTES = {
     SCRAPER: '/scraper',
     MFA: '/mfa',
     SETTINGS: '/settings',
-    ADMIN: '/admin'
+    ADMIN: '/admin',
+    SETUP: '/setup'
 } as const;

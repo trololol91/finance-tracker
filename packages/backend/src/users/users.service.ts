@@ -176,6 +176,18 @@ export class UsersService {
         return updated;
     }
 
+    public async hasUsers(): Promise<boolean> {
+        const count = await this.prisma.user.count();
+        return count > 0;
+    }
+
+    public async promoteToAdmin(id: string): Promise<void> {
+        await this.prisma.user.update({
+            where: {id},
+            data: {role: 'ADMIN'}
+        });
+    }
+
     /**
      * Soft delete user by setting deletedAt timestamp
      * Enforces that users can only delete their own account

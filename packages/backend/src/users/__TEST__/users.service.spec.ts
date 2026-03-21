@@ -48,7 +48,8 @@ describe('UsersService', () => {
                 findFirst: vi.fn(),
                 findMany: vi.fn(),
                 create: vi.fn(),
-                update: vi.fn()
+                update: vi.fn(),
+                count: vi.fn()
             }
         } as unknown as PrismaService;
 
@@ -533,6 +534,38 @@ describe('UsersService', () => {
                 .toThrow(`User with ID ${targetUserId} not found`);
 
             expect(prismaService.user.update).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('hasUsers', () => {
+        it('should return true when users exist', async () => {
+            vi.mocked(prismaService.user.count).mockResolvedValue(3);
+
+            const result = await service.hasUsers();
+
+            expect(prismaService.user.count).toHaveBeenCalled();
+            expect(result).toBe(true);
+        });
+
+        it('should return false when no users exist', async () => {
+            vi.mocked(prismaService.user.count).mockResolvedValue(0);
+
+            const result = await service.hasUsers();
+
+            expect(result).toBe(false);
+        });
+    });
+
+    describe('promoteToAdmin', () => {
+        it('should update the user role to ADMIN', async () => {
+            vi.mocked(prismaService.user.update).mockResolvedValue(mockUser);
+
+            await service.promoteToAdmin(mockUser.id);
+
+            expect(prismaService.user.update).toHaveBeenCalledWith({
+                where: {id: mockUser.id},
+                data: {role: 'ADMIN'}
+            });
         });
     });
 });

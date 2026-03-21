@@ -4,6 +4,7 @@ import {
 } from 'react-router-dom';
 import {PublicRoute} from '@routes/PublicRoute';
 import {AuthGuard} from '@routes/AuthGuard';
+import {SetupRoute} from '@routes/SetupRoute';
 import {AdminRoute} from '@/guards/AdminRoute';
 import {AppShell} from '@components/layout/AppShell/AppShell';
 import {APP_ROUTES} from '@config/constants';
@@ -24,8 +25,15 @@ const MfaPage = lazy(() => import('@pages/MfaPage.tsx'));
 const SettingsPage = lazy(() => import('@pages/SettingsPage.tsx'));
 const AdminPage = lazy(() => import('@pages/AdminPage.tsx'));
 const NotFoundPage = lazy(() => import('@pages/NotFoundPage.tsx'));
+const SetupPage = lazy(() => import('@pages/SetupPage.tsx'));
 
 export const router = createBrowserRouter([
+    // Setup route — only accessible when no users exist
+    {
+        element: <SetupRoute />,
+        children: [{path: APP_ROUTES.SETUP, element: <SetupPage />}]
+    },
+
     // Public routes
     {
         path: APP_ROUTES.HOME,

@@ -56,6 +56,24 @@ export class AuthController {
         return this.authService.login(loginDto.email, loginDto.password);
     }
 
+    @Get('setup-status')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({summary: 'Get setup status', description: 'Returns whether initial setup is required (no users exist)'})
+    @ApiResponse({status: 200, description: 'Setup status returned'})
+    public getSetupStatus(): Promise<{required: boolean}> {
+        return this.authService.getSetupStatus();
+    }
+
+    @Post('setup')
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation({summary: 'Create first admin account', description: 'Creates the first admin user during initial setup'})
+    @ApiBody({type: CreateUserDto})
+    @ApiResponse({status: 201, description: 'Admin account created'})
+    @ApiResponse({status: 409, description: 'Setup already complete'})
+    public setupAdmin(@Body() createUserDto: CreateUserDto): Promise<AuthResponse> {
+        return this.authService.setupAdmin(createUserDto);
+    }
+
     /**
      * Get authenticated user's profile
      * @param user - Current authenticated user from JWT token

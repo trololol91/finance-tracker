@@ -17,6 +17,7 @@ import {
     authControllerRegister,
     authControllerGetProfile
 } from '@/api/auth/auth.js';
+import {customInstance} from '@services/api/mutator.js';
 import {authStorage} from '@services/storage/authStorage.js';
 
 /**
@@ -113,22 +114,29 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [authError, setAuthError] = useState<string | null>(null);
+    const [setupRequired, setSetupRequired] = useState(false);
 
     useEffect(() => {
         const init = async (): Promise<void> => {
             try {
-                await initializeAuth(setToken, setUser);
-            } catch (error) {
-                if (error instanceof AuthExpiredError) {
-                    // Token is definitively invalid — clear storage.
-                    // PrivateRoute will redirect to /login naturally.
-                    authStorage.clearAuth();
-                } else if (error instanceof NetworkError) {
-                    // Backend is temporarily unreachable — preserve the token and
-                    // show a user-visible message instead of silently redirecting.
-                    setAuthError('Unable to reach the server. Please check your connection.');
-                } else {
-                    console.error('[AuthContext] Unexpected auth init error:', error);
+                const [authResult, statusResult] = await Promise.allSettled([
+                    initializeAuth(setToken, setUser),
+                    customInstance<{required: boolean}>({url: '/auth/setup-status', method: 'GET'})
+                ]);
+
+                if (statusResult.status === 'fulfilled') {
+                    setSetupRequired(statusResult.value.required);
+                }
+
+                if (authResult.status === 'rejected') {
+                    const error = authResult.reason as unknown;
+                    if (error instanceof AuthExpiredError) {
+                        authStorage.clearAuth();
+                    } else if (error instanceof NetworkError) {
+                        setAuthError('Unable to reach the server. Please check your connection.');
+                    } else {
+                        console.error('[AuthContext] Unexpected auth init error:', error);
+                    }
                 }
             } finally {
                 setIsLoading(false);
@@ -171,6 +179,22 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
         setUser(updatedUser);
     }, []);
 
+    const completeSetup = useCallback(async (data: CreateUserDto): Promise<void> => {
+        const response = await customInstance<{accessToken: string}>({
+            url: '/auth/setup',
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            data
+        });
+        authStorage.saveToken(response.accessToken);
+        const profile = await authControllerGetProfile();
+        const authUser = mapToUser(profile);
+        authStorage.saveUser(authUser);
+        setToken(response.accessToken);
+        setUser(authUser);
+        setSetupRequired(false);
+    }, []);
+
     const isAuthenticated = Boolean(token && user);
 
     const value = useMemo<AuthContextType>(() => ({
@@ -179,11 +203,16 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
         isAuthenticated,
         isLoading,
         authError,
+        setupRequired,
         login,
         register,
         logout,
-        updateUser
-    }), [user, token, isAuthenticated, isLoading, authError, login, register, logout, updateUser]);
+        updateUser,
+        completeSetup
+    }), [
+        user, token, isAuthenticated, isLoading, authError, setupRequired,
+        login, register, logout, updateUser, completeSetup
+    ]);
 
     return (
         <AuthContext.Provider value={value}>
