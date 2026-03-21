@@ -1,0 +1,95 @@
+# docker-compose.release.yml — deploy pre-built images from the container registry.
+# Use this file instead of docker-compose.yml when you don't have the source code.
+#
+# Usage:
+#   docker compose -f docker-compose.release.yml up -d
+#
+# Set REGISTRY, IMAGE_TAG in .env or override on the command line:
+#   IMAGE_TAG=1.2.0 docker compose -f docker-compose.release.yml up -d
+
+version: '3.8'
+
+services:
+    postgres:
+        image: postgres:17-alpine
+        container_name: finance-tracker-db
+        restart: unless-stopped
+        ports:
+            - "5432:5432"
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB:-finance_tracker}
+            PGDATA: /var/lib/postgresql/data/pgdata
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-finance_tracker}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - nest-network
+
+    backend:
+        image: ${REGISTRY:-ghcr.io/yourusername}/finance-tracker-backend:${IMAGE_TAG:-latest}
+        container_name: finance-tracker-backend
+        restart: unless-stopped
+        ports:
+            - "3001:3001"
+        environment:
+            - NODE_ENV=production
+            - PORT=3001
+            - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-finance_tracker}?schema=public
+            - JWT_SECRET=${JWT_SECRET}
+            - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
+            - PLAYWRIGHT_BROWSERS_PATH=/data/playwright-browsers
+        volumes:
+            - backend_logs:/usr/src/app/packages/backend/logs
+            - scraper_plugins:/data/scraper-plugins
+            - playwright_browsers:/data/playwright-browsers
+        depends_on:
+            postgres:
+                condition: service_healthy
+        command: sh -c "cd packages/backend && npx prisma migrate deploy && exec node /usr/src/app/packages/backend/dist/main.js"
+        healthcheck:
+            test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 40s
+        networks:
+            - nest-network
+
+    frontend:
+        image: ${REGISTRY:-ghcr.io/yourusername}/finance-tracker-frontend:${IMAGE_TAG:-latest}
+        container_name: finance-tracker-frontend
+        restart: unless-stopped
+        ports:
+            - "3002:3002"
+        environment:
+            - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:3001}
+        depends_on:
+            backend:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3002 || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        networks:
+            - nest-network
+
+volumes:
+    postgres_data:
+        driver: local
+    backend_logs:
+        driver: local
+    scraper_plugins:
+        driver: local
+    playwright_browsers:
+        driver: local
+
+networks:
+    nest-network:
+        driver: bridge

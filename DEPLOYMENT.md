@@ -98,6 +98,60 @@ curl http://localhost:3001/health
 
 ---
 
+## Publishing Images
+
+Pre-built images let others deploy without the source code — they only need
+`docker-compose.release.yml` and a `.env` file.
+
+### 1. Set your registry
+
+Edit `scripts/publish.sh` and replace `ghcr.io/yourusername` with your actual registry path,
+or pass it as an environment variable:
+
+```bash
+# GitHub Container Registry (free for personal use)
+export REGISTRY=ghcr.io/yourusername
+
+# Docker Hub
+export REGISTRY=docker.io/yourusername
+```
+
+### 2. Log in
+
+```bash
+# GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u yourusername --password-stdin
+
+# Docker Hub
+docker login
+```
+
+### 3. Publish
+
+```bash
+# Tag as :latest only
+./scripts/publish.sh
+
+# Tag as a version AND :latest
+./scripts/publish.sh 1.2.0
+```
+
+### 4. Share with others
+
+Provide two files:
+- `docker-compose.release.yml`
+- `.env.example`
+
+They then:
+```bash
+cp .env.example .env
+# edit .env with their credentials and VITE_API_BASE_URL
+docker compose -f docker-compose.release.yml up -d
+docker compose -f docker-compose.release.yml exec backend npx playwright install chromium
+```
+
+---
+
 ## Backup & Restore
 
 ### Manual backup
