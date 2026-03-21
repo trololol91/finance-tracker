@@ -24,7 +24,6 @@ coverage
 **/vitest.config.ts
 
 # Packages not involved in the backend build
-packages/frontend
 packages/scraper-td
 
 # Dev tooling and docs at repo root

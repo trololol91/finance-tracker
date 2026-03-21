@@ -6,6 +6,9 @@
 #   /usr/src/app/                          ← WORKDIR (workspace root)
 #     packages/backend/dist/main.js        ← compiled NestJS app
 #     node_modules/                        ← hoisted workspace deps
+#
+# plugin-sdk is built in the builder stage (backend imports its types)
+# but is not copied to the production image — types are erased at runtime.
 
 # ---- Stage 1: Builder --------------------------------------------------------
 FROM node:24.13.0-alpine AS builder
@@ -16,12 +19,18 @@ WORKDIR /usr/src/app
 # All package.json files must be present before `npm ci` so workspace
 # cross-dependencies are wired up correctly.
 COPY package*.json ./
+COPY packages/plugin-sdk/package.json    ./packages/plugin-sdk/
 COPY packages/backend/package.json       ./packages/backend/
 
 # Install all dependencies (dev included — needed for tsc and nest build).
 # Skip playwright browser downloads; binaries are provided via a volume at runtime.
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm ci
+
+# --- Build plugin-sdk (backend imports its types) ---
+COPY packages/plugin-sdk/tsconfig*.json ./packages/plugin-sdk/
+COPY packages/plugin-sdk/src            ./packages/plugin-sdk/src
+RUN npm run build -w packages/plugin-sdk
 
 # --- Build backend ---
 COPY packages/backend/tsconfig*.json  ./packages/backend/
@@ -55,7 +64,10 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /usr/src/app
 
 # Copy workspace manifests for production npm ci.
+# plugin-sdk must be present so npm can resolve the workspace symlink
+# node_modules/@finance-tracker/plugin-sdk → packages/plugin-sdk.
 COPY --chown=nestjs:nodejs package*.json ./
+COPY --chown=nestjs:nodejs packages/plugin-sdk/package.json   ./packages/plugin-sdk/
 COPY --chown=nestjs:nodejs packages/backend/package.json      ./packages/backend/
 COPY --chown=nestjs:nodejs packages/backend/prisma.config.ts  ./packages/backend/
 COPY --chown=nestjs:nodejs packages/backend/prisma            ./packages/backend/prisma
@@ -75,6 +87,9 @@ RUN cd packages/backend && npx prisma generate
 
 # Copy compiled artifacts from builder.
 COPY --chown=nestjs:nodejs --from=builder /usr/src/app/packages/backend/dist     ./packages/backend/dist
+# plugin-sdk dist is needed at runtime — scraper-plugin-loader imports
+# @finance-tracker/plugin-sdk/testing to validate loaded plugins.
+COPY --chown=nestjs:nodejs --from=builder /usr/src/app/packages/plugin-sdk/dist  ./packages/plugin-sdk/dist
 
 # Log directory writeable by the app user.
 RUN mkdir -p packages/backend/logs && chown -R nestjs:nodejs packages/backend/logs

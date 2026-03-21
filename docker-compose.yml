@@ -36,6 +36,7 @@ services:
             - PORT=3001
             - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-finance_tracker}?schema=public
             - JWT_SECRET=${JWT_SECRET}
+            - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
             - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
             - PLAYWRIGHT_BROWSERS_PATH=/data/playwright-browsers
         volumes:
