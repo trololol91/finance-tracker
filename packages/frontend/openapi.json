@@ -1895,7 +1895,7 @@
                   "file": {
                     "type": "string",
                     "format": "binary",
-                    "description": "A .js file whose default export satisfies BankScraper"
+                    "description": "A .zip package whose extracted default export satisfies BankScraper"
                   }
                 }
               }
@@ -3541,17 +3541,23 @@
           "message": {
             "type": "string",
             "description": "Human-readable summary of the install operation",
-            "example": "Plugin cibc-plugin.js installed and loaded successfully"
+            "example": "Plugin cibc installed and loaded successfully"
           },
-          "filename": {
+          "bankId": {
             "type": "string",
-            "description": "Sanitised filename that was written to SCRAPER_PLUGIN_DIR",
-            "example": "cibc-plugin.js"
+            "description": "bankId from the plugin's default export",
+            "example": "cibc"
+          },
+          "pluginDir": {
+            "type": "string",
+            "description": "Absolute path of the directory written to SCRAPER_PLUGIN_DIR",
+            "example": "/plugins/cibc"
           }
         },
         "required": [
           "message",
-          "filename"
+          "bankId",
+          "pluginDir"
         ]
       },
       "TestScraperDto": {

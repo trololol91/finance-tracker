@@ -402,7 +402,33 @@ Implementation plan: [`test-plan/scraper-plugins/milestone-3-implementation-plan
 
 ---
 
-## Current Focus: Scraper Plugin System — Milestone 5 (Scraper Worker Implementation)
+## Current Focus: Scraper Plugin System — Milestone 6 (Plugin Upload UI: .zip + bankId)
+
+Implementation plan: [`test-plan/scraper-plugins/milestone-6-implementation-plan.md`](../test-plan/scraper-plugins/milestone-6-implementation-plan.md)
+
+**Goal:** Align `PluginManager.tsx` with the updated `POST /admin/scrapers/install` contract. The backend DTO now returns `{ message, bankId, pluginDir }` (no `filename`) and accepts a `.zip` package (not `.js`). The frontend file input and success message must match.
+
+**Recommended next actions:**
+
+1. Ensure the backend dev server is running, then run `npm run generate:api:live` in `packages/frontend` **or** manually patch `openapi.json` per Section 2.1 of the plan and run `npm run generate:api`. Confirm `src/api/model/installPluginResponseDto.ts` now declares `bankId` and `pluginDir` (not `filename`).
+
+2. `@frontend-dev` — **Cross-feature Step A (integration with existing AdminPage/PluginManager):** Edit `packages/frontend/src/features/admin/components/PluginManager.tsx` — four string replacements:
+   - Line 41: `` `Plugin installed: ${data.filename}` `` → `` `Plugin installed: ${data.bankId}` ``
+   - Line 62: `'Please select a .js plugin file'` → `'Please select a .zip plugin package'`
+   - Line 104: `accept=".js"` → `accept=".zip"`
+   - Line 107: `aria-label="Select a .js plugin file to install"` → `aria-label="Select a .zip plugin package to install"`
+
+3. `@frontend-dev` — **Cross-feature Step B:** Edit `packages/frontend/src/features/admin/components/__TEST__/PluginManager.test.tsx` — update all nine stale references per Section 2.5 of the plan (type annotations, fixture values, aria-label matchers, test description, assertion target).
+
+4. Run `npm test`, `npm run typecheck`, and `npm run lint` in `packages/frontend`. All must pass with zero errors.
+
+5. `@frontend-tester` — Run regression test scope from Section 6 of the plan against the running app. Confirm `.zip` accept filter, `bankId` in success fallback, and "Please select a .zip plugin package" error message.
+
+6. `@frontend-dev` — Commit: `fix(admin): update plugin install UI to accept .zip and show bankId`.
+
+---
+
+## Previous Focus: Scraper Plugin System — Milestone 5 (Scraper Worker Implementation)
 
 Implementation plan: [`test-plan/scraper-plugins/milestone-5-implementation-plan.md`](../test-plan/scraper-plugins/milestone-5-implementation-plan.md)
 

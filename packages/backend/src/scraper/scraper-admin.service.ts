@@ -163,7 +163,8 @@ export class ScraperAdminService {
      * @internal
      */
     protected async runNpmInstall(dir: string): Promise<void> {
-        await execFileAsync('npm', ['install', '--omit=dev'], {cwd: dir});
+        const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        await execFileAsync(npm, ['install', '--omit=dev'], {cwd: dir, shell: process.platform === 'win32'});
     }
 
     /**

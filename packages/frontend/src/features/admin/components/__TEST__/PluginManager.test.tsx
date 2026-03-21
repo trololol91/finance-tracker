@@ -54,7 +54,7 @@ describe('PluginManager', () => {
 
         it('renders a file input', () => {
             render(<PluginManager />);
-            expect(screen.getByLabelText(/select a .js plugin file/i)).toBeInTheDocument();
+            expect(screen.getByLabelText(/select a .zip plugin file/i)).toBeInTheDocument();
         });
     });
 
@@ -84,7 +84,7 @@ describe('PluginManager', () => {
             const user = userEvent.setup();
             render(<PluginManager />);
             await user.click(screen.getByRole('button', {name: /install plugin/i}));
-            expect(screen.getByText(/please select a .js plugin file/i)).toBeInTheDocument();
+            expect(screen.getByText(/please select a .zip plugin file/i)).toBeInTheDocument();
         });
 
         it('does not call install mutate when no file is selected', async () => {
@@ -144,33 +144,33 @@ describe('PluginManager', () => {
 
     describe('install mutation callbacks', () => {
         it('shows success feedback when install onSuccess fires with a message', () => {
-            let capturedSuccess: ((d: {message: string, filename: string}) => void) | undefined;
+            let capturedSuccess: ((d: {message: string, bankId: string}) => void) | undefined;
             mockInstall.mockImplementation(
                 ({mutation}: {
-                    mutation: {onSuccess: (d: {message: string, filename: string}) => void};
+                    mutation: {onSuccess: (d: {message: string, bankId: string}) => void};
                 }) => {
                     capturedSuccess = mutation.onSuccess;
                     return {mutate: mockInstallMutate, isPending: false};
                 }
             );
             render(<PluginManager />);
-            act(() => { capturedSuccess?.({message: 'Installed!', filename: 'plugin.js'}); });
+            act(() => { capturedSuccess?.({message: 'Installed!', bankId: 'cibc'}); });
             expect(screen.getByText('Installed!')).toBeInTheDocument();
         });
 
-        it('uses filename fallback when install onSuccess fires with empty message', () => {
-            let capturedSuccess: ((d: {message: string, filename: string}) => void) | undefined;
+        it('uses bankId fallback when install onSuccess fires with empty message', () => {
+            let capturedSuccess: ((d: {message: string, bankId: string}) => void) | undefined;
             mockInstall.mockImplementation(
                 ({mutation}: {
-                    mutation: {onSuccess: (d: {message: string, filename: string}) => void};
+                    mutation: {onSuccess: (d: {message: string, bankId: string}) => void};
                 }) => {
                     capturedSuccess = mutation.onSuccess;
                     return {mutate: mockInstallMutate, isPending: false};
                 }
             );
             render(<PluginManager />);
-            act(() => { capturedSuccess?.({message: '', filename: 'my-plugin.js'}); });
-            expect(screen.getByText(/my-plugin\.js/i)).toBeInTheDocument();
+            act(() => { capturedSuccess?.({message: '', bankId: 'my-bank'}); });
+            expect(screen.getByText(/my-bank/i)).toBeInTheDocument();
         });
 
         it('shows error feedback when install onError fires', () => {

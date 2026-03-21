@@ -38,7 +38,7 @@ export const PluginManager = (): React.JSX.Element => {
             onSuccess: (data) => {
                 setInstallFeedback({
                     type: 'success',
-                    message: data.message || `Plugin installed: ${data.filename}`
+                    message: data.message || `Plugin installed: ${data.bankId}`
                 });
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
@@ -59,7 +59,7 @@ export const PluginManager = (): React.JSX.Element => {
     const handleInstall = (): void => {
         const file = fileInputRef.current?.files?.[0];
         if (!file) {
-            setInstallFeedback({type: 'error', message: 'Please select a .js plugin file'});
+            setInstallFeedback({type: 'error', message: 'Please select a .zip plugin file'});
             return;
         }
         setInstallFeedback(null);
@@ -101,10 +101,10 @@ export const PluginManager = (): React.JSX.Element => {
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".js"
+                        accept=".zip"
                         id="plugin-file-input"
                         className={styles.fileInput}
-                        aria-label="Select a .js plugin file to install"
+                        aria-label="Select a .zip plugin file to install"
                     />
                     <button
                         type="button"
