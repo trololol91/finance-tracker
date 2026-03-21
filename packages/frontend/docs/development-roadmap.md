@@ -829,7 +829,7 @@ src/pages/AccountsPage.tsx        # route: /accounts
 **Timeline:** 3-5 days
 
 ### Goals
-- File upload UI for manual CSV/OFX imports
+- File upload UI for manual CSV imports
 - Sync schedule management (create, enable/disable, run now)
 - Live sync status via SSE stream
 - MFA challenge modal (Path A — user is in the app)
@@ -845,7 +845,7 @@ src/pages/AccountsPage.tsx        # route: /accounts
 ```
 src/features/import/
 ├── components/
-│   ├── FileImportDropzone.tsx    # drag-and-drop + click-to-browse; CSV and OFX/QFX only
+│   ├── FileImportDropzone.tsx    # drag-and-drop + click-to-browse; CSV only
 │   ├── ImportSummary.tsx         # imported N, skipped N, errors list
 │   └── index.ts
 ├── hooks/
@@ -856,7 +856,7 @@ src/pages/ImportPage.tsx          # route: /import
 ```
 
 **Behaviour:**
-- Accept `.csv`, `.ofx`, `.qfx` via drag-and-drop or file picker
+- Accept `.csv` via drag-and-drop or file picker
 - Show file name + size preview before upload; allow cancel
 - On submit → `POST /transactions/import` (multipart/form-data)
 - Display `ImportSummary` when complete: imported count, skipped count, error list
@@ -1063,7 +1063,7 @@ Apply Standard Checklist (Core Implementation, API Integration, State Management
 
 ### Validation Criteria
 
-- File import: can upload CSV and OFX; summary shows correct counts; errors listed
+- File import: can upload CSV; summary shows correct counts; errors listed
 - Sync schedule: bank picker populated from API; can create/edit/delete/enable-disable
 - Live sync: "Run Now" shows real-time steps; MFA modal opens automatically when required
 - MFA modal: code submission unpauses sync; modal closes on success
@@ -1247,7 +1247,7 @@ npm run preview
 - [ ] Onboarding tour for new users
 - [ ] Bulk operations (select multiple transactions)
 - [ ] Export transactions to CSV
-- [ ] Drag-and-drop file upload (CSV/OFX — covered in Phase 7)
+- [ ] Drag-and-drop file upload (CSV — covered in Phase 7)
 - [ ] Undo/redo functionality
 
 ### Performance

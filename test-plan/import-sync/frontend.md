@@ -1,6 +1,6 @@
 ## Test Plan: Scraper — Import & Sync (Section 10)
 
-**Feature scope**: `/scraper` page — CSV/OFX file import, sync schedule CRUD, run-now trigger, SSE status panel, MFA page guard.
+**Feature scope**: `/scraper` page — CSV file import, sync schedule CRUD, run-now trigger, SSE status panel, MFA page guard.
 
 **Coverage level**: Full regression
 
@@ -26,7 +26,7 @@ All interactive elements on the `/scraper` page; each must be the *subject* of a
 |---|---------|------|
 | 1 | "Import" tab button | Tab trigger |
 | 2 | "Sync" tab button | Tab trigger |
-| 3 | File `<input>` (accepts `.csv,.ofx`) | File input |
+| 3 | File `<input>` (accepts `.csv`) | File input |
 | 4 | "Invalid file type" inline error | Validation output |
 | 5 | "File too large" inline error | Validation output |
 | 6 | Import History table (job rows) | Table |
@@ -93,7 +93,7 @@ All interactive elements on the `/scraper` page; each must be the *subject* of a
 - **Steps**:
   1. Navigate to `/scraper` (Import tab active)
   2. Set file input to `test-files/test.txt`
-  3. Assert inline error "Only .csv and .ofx files are supported" appears below the upload zone
+  3. Assert inline error "Only .csv files are supported" appears below the upload zone
 - **Expected result**: Error displays immediately; no upload network request fired.
 
 ---

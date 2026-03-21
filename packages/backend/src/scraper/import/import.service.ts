@@ -190,7 +190,7 @@ export class ImportService {
 
     /**
      * Two-tier deduplication:
-     * 1. fitid exact match (OFX FITID or scraper syntheticId)
+     * 1. fitid exact match (bank-assigned FITID or scraper syntheticId)
      * 2. (userId, accountId, date, amount, description) tuple
      */
     private async isDuplicate(

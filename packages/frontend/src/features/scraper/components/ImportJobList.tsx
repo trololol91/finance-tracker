@@ -46,7 +46,7 @@ export const ImportJobList = ({
     if (jobs.length === 0) {
         return (
             <div className={styles.centered}>
-                <p className={styles.message}>No imports yet. Upload a CSV or OFX file above.</p>
+                <p className={styles.message}>No imports yet. Upload a CSV file above.</p>
             </div>
         );
     }

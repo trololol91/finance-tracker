@@ -1324,12 +1324,12 @@
     },
     "/scraper/import/upload": {
       "post": {
-        "description": "Upload a CSV or OFX file to import transactions. File size limit: 5 MB. Returns the created ImportJob with parse results.",
+        "description": "Upload a CSV file to import transactions. File size limit: 5 MB. Returns the created ImportJob with parse results.",
         "operationId": "ImportController_upload",
         "parameters": [],
         "requestBody": {
           "required": true,
-          "description": "CSV or OFX file upload",
+          "description": "CSV file upload",
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -3194,8 +3194,7 @@
             "type": "string",
             "description": "File type",
             "enum": [
-              "csv",
-              "ofx"
+              "csv"
             ],
             "example": "csv"
           },

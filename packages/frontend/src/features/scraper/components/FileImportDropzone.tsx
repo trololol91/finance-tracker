@@ -3,7 +3,7 @@ import React, {
 } from 'react';
 import styles from '@features/scraper/components/FileImportDropzone.module.css';
 
-const ACCEPTED_TYPES = ['.csv', '.ofx', 'text/csv', 'application/x-ofx', 'application/ofx'];
+const ACCEPTED_TYPES = ['.csv', 'text/csv'];
 const MAX_FILE_SIZE_MB = 10;
 
 interface FileImportDropzoneProps {
@@ -16,7 +16,7 @@ const isFileSizeValid = (file: File): boolean =>
 
 const isFileTypeValid = (file: File): boolean => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    return ext === 'csv' || ext === 'ofx';
+    return ext === 'csv';
 };
 
 export const FileImportDropzone = ({
@@ -33,7 +33,7 @@ export const FileImportDropzone = ({
             if (files === null || files.length === 0) return;
             const file = files[0];
             if (!isFileTypeValid(file)) {
-                setFileError('Only .csv and .ofx files are supported');
+                setFileError('Only .csv files are supported');
                 return;
             }
             if (!isFileSizeValid(file)) {
@@ -117,7 +117,7 @@ export const FileImportDropzone = ({
                             <span className={styles.link}>browse</span>
                         </p>
                         <p id={descId} className={styles.hint}>
-                            Supported formats: CSV, OFX — max {MAX_FILE_SIZE_MB} MB
+                            Supported formats: CSV — max {MAX_FILE_SIZE_MB} MB
                         </p>
                     </>
                 )}

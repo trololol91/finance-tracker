@@ -33,7 +33,7 @@ describe('FileImportDropzone', () => {
 
         it('shows accepted formats hint', () => {
             render(<FileImportDropzone {...defaultProps} />);
-            expect(screen.getByText(/supported formats.*csv.*ofx/i)).toBeInTheDocument();
+            expect(screen.getByText(/supported formats.*csv/i)).toBeInTheDocument();
         });
 
         it('shows max file size hint', () => {
@@ -68,21 +68,13 @@ describe('FileImportDropzone', () => {
             expect(defaultProps.onFile).toHaveBeenCalledWith(csvFile);
         });
 
-        it('calls onFile with valid OFX file', () => {
-            render(<FileImportDropzone {...defaultProps} />);
-            const input = document.querySelector('input[type="file"]')!;
-            const ofxFile = makeFile('export.ofx', 512, 'application/ofx');
-            fireEvent.change(input, {target: {files: [ofxFile]}});
-            expect(defaultProps.onFile).toHaveBeenCalledWith(ofxFile);
-        });
-
         it('shows error for unsupported file type', () => {
             render(<FileImportDropzone {...defaultProps} />);
             const input = document.querySelector('input[type="file"]')!;
             const txtFile = makeFile('notes.txt', 100, 'text/plain');
             fireEvent.change(input, {target: {files: [txtFile]}});
             expect(screen.getByRole('alert')).toBeInTheDocument();
-            expect(screen.getByText(/only .csv and .ofx/i)).toBeInTheDocument();
+            expect(screen.getByText(/only .csv/i)).toBeInTheDocument();
             expect(defaultProps.onFile).not.toHaveBeenCalled();
         });
 

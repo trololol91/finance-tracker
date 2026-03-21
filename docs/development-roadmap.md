@@ -45,7 +45,7 @@ Backend Phase 5 (Categories) ────────► Frontend Phase 5 (Categ
 Backend Phase 6 (Accounts) ──────────► Frontend Phase 6 (Accounts UI)
 Backend Phase 7 (Import/Sync) ───────► Frontend Phase 7 (Import & Sync UI)
         │                                       │
-        ├─ File import (CSV/OFX)               ├─ FileImportDropzone
+        ├─ File import (CSV)                   ├─ FileImportDropzone
         ├─ Scraper + scheduler                 ├─ SyncScheduleForm
         ├─ SSE live status                     ├─ SyncStatusPanel + useSyncStream
         ├─ MFA worker bridge                   ├─ MfaModal (in-app)
@@ -303,7 +303,7 @@ Implementation plan: [`test-plan/import-sync/implementation-plan.md`](../test-pl
 
 1. ✅ Prisma schema + migration (ImportJob, SyncSchedule, SyncJob, enums)
 2. ✅ CryptoService (AES-256-GCM)
-3. ✅ ImportService + ImportController (CSV/OFX parsing, dedup, bulk insert)
+3. ✅ ImportService + ImportController (CSV parsing, dedup, bulk insert)
 4. ✅ SyncScheduleService + SyncScheduleController (CRUD, cron via SchedulerRegistry, credential encryption)
 5. ✅ SyncSessionStore + scraper worker thread + ScraperService orchestrator
 6. ✅ SSE + MFA controller (`sync-job.controller.ts`)

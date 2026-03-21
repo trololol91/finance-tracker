@@ -421,7 +421,7 @@ This document outlines the implementation order for building the Finance Tracker
    // TransactionImport — tracks each import run
    - id: UUID
    - user_id: UUID (foreign key)
-   - source: enum ('csv', 'ofx', 'scraper', 'api')
+   - source: enum ('csv', 'scraper', 'api')
    - filename: string (original filename, file imports only)
    - account_id: UUID (optional — which account this import is for)
    - row_count: int
@@ -443,16 +443,13 @@ This document outlines the implementation order for building the Finance Tracker
    - created_at: timestamp
    - updated_at: timestamp
    ```
-   - Add `fitid` field to `Transaction` model — bank-assigned unique ID from OFX (preferred dedup key over date+amount+description)
+   - Add `fitid` field to `Transaction` model — bank-assigned unique ID (preferred dedup key over date+amount+description)
 
 2. **Implement File Import (manual upload)**
    - Accept CSV upload (`multipart/form-data`)
-   - Accept OFX/QFX upload — single parser handles both CIBC and TD
    - Map CSV columns → `CreateTransactionDto` (CIBC and TD formats, see `tools/export/`)
-   - Map OFX fields → `CreateTransactionDto` (TRNTYPE, DTPOSTED, TRNAMT, FITID, NAME, MEMO)
    - Dedup: prefer `fitid` match when present; fall back to date + amount + description
    - Return import summary (imported, skipped, errors)
-   - `npm install ofx` for OFX parsing
 
 3. **Implement Pluggable Bank Scraper Architecture** (`src/scraper/`)
    - `npm install playwright playwright-extra playwright-extra-plugin-stealth`
@@ -463,7 +460,7 @@ This document outlines the implementation order for building the Finance Tracker
    export interface BankScraper {
      readonly bankId: string;                   // e.g. 'cibc', 'td', 'rbc'
      readonly displayName: string;              // e.g. 'CIBC', 'TD Bank'
-     readonly supportedFormats: ('ofx' | 'csv')[];
+     readonly supportedFormats: ('csv')[];
      readonly requiresMfaOnEveryRun: boolean;   // true = no session persistence (e.g. CIBC); false = save storageState and skip MFA on subsequent runs
      login(page: Page, credentials: BankCredentials): Promise<void>;
      downloadTransactions(page: Page, options: DownloadOptions): Promise<Buffer>;
@@ -487,7 +484,7 @@ This document outlines the implementation order for building the Finance Tracker
    export class RbcScraper implements BankScraper {
      readonly bankId = 'rbc';
      readonly displayName = 'RBC Royal Bank';
-     readonly supportedFormats = ['ofx'] as const;
+     readonly supportedFormats = ['csv'] as const;
      // implement login() and downloadTransactions()
    }
    // Then add RbcScraper to ScraperModule providers — that's it
@@ -528,7 +525,7 @@ This document outlines the implementation order for building the Finance Tracker
 4. **Implement Scheduler** (`src/scraper/scraper.scheduler.ts`)
    - `npm install @nestjs/schedule` + register `ScheduleModule.forRoot()` in `AppModule`
    - On startup: load all enabled `SyncSchedule` records and register dynamic cron jobs with `@Scheduler` / `schedulerRegistry`
-   - Each cron job: calls `ScraperService.syncAccount(userId, accountId, bank)` → downloads OFX → calls import service
+   - Each cron job: calls `ScraperService.syncAccount(userId, accountId, bank)` → downloads CSV → calls import service
    - When user creates/updates/deletes a `SyncSchedule`, add/replace/remove the corresponding cron job at runtime (no restart needed)
    - Persist `last_run_at` and `last_run_status` after each run
 
@@ -666,7 +663,7 @@ This document outlines the implementation order for building the Finance Tracker
 
    - Worker receives only `pluginPath`, `credentials`, and `options` via `workerData` — nothing else
    - Credentials are decrypted in the main process just before being passed to the worker, so the decryption key never leaves the main process
-   - Worker output is only a `Buffer` (OFX/CSV bytes) — the main process calls the import service with that buffer; the plugin never touches the database directly
+   - Worker output is only a `Buffer` (CSV bytes) — the main process calls the import service with that buffer; the plugin never touches the database directly
    - The `requestMfaCode` helper is the **only** communication channel the plugin uses for MFA — the plugin has no knowledge of SSE, HTTP, push notifications, or the database
    - Worker has a configurable timeout; if it exceeds (e.g. 10 minutes), the worker is `worker.terminate()`d and the sync run is marked `failed`
    - Add `src/scraper/scraper.worker.ts` and `src/scraper/sync-session.store.ts` to the module structure above

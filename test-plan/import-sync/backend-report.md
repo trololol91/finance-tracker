@@ -47,9 +47,9 @@
 - **Status**: 201 ✅  
 - **Evidence**: Job `43b560f1`: `{"status":"completed","rowCount":3,"importedCount":3,"skippedCount":0,"errorMessage":null}` — all 3 rows imported on the first run. Subsequent runs correctly deduplicate (skippedCount:3).
 
-#### ✅ TC-02: POST /scraper/import/upload — valid OFX
-- **Status**: 201 ✅  
-- **Evidence**: `{"fileType":"ofx","status":"completed"}` — OFX STMTTRN parsing succeeded.
+#### ~~TC-02: POST /scraper/import/upload — valid OFX~~ *(no longer exercisable — OFX import removed)*
+- **Note**: OFX file import has been removed from the application. This test case cannot be run. Historical evidence is preserved below for reference only.
+- **Historical evidence**: `{"fileType":"ofx","status":"completed"}` — OFX STMTTRN parsing succeeded at the time of original testing.
 
 #### ⚠️ TC-03: POST /scraper/import/upload — malformed CSV (no header)
 - **Expected**: 201, `status: 'failed'`, `errorMessage` non-null  
@@ -183,9 +183,8 @@
 | SyncSchedule | b4cc8dba-a473-4907-a5f2-fafcb59b145e | TD on ec4da6da — CANNOT be deleted (BUG-02) | No |
 | SyncJob | e12335fa-badf-419f-9b36-44103c096396 | run-now result for b4cc8dba | No |
 | ImportJob | 43b560f1-5842-4e67-b873-e620414e3145 | sample.csv (importedCount:3) | No |
-| ImportJob | 745d346f + 6b31fd91 + a8083c00 + others | Duplicate CSV/OFX runs (skipped:3) | No |
+| ImportJob | 745d346f + 6b31fd91 + a8083c00 + others | Duplicate CSV runs (skipped:3) | No |
 | Transaction | 3 rows | Tim Hortons, Payroll, Netflix (from TC-01 CSV) | No |
-| Transaction | 0–2 rows | OFX transactions (depends on dedup) | No |
 
 *Cleanup note*: The TD SyncSchedule (`b4cc8dba`) cannot be deleted via API due to BUG-02. Manual deletion via `prisma db execute` or fixing BUG-02 is required.*
 

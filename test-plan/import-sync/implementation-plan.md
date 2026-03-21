@@ -1,5 +1,7 @@
 # Phase 7 — Transaction Import & Automated Sync: Implementation Plan
 
+> **Note (2026-03-21):** OFX/QFX file import has been fully removed. Only CSV import is supported. All references to OFX parsing, the `ofx` npm package, and OFX test cases below reflect the original design and are marked accordingly.
+
 **Date**: 2026-03-01  
 **Planner**: planner agent  
 **Status**: 🟨 Partially Complete — backend core + full frontend done; deferred items below
@@ -10,7 +12,7 @@
 |------|--------|-------|
 | Prisma schema + migration | ✅ Done | ImportJob, SyncSchedule, SyncJob, all enums |
 | CryptoService | ✅ Done | AES-256-GCM, unit tested |
-| Import service + controller | ✅ Done | CSV/OFX parsing, dedup, bulk insert |
+| Import service + controller | ✅ Done | CSV parsing, dedup, bulk insert |
 | Sync schedule service + controller | ✅ Done | CRUD, cron registration via SchedulerRegistry, credential encryption |
 | SyncSessionStore | ✅ Done | RxJS Subject bridge, MFA callbacks |
 | Scraper worker thread | ✅ Done | Phase 7b stub (returns `[]`); full architecture in place |
@@ -43,7 +45,7 @@ Phase 7 adds two major capabilities:
 
 | Capability | What it does |
 |------------|-------------|
-| **Transaction Import** | User uploads a CSV or OFX file; the backend parses it and bulk-inserts transactions, deduplicating against existing records. Returns a job record with row/imported/skipped counts. |
+| **Transaction Import** | User uploads a CSV file; the backend parses it and bulk-inserts transactions, deduplicating against existing records. Returns a job record with row/imported/skipped counts. |
 | **Automated Sync** | User creates a `SyncSchedule` linking an account to a bank institution. The backend runs a Playwright-based scraper on a schedule (or on demand), streams live status over SSE, and pauses for an in-app MFA code entry when challenged. |
 
 Both capabilities share the existing `scraper` backend module (alias `#scraper/*` already declared in `packages/backend/package.json`, directory currently empty). The frontend replaces the `ScraperPage` stub (route `/scraper` already registered).
@@ -359,7 +361,7 @@ packages/backend/src/scraper/
 │   └── crypto.service.ts          # AES-256-GCM encrypt/decrypt for credentials
 ├── import/
 │   ├── import.controller.ts       # POST /import/upload, GET /import, GET /import/:id
-│   ├── import.service.ts          # CSV/OFX parsing, bulk insert, dedup
+│   ├── import.service.ts          # CSV parsing, bulk insert, dedup
 │   ├── import-job-response.dto.ts
 │   ├── upload-import.dto.ts
 │   └── __TEST__/
@@ -489,7 +491,7 @@ export class RbcScraper implements BankScraper {
 
 ### Worker thread isolation
 
-`scraper.worker.ts` runs plugin code inside a `worker_thread`. The worker receives only `workerData: ScraperWorkerInput` — `DATABASE_URL`, `JWT_SECRET`, and all other env vars are **explicitly excluded** from the worker's `env` option. The plugin never touches the database; it only returns a raw `Buffer` (OFX/CSV bytes) to the main process, which then calls `ImportService.bulkInsert()`.
+`scraper.worker.ts` runs plugin code inside a `worker_thread`. The worker receives only `workerData: ScraperWorkerInput` — `DATABASE_URL`, `JWT_SECRET`, and all other env vars are **explicitly excluded** from the worker's `env` option. The plugin never touches the database; it only returns a raw `Buffer` (CSV bytes) to the main process, which then calls `ImportService.bulkInsert()`.
 
 MFA bridging between worker and main process:
 - Worker: `parentPort.postMessage({ type: 'mfa_required', prompt })`
@@ -511,7 +513,7 @@ All endpoints require `Authorization: Bearer <JWT>` (JwtAuthGuard). All response
 
 | Method | Route | Body | Response | Notes |
 |--------|-------|------|----------|-------|
-| `POST` | `/scraper/import/upload` | `multipart/form-data`: `file` (CSV/OFX), `accountId?` (string) | `201 ImportJobResponseDto` | File size limit: 5 MB. Parsing is synchronous for MVP (< 10 k rows). |
+| `POST` | `/scraper/import/upload` | `multipart/form-data`: `file` (CSV), `accountId?` (string) | `201 ImportJobResponseDto` | File size limit: 5 MB. Parsing is synchronous for MVP (< 10 k rows). |
 | `GET` | `/scraper/import` | — | `200 ImportJobResponseDto[]` | List all import jobs for the user, newest first. |
 | `GET` | `/scraper/import/:id` | — | `200 ImportJobResponseDto` | Status poll for a single job. |
 
@@ -521,7 +523,7 @@ All endpoints require `Authorization: Bearer <JWT>` (JwtAuthGuard). All response
   id: string;
   accountId: string | null;
   filename: string;
-  fileType: 'csv' | 'ofx';
+  fileType: 'csv';
   status: 'pending' | 'processing' | 'completed' | 'failed';
   rowCount: number;
   importedCount: number;
@@ -665,15 +667,14 @@ The following steps are ordered to be committed separately per the roadmap's "co
 
 ### Step 3 — ✅ Import service + controller *(copy skeleton from accounts; service logic built from scratch)*
 - `import.service.ts`:
-  - `upload(userId, file, accountId?)`: create `ImportJob` record (status=pending), parse CSV/OFX, bulk-upsert transactions with dedup, update job to completed/failed
+  - `upload(userId, file, accountId?)`: create `ImportJob` record (status=pending), parse CSV, bulk-upsert transactions with dedup, update job to completed/failed
   - CSV parsing: use `papaparse` (add dependency) — header row expected: `date,description,amount,type`
-  - OFX parsing: use `ofx` npm package (add dependency) — extract `STMTTRN` elements
   - Dedup query: `findFirst` by `{ userId, accountId, date, amount, description }`
 - `import.controller.ts`:
   - `POST /scraper/import/upload` — `@UseInterceptors(FileInterceptor('file'))`, guard file size ≤ 5 MB, `@Roles` not required beyond JWT
   - `GET /scraper/import` / `GET /scraper/import/:id`
 - Unit tests: mock PrismaService, test parse + insert + skip logic
-- **Commit**: `feat(backend): add ImportJob service with CSV/OFX parsing`
+- **Commit**: `feat(backend): add ImportJob service with CSV parsing`
 
 ### Step 4 — ✅ Sync schedule service + controller *(copy skeleton from accounts; diverges at credential handling)*
 
@@ -748,7 +749,7 @@ Add `APP_ROUTES.MFA = '/mfa'` to `src/config/constants.ts` for the deep-link MFA
 ```
 src/features/scraper/
 ├── components/
-│   ├── FileImportDropzone.tsx       # drag-and-drop + file button; CSV/OFX only
+│   ├── FileImportDropzone.tsx       # drag-and-drop + file button; CSV only
 │   ├── FileImportDropzone.module.css
 │   ├── ImportJobList.tsx            # table of past import jobs
 │   ├── ImportJobList.module.css
@@ -833,14 +834,14 @@ The hook manages `EventSource` lifecycle: opens on non-null `jobId`, closes on `
 
 | Layer | What to unit-test |
 |-------|------------------|
-| `ImportService` | CSV parse happy path, OFX parse happy path, dedup skip, file type detection, max-row guard |
+| `ImportService` | CSV parse happy path, dedup skip, file type detection, max-row guard |
 | `SyncScheduleService` | CRUD, credential never in response, ownership guard throws 404 |
 | `SyncJobService` | State machine transitions (idle→running, running→mfa_required, mfa_required→running→completed, running→failed) |
 | `CryptoService` | Encrypt/decrypt roundtrip; wrong key throws |
 | `SyncSseController` | SSE observable emits correct `MessageEvent` shapes; completes on `done` |
 | `ImportController` | File size guard 400, missing file 400, 201 on success |
 | Frontend: `useSyncStream` | Opens EventSource on non-null jobId; closes on unmount; parses events |
-| Frontend: `FileImportDropzone` | Rejects non-CSV/OFX via `accept`; renders state based on upload status |
+| Frontend: `FileImportDropzone` | Rejects non-CSV via `accept`; renders state based on upload status |
 | Frontend: `SyncStatusPanel` | Renders progress bar; calls onMfaRequired when mfa event received |
 | Frontend: `MfaModal` | Submits code; shows error on API failure; closes on success |
 | Frontend: `SyncScheduleForm` | Validates required fields; shows institution select |
@@ -860,7 +861,7 @@ See Section 10 (Frontend Test Scope).
 ### Backend
 ```bash
 # packages/backend
-npm install papaparse ofx @types/papaparse
+npm install papaparse @types/papaparse
 npm install cron-validator
 npm install web-push nodemailer @types/web-push @types/nodemailer
 npm install @nestjs/platform-express  # likely already present; for FileInterceptor/MulterModule
@@ -899,7 +900,6 @@ No new npm dependencies; `EventSource` is built-in.
 - At least one `Account` record owned by `testUser`
 - Sample files:
   - `sample-transactions.csv` (header: `date,description,amount,type`)
-  - `sample-transactions.ofx`
   - `malformed.csv` (missing header)
   - `too-large.csv` (> 5 MB)
 
@@ -907,8 +907,7 @@ No new npm dependencies; `EventSource` is built-in.
 - **Precondition**: valid JWT, `sample-transactions.csv`, optional `accountId`
 - **Expect**: `201`, body has `status: 'completed'`, `importedCount > 0`
 
-### TC-02 — POST /scraper/import/upload — valid OFX
-- **Expect**: `201`, `fileType: 'ofx'`, `importedCount > 0`
+### ~~TC-02 — POST /scraper/import/upload — valid OFX~~ *(removed — OFX import no longer supported)*
 
 ### TC-03 — POST /scraper/import/upload — malformed file
 - **Expect**: `201` (job created), body has `status: 'failed'`, `errorMessage` non-null
@@ -1026,10 +1025,9 @@ No new npm dependencies; `EventSource` is built-in.
 - Drag-and-drop a valid CSV onto the dropzone → dropzone shows accepted state
 - Click "Browse" button → file picker opens; selecting CSV starts upload
 - After successful upload: job row appears in `ImportJobList` with `completed` badge and non-zero `importedCount`
-- OFX file upload: same flow, badge shows `ofx`
 
 ### Import tab — File upload (error states)
-- Dropping a `.txt` file: dropzone rejects with "Only CSV or OFX files are accepted"
+- Dropping a `.txt` file: dropzone rejects with "Only CSV files are accepted"
 - Uploading oversized file (> 5 MB): error toast or inline message
 - Server error (mock 500): error message shown without crashing the page
 

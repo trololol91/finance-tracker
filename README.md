@@ -12,7 +12,7 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 - **Transactions** — income, expense, and transfer types; filtering, pagination, soft-delete, toggle active; FITID-based deduplication for imported data; pending transaction support
 - **Dashboard** — monthly income/expense/net balance summary, savings rate, spending by category, account balances, recent transactions
 - **Bank scraper system** — plugin-based architecture running scrapers in worker threads; built-in TD Bank scraper; external plugin support via `@finance-tracker/plugin-sdk`; admin controls to test and reload plugins
-- **File import** — CSV and OFX file upload with per-job status tracking (pending / processing / completed / failed)
+- **File import** — CSV file upload with per-job status tracking (pending / processing / completed / failed)
 - **Scheduled sync** — cron-based sync schedules per account with configurable lookback window; MFA challenge/response flow; sync job history
 - **Push notifications** — Web Push (VAPID) and email (SMTP) alerts when a bank sync requires MFA; per-user notification preferences
 - **Export tools** — CLI scripts for exporting transactions by week (TD and CIBC formats)
@@ -59,7 +59,7 @@ finance-tracker/
 │   │   │   │   ├── admin/      # Admin test/reload endpoints
 │   │   │   │   ├── banks/      # Built-in scrapers (TD)
 │   │   │   │   ├── crypto/     # Credential encryption
-│   │   │   │   ├── import/     # CSV/OFX file import
+│   │   │   │   ├── import/     # CSV file import
 │   │   │   │   └── sync/       # Cron schedules & sync jobs
 │   │   │   ├── transactions/   # Transaction CRUD & filtering
 │   │   │   └── users/          # User management & admin panel

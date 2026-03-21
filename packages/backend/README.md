@@ -188,7 +188,7 @@ packages/backend/
 │   │   ├── admin/          # Admin endpoints (test scraper, reload plugins)
 │   │   ├── banks/          # Built-in scrapers (TD)
 │   │   ├── crypto/         # AES credential encryption
-│   │   ├── import/         # CSV/OFX file import with job tracking
+│   │   ├── import/         # CSV file import with job tracking
 │   │   ├── interfaces/     # BankScraper plugin contract
 │   │   └── sync/           # Cron sync schedules, sync jobs, SSE status stream
 │   ├── transactions/       # Transaction CRUD, filtering, pagination, deduplication

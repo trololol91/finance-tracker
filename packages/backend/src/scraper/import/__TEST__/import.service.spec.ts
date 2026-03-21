@@ -237,7 +237,7 @@ describe('ImportService', () => {
                 };
                 vi.mocked(prisma.importJob.update).mockResolvedValue(failedJob);
 
-                const singleRowCsv = 'date,description,amount,type\n2026-01-p15,Coffee,-5.50,expense';
+                const singleRowCsv = 'date,description,amount,type\n2026-01-15,Coffee,-5.50,expense';
                 const file = makeFile({buffer: Buffer.from(singleRowCsv)});
                 const result = await service.upload(userId, file);
 
