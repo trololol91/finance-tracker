@@ -4,32 +4,21 @@ import {
     OnModuleInit
 } from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {constants} from 'fs';
 import {
-    readdir, access, readFile, cp
+    readdir, readFile
 } from 'fs/promises';
 import {join} from 'path';
-import {
-    pathToFileURL, fileURLToPath
-} from 'url';
+import {pathToFileURL} from 'url';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import {validatePlugin} from '@finance-tracker/plugin-sdk/testing';
-
-/**
- * Names of the built-in scraper workspace packages under packages/.
- * Each is copied in full (dist/ + node_modules/) to SCRAPER_PLUGIN_DIR/<bankId>/
- * during seeding, giving every plugin an isolated node_modules.
- */
-const BUILTIN_PLUGINS = ['scraper-cibc', 'scraper-stub'];
 
 /**
  * ScraperPluginLoader loads external BankScraper implementations from
  * the directory specified by the SCRAPER_PLUGIN_DIR environment variable.
  *
- * On module init it first seeds built-in plugins (cibc, stub) into
- * SCRAPER_PLUGIN_DIR if they are not already present (idempotent — an
- * operator-modified file is never overwritten). It then scans the directory
- * and registers all valid plugins into ScraperRegistry.
+ * On module init it scans the directory and registers all valid plugins
+ * into ScraperRegistry. Scrapers are distributed separately as zip files
+ * and are expected to be pre-installed in SCRAPER_PLUGIN_DIR by the operator.
  *
  * Called automatically on module init and by the admin reload endpoint
  * (POST /admin/scrapers/reload) to pick up newly installed plugins without
@@ -45,52 +34,7 @@ export class ScraperPluginLoader implements OnModuleInit {
     ) {}
 
     public async onModuleInit(): Promise<void> {
-        await this.seedBuiltins();
         await this.loadPlugins();
-    }
-
-    /**
-     * Copy each built-in plugin directory into SCRAPER_PLUGIN_DIR if it is not
-     * already present. An existing install (including an operator-modified one)
-     * is never overwritten — the copy is strictly copy-on-missing.
-     *
-     * Non-ENOENT filesystem errors (e.g. EACCES) are re-thrown so the
-     * operator is notified of permission problems at startup.
-     */
-    private async seedBuiltins(): Promise<void> {
-        const pluginDir = this.config.get<string>('SCRAPER_PLUGIN_DIR');
-
-        if (!pluginDir) {
-            this.logger.log('SCRAPER_PLUGIN_DIR not set — built-in plugin seeding skipped');
-            return;
-        }
-
-        // Compiled file lives at dist/scraper/ — four levels up reaches the repo root
-        const workspaceRoot = join(fileURLToPath(new URL('.', import.meta.url)), '../../../..');
-
-        await Promise.all(BUILTIN_PLUGINS.map(async pkgName => {
-            // 'scraper-cibc' → dest dir name 'cibc'
-            const bankId = pkgName.replace(/^scraper-/, '');
-            const srcDir = join(workspaceRoot, 'packages', pkgName);
-            const destDir = join(pluginDir, bankId);
-            // Skip seed if the compiled entry point already exists (idempotent)
-            const entryPoint = join(destDir, 'dist', 'index.js');
-
-            try {
-                await access(entryPoint, constants.F_OK);
-                this.logger.log(
-                    `Built-in plugin '${bankId}' already exists — skipping seed`
-                );
-            } catch (err) {
-                if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-                    throw err;
-                }
-                await cp(srcDir, destDir, {recursive: true});
-                this.logger.log(
-                    `Seeded built-in plugin '${bankId}' from '${srcDir}' → '${destDir}'`
-                );
-            }
-        }));
     }
 
     /**

@@ -12,20 +12,16 @@ import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
 import type {Dirent} from 'fs';
 
 // ---------------------------------------------------------------------------
-// fs and fs/promises mocks — vi.mock hoists to the top of the file
+// fs/promises mocks — vi.mock hoists to the top of the file
 // ---------------------------------------------------------------------------
-
-vi.mock('fs', () => ({constants: {F_OK: 0}}));
 
 vi.mock('fs/promises', () => ({
     readdir: vi.fn(),
-    access: vi.fn(),
-    cp: vi.fn().mockResolvedValue(undefined),
     readFile: vi.fn().mockRejectedValue(new Error('ENOENT'))
 }));
 
 import {
-    readdir, access, cp, readFile
+    readdir, readFile
 } from 'fs/promises';
 
 // ---------------------------------------------------------------------------
@@ -80,21 +76,7 @@ describe('ScraperPluginLoader', () => {
     // -----------------------------------------------------------------------
 
     describe('onModuleInit', () => {
-        it('should call seedBuiltins() before loadPlugins()', async () => {
-            const callOrder: string[] = [];
-            vi.spyOn(loader as unknown as {seedBuiltins: () => Promise<void>}, 'seedBuiltins')
-                .mockImplementation(() => { callOrder.push('seedBuiltins'); return Promise.resolve(); });
-            vi.spyOn(loader, 'loadPlugins')
-                .mockImplementation(() => { callOrder.push('loadPlugins'); return Promise.resolve(); });
-
-            await loader.onModuleInit();
-
-            expect(callOrder).toEqual(['seedBuiltins', 'loadPlugins']);
-        });
-
         it('should call loadPlugins()', async () => {
-            vi.spyOn(loader as unknown as {seedBuiltins: () => Promise<void>}, 'seedBuiltins')
-                .mockResolvedValue(undefined);
             const loadPluginsSpy = vi.spyOn(loader, 'loadPlugins').mockResolvedValue(undefined);
 
             await loader.onModuleInit();
@@ -331,114 +313,6 @@ describe('ScraperPluginLoader', () => {
             expect(loadModuleSpy).toHaveBeenNthCalledWith(
                 2, expect.stringMatching(/good[/\\]index\.js$/)
             );
-        });
-    });
-
-    // -----------------------------------------------------------------------
-    // seedBuiltins
-    // -----------------------------------------------------------------------
-
-    describe('seedBuiltins', () => {
-        // Helper to call the private method directly
-        const callSeedBuiltins = (l: ScraperPluginLoader) =>
-            (l as unknown as {seedBuiltins: () => Promise<void>}).seedBuiltins();
-
-        it('should return early without copying when SCRAPER_PLUGIN_DIR is not set', async () => {
-            mockConfig.get.mockReturnValue(undefined);
-
-            await callSeedBuiltins(loader);
-
-            expect(vi.mocked(access)).not.toHaveBeenCalled();
-            expect(vi.mocked(cp)).not.toHaveBeenCalled();
-        });
-
-        it('should skip copying a built-in plugin when it already exists in the plugin dir', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            vi.mocked(access).mockResolvedValue(undefined);
-
-            await callSeedBuiltins(loader);
-
-            expect(vi.mocked(cp)).not.toHaveBeenCalled();
-        });
-
-        it('should log a skip message when the built-in plugin is already present', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            vi.mocked(access).mockResolvedValue(undefined);
-            const logSpy = vi.spyOn((loader as unknown as {logger: {log: () => void}}).logger, 'log');
-
-            await callSeedBuiltins(loader);
-
-            expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/skip/i));
-        });
-
-        it('should copy a built-in plugin directory when it is not present in the plugin dir', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            const enoent = Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
-            vi.mocked(access).mockRejectedValue(enoent);
-
-            await callSeedBuiltins(loader);
-
-            expect(vi.mocked(cp)).toHaveBeenCalledWith(
-                expect.stringContaining('scraper-cibc'),
-                expect.stringContaining('plugins'),
-                {recursive: true}
-            );
-        });
-
-        it('should copy all built-in plugins on a clean install', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            const enoent = Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
-            vi.mocked(access).mockRejectedValue(enoent);
-
-            await callSeedBuiltins(loader);
-
-            // 2 built-in plugins: scraper-cibc, scraper-stub
-            expect(vi.mocked(cp)).toHaveBeenCalledTimes(2);
-        });
-
-        it('should not overwrite a plugin that already exists (idempotent)', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            const enoent = Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
-            // First plugin exists, second is missing — only one copy expected
-            vi.mocked(access)
-                .mockResolvedValueOnce(undefined)
-                .mockRejectedValueOnce(enoent);
-
-            await callSeedBuiltins(loader);
-
-            expect(vi.mocked(cp)).toHaveBeenCalledTimes(1);
-        });
-
-        it('should re-throw when access() fails with a non-ENOENT error', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            const permErr = Object.assign(new Error('EACCES'), {code: 'EACCES'});
-            vi.mocked(access).mockRejectedValue(permErr);
-
-            await expect(callSeedBuiltins(loader)).rejects.toThrow('EACCES');
-            expect(vi.mocked(cp)).not.toHaveBeenCalled();
-        });
-
-        it('should resolve built-in plugin paths relative to workspace packages dir', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            const enoent = Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
-            vi.mocked(access).mockRejectedValue(enoent);
-
-            await callSeedBuiltins(loader);
-
-            const [firstSrcArg] = vi.mocked(cp).mock.calls[0];
-            expect(firstSrcArg).toContain('scraper-cibc');
-        });
-
-        // TC-PL-01
-        it('should seed scraper-stub to plugin dir on clean install', async () => {
-            mockConfig.get.mockReturnValue('/plugins');
-            const enoent = Object.assign(new Error('ENOENT'), {code: 'ENOENT'});
-            vi.mocked(access).mockRejectedValue(enoent);
-
-            await callSeedBuiltins(loader);
-
-            const cpArgs = vi.mocked(cp).mock.calls.map(([src]) => src as string);
-            expect(cpArgs.some(src => src.includes('scraper-stub'))).toBe(true);
         });
     });
 
