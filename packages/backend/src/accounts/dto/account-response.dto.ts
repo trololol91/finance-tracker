@@ -55,7 +55,7 @@ export class AccountResponseDto {
     currentBalance!: number;
 
     @ApiProperty({
-        description: 'Total number of linked transactions (all states)',
+        description: 'Number of active (non-voided) linked transactions',
         example: 42
     })
     transactionCount!: number;

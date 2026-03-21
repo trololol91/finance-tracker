@@ -169,11 +169,8 @@ export class AccountsService {
      * Compute currentBalance and transactionCount for an account and return DTO.
      * currentBalance = openingBalance + Σ(active income) − Σ(active expense).
      * Transfers are excluded from balance calculation.
-     *
-     * NOTE: transactionCount includes ALL transactions (active and inactive),
-     * while currentBalance only sums active ones. This is intentional — the count
-     * is used for the hard/soft delete guard and for UI display purposes, while
-     * inactive transactions are excluded from the balance to reflect post-void state.
+     * transactionCount counts only active transactions for display purposes.
+     * The hard/soft delete guard in remove() uses its own _count.transactions (all states).
      */
     private async toDto(account: Account): Promise<AccountResponseDto> {
         const [sums, transactionCount] = await Promise.all([
@@ -187,7 +184,7 @@ export class AccountsService {
                 _sum: {amount: true}
             }),
             this.prisma.transaction.count({
-                where: {accountId: account.id}
+                where: {accountId: account.id, isActive: true}
             })
         ]);
 
