@@ -22,16 +22,18 @@ Edit `.env` and fill in at minimum:
 | `POSTGRES_USER` | Database username (e.g. `finance`) |
 | `POSTGRES_PASSWORD` | Strong random password (32+ chars) |
 | `JWT_SECRET` | Strong random secret (32+ chars) |
-| `VITE_API_URL` | **Browser-facing** URL of the backend API |
+| `VITE_API_BASE_URL` | **Browser-facing** URL of the backend API |
 
-> **Important — `VITE_API_URL`:** This value is baked into the frontend bundle at build time.
-> It must be the address your *browser* uses to reach port 3001, not an internal Docker hostname.
+> **Important — `VITE_API_BASE_URL`:** This must be the address your *browser* uses to reach
+> the backend API — not an internal Docker hostname.
 >
 > - Home server accessed by IP: `http://192.168.1.x:3001`
 > - Home server accessed by hostname: `http://myserver.local:3001`
+> - Subdomain routing: `https://finance-api.server.com`
 > - Local machine only: `http://localhost:3001`
 >
-> If you change this value later, you must rebuild the frontend image (`docker compose build frontend`).
+> The value is injected at container startup (not baked into the image), so you can change it
+> in `.env` and restart the frontend container without rebuilding: `docker compose restart frontend`.
 
 ### 3. Back Up `.env` Securely
 
@@ -44,7 +46,18 @@ The `.env` file contains your secrets. Store a copy on an encrypted USB drive or
 docker compose up -d --build
 ```
 
-### 5. Verify
+### 5. Install Playwright Browsers
+
+The scraper feature requires Chromium. Browser binaries are stored in a Docker volume (not
+the image) and only need to be installed once:
+
+```bash
+docker compose exec backend npx playwright install chromium
+```
+
+> Skip this step if you don't use the bank scraper feature.
+
+### 6. Verify
 
 ```bash
 docker compose ps                    # all services should show "healthy"
@@ -81,7 +94,7 @@ curl http://localhost:3001/health
 - Prisma runs `migrate deploy` automatically on every backend startup — safe to re-run.
 - If a migration fails, the backend container will exit with a non-zero code.
   Restore the backup, investigate with `docker compose logs backend`, then redeploy.
-- If `VITE_API_URL` is unchanged, Docker's layer cache makes the frontend rebuild fast.
+- If Playwright was upgraded, reinstall the browser: `docker compose exec backend npx playwright install chromium`
 
 ---
 
@@ -151,11 +164,22 @@ docker compose exec backend npx prisma migrate deploy
 
 ### Frontend shows "Network Error" or blank page
 
-The most common cause is a wrong `VITE_API_URL`. Check that:
+The most common cause is a wrong `VITE_API_BASE_URL`. Check that:
 
 1. The value in `.env` matches the address your browser uses to reach the backend.
-2. The frontend image was rebuilt after changing the value (`docker compose build frontend`).
+2. The frontend container was restarted after changing the value: `docker compose restart frontend`.
 3. The backend is healthy: `curl http://localhost:3001/health`.
+
+### Scraper fails — "Executable doesn't exist" or browser won't launch
+
+Playwright browsers are not bundled in the image. Install them:
+
+```bash
+docker compose exec backend npx playwright install chromium
+```
+
+If the `playwright_browsers` volume was deleted, this will re-download (~300 MB).
+For headless:false scrapers, Xvfb is started automatically — no extra steps needed.
 
 ### Password authentication failed for PostgreSQL
 

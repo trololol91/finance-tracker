@@ -66,7 +66,16 @@ RUN npm run build -w packages/backend
 # ---- Stage 2: Production -----------------------------------------------------
 FROM node:24.13.0-alpine AS production
 
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache \
+    dumb-init \
+    xvfb \
+    # Fonts and libs required by Chromium when running with headless:false
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    fontconfig
 
 # Non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -117,4 +126,6 @@ ENTRYPOINT ["dumb-init", "--"]
 
 # Run from WORKDIR so that the four-level-up path in seedBuiltins() resolves
 # packages/scraper-{cibc,stub}/ relative to /usr/src/app.
-CMD ["node", "packages/backend/dist/main.js"]
+# xvfb-run provides a virtual display for scrapers running with headless:false.
+# When PLAYWRIGHT_HEADLESS=true the display is unused but costs nothing.
+CMD ["xvfb-run", "-a", "node", "packages/backend/dist/main.js"]
