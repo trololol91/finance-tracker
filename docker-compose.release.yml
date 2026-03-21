@@ -32,7 +32,8 @@ services:
             - nest-network
 
     backend:
-        image: ${REGISTRY:-ghcr.io/yourusername}/finance-tracker-backend:${IMAGE_TAG:-latest}
+        # Updated automatically by scripts/publish.sh — do not edit by hand.
+        image: ghcr.io/yourusername/finance-tracker-backend:latest
         container_name: finance-tracker-backend
         restart: unless-stopped
         ports:
@@ -62,7 +63,8 @@ services:
             - nest-network
 
     frontend:
-        image: ${REGISTRY:-ghcr.io/yourusername}/finance-tracker-frontend:${IMAGE_TAG:-latest}
+        # Updated automatically by scripts/publish.sh — do not edit by hand.
+        image: ghcr.io/yourusername/finance-tracker-frontend:latest
         container_name: finance-tracker-frontend
         restart: unless-stopped
         ports:

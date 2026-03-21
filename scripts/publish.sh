@@ -1,9 +1,9 @@
 #!/bin/bash
-# Publish backend and frontend images to the container registry.
+# Publish backend and frontend images to the container registry,
+# then update docker-compose.release.yml with the new image references.
 #
 # Usage:
-#   ./scripts/publish.sh                  # publishes as :latest
-#   ./scripts/publish.sh 1.2.0            # publishes as :1.2.0 and :latest
+#   ./scripts/publish.sh 1.2.0
 #
 # Prerequisites:
 #   docker login ghcr.io   (or your registry of choice)
@@ -17,47 +17,49 @@ REGISTRY="${REGISTRY:-ghcr.io/yourusername}"
 VERSION="${1:-}"
 
 if [ -z "$VERSION" ]; then
-  echo "No version specified — tagging as :latest only"
-  TAGS=("latest")
-else
-  echo "Publishing version $VERSION"
-  TAGS=("$VERSION" "latest")
+  echo "Error: version required. Usage: ./scripts/publish.sh 1.2.0"
+  exit 1
 fi
-
-# Build args for the tag flags
-TAG_ARGS_BACKEND=""
-TAG_ARGS_FRONTEND=""
-for TAG in "${TAGS[@]}"; do
-  TAG_ARGS_BACKEND="$TAG_ARGS_BACKEND -t $REGISTRY/finance-tracker-backend:$TAG"
-  TAG_ARGS_FRONTEND="$TAG_ARGS_FRONTEND -t $REGISTRY/finance-tracker-frontend:$TAG"
-done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 echo ""
 echo "==> Building backend image..."
-docker build $TAG_ARGS_BACKEND .
+docker build \
+  -t "$REGISTRY/finance-tracker-backend:$VERSION" \
+  -t "$REGISTRY/finance-tracker-backend:latest" \
+  .
 
 echo ""
 echo "==> Building frontend image..."
-docker build $TAG_ARGS_FRONTEND -f packages/frontend/Dockerfile .
+docker build \
+  -t "$REGISTRY/finance-tracker-frontend:$VERSION" \
+  -t "$REGISTRY/finance-tracker-frontend:latest" \
+  -f packages/frontend/Dockerfile .
 
 echo ""
 echo "==> Pushing backend..."
-for TAG in "${TAGS[@]}"; do
-  docker push "$REGISTRY/finance-tracker-backend:$TAG"
-done
+docker push "$REGISTRY/finance-tracker-backend:$VERSION"
+docker push "$REGISTRY/finance-tracker-backend:latest"
 
 echo ""
 echo "==> Pushing frontend..."
-for TAG in "${TAGS[@]}"; do
-  docker push "$REGISTRY/finance-tracker-frontend:$TAG"
-done
+docker push "$REGISTRY/finance-tracker-frontend:$VERSION"
+docker push "$REGISTRY/finance-tracker-frontend:latest"
 
 echo ""
-echo "Done. Images published:"
-for TAG in "${TAGS[@]}"; do
-  echo "  $REGISTRY/finance-tracker-backend:$TAG"
-  echo "  $REGISTRY/finance-tracker-frontend:$TAG"
-done
+echo "==> Updating docker-compose.release.yml..."
+sed -i \
+  "s|image: .*/finance-tracker-backend:.*|image: $REGISTRY/finance-tracker-backend:$VERSION|" \
+  docker-compose.release.yml
+sed -i \
+  "s|image: .*/finance-tracker-frontend:.*|image: $REGISTRY/finance-tracker-frontend:$VERSION|" \
+  docker-compose.release.yml
+
+echo ""
+echo "Done. Images published and docker-compose.release.yml updated to $VERSION."
+echo "Commit and tag the release:"
+echo "  git add docker-compose.release.yml"
+echo "  git commit -m \"chore(release): $VERSION\""
+echo "  git tag v$VERSION"
