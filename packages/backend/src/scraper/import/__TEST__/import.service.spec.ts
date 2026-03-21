@@ -35,52 +35,9 @@ const VALID_CSV = `date,description,amount,type
 2026-01-16,Salary,3000.00,income
 2026-01-17,Transfer,-100.00,transfer`;
 
-const VALID_OFX_CREDIT_CARD = `<OFX>
-<CREDITCARDMSGSRSV1>
-<CCSTMTTRNRS>
-<CCSTMTRS>
-<BANKTRANLIST>
-<STMTTRN>
-<TRNTYPE>DEBIT</TRNTYPE>
-<DTPOSTED>20260115120000</DTPOSTED>
-<TRNAMT>-42.00</TRNAMT>
-<FITID>CC001</FITID>
-<NAME>Coffee Shop</NAME>
-</STMTTRN>
-</BANKTRANLIST>
-</CCSTMTRS>
-</CCSTMTTRNRS>
-</CREDITCARDMSGSRSV1>
-</OFX>`;
-
 const CSV_UNKNOWN_TYPE = `date,description,amount,type
 2026-01-15,Starbucks,-5.50,debit
 2026-01-16,Salary,3000.00,credit`;
-
-const VALID_OFX = `<OFX>
-<BANKMSGSRSV1>
-<STMTTRNRS>
-<STMTRS>
-<BANKTRANLIST>
-<STMTTRN>
-<TRNTYPE>DEBIT</TRNTYPE>
-<DTPOSTED>20260115120000</DTPOSTED>
-<TRNAMT>-5.50</TRNAMT>
-<FITID>FITID001</FITID>
-<NAME>Starbucks</NAME>
-</STMTTRN>
-<STMTTRN>
-<TRNTYPE>CREDIT</TRNTYPE>
-<DTPOSTED>20260116120000</DTPOSTED>
-<TRNAMT>3000.00</TRNAMT>
-<FITID>FITID002</FITID>
-<NAME>Salary</NAME>
-</STMTTRN>
-</BANKTRANLIST>
-</STMTRS>
-</STMTTRNRS>
-</BANKMSGSRSV1>
-</OFX>`;
 
 const mockJobBase = {
     id: 'job-uuid-1',
@@ -419,103 +376,6 @@ describe('ImportService', () => {
             });
         });
 
-        describe('OFX', () => {
-            beforeEach(() => {
-                vi.mocked(prisma.importJob.create).mockResolvedValue({
-                    ...mockJobBase,
-                    filename: 'transactions.ofx',
-                    fileType: FileType.ofx,
-                    status: 'processing'
-                });
-                vi.mocked(prisma.transaction.findFirst).mockResolvedValue(null);
-                vi.mocked(prisma.transaction.create).mockResolvedValue({} as never);
-            });
-
-            it('should parse OFX and return completed job with correct counts', async () => {
-                const completedJob = {
-                    ...mockJobBase,
-                    filename: 'transactions.ofx',
-                    fileType: FileType.ofx,
-                    status: ImportStatus.completed,
-                    rowCount: 2,
-                    importedCount: 2,
-                    skippedCount: 0
-                };
-                vi.mocked(prisma.importJob.update).mockResolvedValue(completedJob);
-
-                const file = makeFile({
-                    originalname: 'transactions.ofx',
-                    mimetype: 'application/x-ofx',
-                    buffer: Buffer.from(VALID_OFX)
-                });
-                const result = await service.upload(userId, file);
-
-                expect(result.status).toBe('completed');
-                expect(result.fileType).toBe('ofx');
-                expect(result.rowCount).toBe(2);
-            });
-
-            it('should use fitid for dedup when present in OFX', async () => {
-                // Return existing match on first findFirst (fitid lookup) → skipped
-                vi.mocked(prisma.transaction.findFirst).mockResolvedValue({id: 'existing'} as never);
-                const skippedJob = {
-                    ...mockJobBase,
-                    filename: 'transactions.ofx',
-                    fileType: FileType.ofx,
-                    status: ImportStatus.completed,
-                    rowCount: 2,
-                    importedCount: 0,
-                    skippedCount: 2
-                };
-                vi.mocked(prisma.importJob.update).mockResolvedValue(skippedJob);
-
-                const file = makeFile({
-                    originalname: 'transactions.ofx',
-                    mimetype: 'application/x-ofx',
-                    buffer: Buffer.from(VALID_OFX)
-                });
-                const result = await service.upload(userId, file);
-
-                expect(result.skippedCount).toBe(2);
-            });
-
-            it('should mark job as failed when OFX is malformed', async () => {
-                const failedJob = {...mockJobBase, filename: 'bad.ofx', fileType: FileType.ofx, status: ImportStatus.failed, errorMessage: 'OFX parse error'};
-                vi.mocked(prisma.importJob.update).mockResolvedValue(failedJob);
-
-                const file = makeFile({
-                    originalname: 'bad.ofx',
-                    mimetype: 'application/x-ofx',
-                    buffer: Buffer.from('NOT VALID OFX CONTENT <<<>>>')
-                });
-                await service.upload(userId, file);
-                // Either failed or 0 rows (empty OFX)
-                expect(prisma.importJob.update).toHaveBeenCalled();
-            });
-
-            it('should parse credit card OFX (CREDITCARDMSGSRSV1) and import transactions', async () => {
-                const completedJob = {
-                    ...mockJobBase,
-                    filename: 'credit.ofx',
-                    fileType: FileType.ofx,
-                    status: ImportStatus.completed,
-                    rowCount: 1,
-                    importedCount: 1,
-                    skippedCount: 0
-                };
-                vi.mocked(prisma.importJob.update).mockResolvedValue(completedJob);
-
-                const file = makeFile({
-                    originalname: 'credit.ofx',
-                    mimetype: 'application/x-ofx',
-                    buffer: Buffer.from(VALID_OFX_CREDIT_CARD)
-                });
-                const result = await service.upload(userId, file);
-
-                expect(result.rowCount).toBe(1);
-                expect(prisma.transaction.create).toHaveBeenCalledTimes(1);
-            });
-        });
     });
 
     // -------------------------------------------------------------------------

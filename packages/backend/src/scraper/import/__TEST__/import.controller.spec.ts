@@ -86,19 +86,11 @@ describe('ImportController', () => {
             expect(ImportController.isFileAllowed({mimetype: 'text/csv', originalname: 'a.csv'})).toBe(true);
         });
 
-        it('should accept a file with application/x-ofx mimetype', () => {
-            expect(ImportController.isFileAllowed({mimetype: 'application/x-ofx', originalname: 'a.ofx'})).toBe(true);
-        });
-
         it('should accept a .csv file even with octet-stream mimetype', () => {
             expect(ImportController.isFileAllowed({mimetype: 'application/octet-stream', originalname: 'data.csv'})).toBe(true);
         });
 
-        it('should accept a .ofx file even with unknown mimetype', () => {
-            expect(ImportController.isFileAllowed({mimetype: 'text/plain', originalname: 'bank.ofx'})).toBe(true);
-        });
-
-        it('should reject a non-CSV, non-OFX file', () => {
+        it('should reject a non-CSV file', () => {
             expect(ImportController.isFileAllowed({mimetype: 'image/png', originalname: 'photo.png'})).toBe(false);
         });
     });

@@ -34,7 +34,6 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIMETYPES = [
     'text/csv',
     'application/csv',
-    'application/x-ofx',
     'application/octet-stream'
 ];
 
@@ -50,12 +49,11 @@ export class ImportController {
         const ext = file.originalname.toLowerCase();
         return (
             ALLOWED_MIMETYPES.includes(file.mimetype) ||
-            ext.endsWith('.csv') ||
-            ext.endsWith('.ofx')
+            ext.endsWith('.csv')
         );
     }
 
-    /** Multer fileFilter callback — accepts CSV/OFX, rejects everything else. */
+    /** Multer fileFilter callback — accepts CSV, rejects everything else. */
     public static fileFilter(
         _req: unknown,
         file: {mimetype: string, originalname: string},
@@ -64,12 +62,12 @@ export class ImportController {
         if (ImportController.isFileAllowed(file)) {
             cb(null, true);
         } else {
-            cb(new BadRequestException('Only CSV and OFX files are accepted'), false);
+            cb(new BadRequestException('Only CSV files are accepted'), false);
         }
     }
 
     /**
-     * Upload a CSV or OFX file for import.
+     * Upload a CSV file for import.
      * POST /scraper/import/upload
      */
     @Post('upload')
@@ -83,7 +81,7 @@ export class ImportController {
     )
     @ApiConsumes('multipart/form-data')
     @ApiBody({
-        description: 'CSV or OFX file upload',
+        description: 'CSV file upload',
         schema: {
             type: 'object',
             properties: {
@@ -96,7 +94,7 @@ export class ImportController {
     @ApiOperation({
         summary: 'Upload transactions file',
         description:
-            'Upload a CSV or OFX file to import transactions. ' +
+            'Upload a CSV file to import transactions. ' +
             'File size limit: 5 MB. Returns the created ImportJob with parse results.'
     })
     @ApiResponse({status: 201, description: 'Import job created', type: ImportJobResponseDto})

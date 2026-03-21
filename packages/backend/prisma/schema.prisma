@@ -48,7 +48,6 @@ enum SyncRunStatus {
 
 enum FileType {
   csv
-  ofx
 }
 
 model User {

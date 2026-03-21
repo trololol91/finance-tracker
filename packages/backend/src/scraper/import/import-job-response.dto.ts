@@ -11,7 +11,7 @@ export class ImportJobResponseDto {
     @ApiProperty({description: 'Original filename', example: 'transactions.csv'})
     public filename!: string;
 
-    @ApiProperty({description: 'File type', enum: ['csv', 'ofx'], example: 'csv'})
+    @ApiProperty({description: 'File type', enum: ['csv'], example: 'csv'})
     public fileType!: string;
 
     @ApiProperty({description: 'Parse / import status', enum: ['pending', 'processing', 'completed', 'failed']})
