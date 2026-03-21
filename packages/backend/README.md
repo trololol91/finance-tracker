@@ -176,31 +176,28 @@ npm run build          # Compile to dist/
 ```
 packages/backend/
 ├── src/
-│   ├── accounts/           # Account management module
-│   ├── ai/                 # AI categorization module
-│   ├── auth/               # Authentication module
-│   ├── budgets/            # Budget tracking module
-│   ├── categories/         # Transaction categories module
+│   ├── accounts/           # Account CRUD (checking, savings, credit, investment, loan)
+│   ├── auth/               # JWT authentication (login, register, guards, strategies)
+│   ├── categories/         # Hierarchical categories with color/icon support
 │   ├── common/             # Shared utilities
-│   │   ├── decorators/     # Custom decorators
-│   │   ├── filters/        # Exception filters
-│   │   ├── guards/         # Auth guards
-│   │   └── interceptors/   # HTTP interceptors
-│   ├── config/             # Configuration module
-│   ├── database/           # Database module (Prisma + PostgreSQL)
-│   ├── integrations/       # External integrations
-│   │   └── google-drive/   # Google Drive integration
-│   ├── reports/            # Financial reports module
-│   ├── scraper/            # Data scraper module
-│   ├── transactions/       # Transaction management
-│   ├── users/              # User management
+│   │   └── guards/         # AdminGuard, OwnershipGuard, JwtAuthGuard
+│   ├── dashboard/          # Monthly summary, spending by category, account balances
+│   ├── database/           # Prisma service
+│   ├── push/               # Web Push (VAPID) + email (SMTP) notifications for MFA
+│   ├── scraper/            # Plugin-based bank scraper system
+│   │   ├── admin/          # Admin endpoints (test scraper, reload plugins)
+│   │   ├── banks/          # Built-in scrapers (TD)
+│   │   ├── crypto/         # AES credential encryption
+│   │   ├── import/         # CSV/OFX file import with job tracking
+│   │   ├── interfaces/     # BankScraper plugin contract
+│   │   └── sync/           # Cron sync schedules, sync jobs, SSE status stream
+│   ├── transactions/       # Transaction CRUD, filtering, pagination, deduplication
+│   ├── users/              # User management, profile, admin panel
 │   ├── app.module.ts       # Root module
-│   ├── app.controller.ts   # Root controller
+│   ├── app.controller.ts   # Root controller (health check)
 │   ├── app.service.ts      # Root service
 │   └── main.ts             # Entry point
-├── test/                   # E2E tests
-├── database/               # Database initialization scripts
-│   └── init/               # SQL initialization files
+├── prisma/                 # Prisma schema and migrations
 ├── dist/                   # Compiled output
 ├── Dockerfile              # Production container
 ├── .dockerignore           # Docker ignore rules
@@ -392,7 +389,9 @@ See root [Docker Setup Guide](../../docs/docker-setup.md) for production deploym
 
 ## API Documentation
 
-(To be added - Swagger/OpenAPI integration planned)
+Swagger UI is available at **http://localhost:3001/api** when the backend is running.
+
+The raw OpenAPI JSON spec is served at **http://localhost:3001/api-json** — used by the frontend's `npm run generate:api:live` to regenerate the Orval API client.
 
 ## Contributing
 

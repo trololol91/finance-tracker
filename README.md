@@ -15,7 +15,6 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 - **File import** — CSV and OFX file upload with per-job status tracking (pending / processing / completed / failed)
 - **Scheduled sync** — cron-based sync schedules per account with configurable lookback window; MFA challenge/response flow; sync job history
 - **Push notifications** — Web Push (VAPID) and email (SMTP) alerts when a bank sync requires MFA; per-user notification preferences
-- **Google Drive integration** — optional Google Drive directory service
 - **Export tools** — CLI scripts for exporting transactions by week (TD and CIBC formats)
 
 ### Frontend
@@ -55,8 +54,6 @@ finance-tracker/
 │   │   │   ├── common/         # Shared guards, decorators
 │   │   │   ├── dashboard/      # Monthly summary & spending breakdown
 │   │   │   ├── database/       # Prisma service
-│   │   │   ├── integrations/
-│   │   │   │   └── google-drive/
 │   │   │   ├── push/           # Web Push + email notifications
 │   │   │   ├── scraper/        # Plugin-based bank scraper
 │   │   │   │   ├── admin/      # Admin test/reload endpoints
