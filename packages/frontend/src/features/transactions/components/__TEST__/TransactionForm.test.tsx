@@ -235,8 +235,8 @@ describe('TransactionForm', () => {
 
     describe('error display', () => {
         it('shows amount error message', () => {
-            render(<TransactionForm {...defaultProps} errors={{amount: 'Amount must be positive'}} />);
-            expect(screen.getByText('Amount must be positive')).toBeInTheDocument();
+            render(<TransactionForm {...defaultProps} errors={{amount: 'Amount must not be zero'}} />);
+            expect(screen.getByText('Amount must not be zero')).toBeInTheDocument();
         });
 
         it('shows description error message', () => {

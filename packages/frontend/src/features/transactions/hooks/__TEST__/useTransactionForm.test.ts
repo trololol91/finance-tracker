@@ -197,14 +197,21 @@ describe('useTransactionForm', () => {
         it('sets an error when amount is empty', () => {
             const {result} = setupHook();
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            expect(result.current.errors.amount).toMatch(/positive/i);
+            expect(result.current.errors.amount).toMatch(/zero/i);
         });
 
         it('sets an error when amount is zero', () => {
             const {result} = setupHook();
             act(() => { result.current.handleFieldChange('amount', '0'); });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            expect(result.current.errors.amount).toMatch(/positive/i);
+            expect(result.current.errors.amount).toMatch(/zero/i);
+        });
+
+        it('allows negative amounts', () => {
+            const {result} = setupHook();
+            act(() => { result.current.handleFieldChange('amount', '-42.50'); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.amount).toBeUndefined();
         });
 
         it('sets an error when description is empty', () => {
@@ -229,7 +236,7 @@ describe('useTransactionForm', () => {
             const {result} = setupHook();
             act(() => { result.current.handleFieldChange('amount', 'abc'); });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            expect(result.current.errors.amount).toMatch(/positive/i);
+            expect(result.current.errors.amount).toMatch(/zero/i);
         });
 
         it('does not call createTransaction when validation fails', () => {
@@ -370,6 +377,23 @@ describe('useTransactionForm', () => {
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(onSuccess).toHaveBeenCalledOnce();
         });
+
+        it('sends null for empty notes, categoryId, and accountId on update', () => {
+            const mockUpdateMutate = vi.fn();
+            mockUpdate.mockReturnValue(makeUpdate(mockUpdateMutate));
+
+            const {result} = setupHook();
+            act(() => {
+                const tx = {...mockTx, notes: null, categoryId: null, accountId: null};
+                result.current.openEdit(tx);
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            type Call = [{id: string, data: Record<string, unknown>}];
+            const [{data}] = mockUpdateMutate.mock.calls[0] as Call;
+            expect(data.notes).toBeNull();
+            expect(data.categoryId).toBeNull();
+            expect(data.accountId).toBeNull();
+        });
     });
 
     describe('isSubmitting', () => {
@@ -388,36 +412,6 @@ describe('useTransactionForm', () => {
         it('is false when neither mutation is pending', () => {
             const {result} = setupHook();
             expect(result.current.isSubmitting).toBe(false);
-        });
-    });
-
-    describe('custom queryKey', () => {
-        it('uses provided queryKey when invalidating after successful create', () => {
-            const onSuccess = vi.fn();
-            type MutateArgs = [unknown, {onSuccess: () => void}];
-            const mockMutate = vi.fn((...[, {onSuccess: cb}]: MutateArgs) => { cb(); });
-            mockCreate.mockReturnValue(makeCreate(mockMutate));
-
-            // Expose the QueryClient so we can spy on it
-            const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
-            const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-            const wrapper = ({children}: {children: React.ReactNode}): React.JSX.Element =>
-                React.createElement(QueryClientProvider, {client: qc}, children);
-
-            const {result} = renderHook(
-                () => useTransactionForm({onSuccess, queryKey: ['custom-key']}),
-                {wrapper}
-            );
-            act(() => {
-                result.current.handleFieldChange('amount', '10');
-                result.current.handleFieldChange('description', 'Item');
-                result.current.handleFieldChange('date', '2026-02-15');
-            });
-            act(() => { result.current.handleSubmit(fakeEvent()); });
-            expect(invalidateSpy).toHaveBeenCalledWith(
-                expect.objectContaining({queryKey: ['custom-key']})
-            );
-            expect(onSuccess).toHaveBeenCalledOnce();
         });
     });
 

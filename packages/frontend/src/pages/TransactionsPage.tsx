@@ -27,7 +27,7 @@ export const TransactionsPage = (): React.JSX.Element => {
 
     const {
         filters, apiParams, data, isLoading, isError,
-        updateFilter, setDateRange, clearFilters, setPage, queryKey
+        updateFilter, setDateRange, clearFilters, setPage
     } = useTransactionFilters();
 
     // Fetch categories for form select, list column, and filter dropdown.
@@ -45,7 +45,7 @@ export const TransactionsPage = (): React.JSX.Element => {
     const {
         formValues, errors, editTarget, isSubmitting,
         openCreate, openEdit, handleFieldChange, handleSubmit
-    } = useTransactionForm({onSuccess: handleSuccess, queryKey});
+    } = useTransactionForm({onSuccess: handleSuccess});
 
     const {mutate: removeTransaction} = useTransactionsControllerRemove();
     const {mutate: toggleActive} = useTransactionsControllerToggleActive();

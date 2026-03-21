@@ -33,20 +33,20 @@ const validateForm = (
 ): boolean => {
     const newErrors: FormErrors = {};
     const amount = parseFloat(values.amount);
-    if (isNaN(amount) || amount <= 0) newErrors.amount = 'Amount must be a positive number';
+    if (isNaN(amount) || amount === 0) newErrors.amount = 'Amount must not be zero';
     if (values.description.trim() === '') newErrors.description = 'Description is required';
     if (values.date === '') newErrors.date = 'Date is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
 };
 
-// accountId cannot be changed after creation; categoryId can always be updated.
 const buildUpdateDto = (values: TransactionFormValues): UpdateTransactionDto => ({
     amount: parseFloat(values.amount),
     description: values.description.trim(),
     notes: values.notes.trim() !== '' ? values.notes.trim() : null,
     date: new Date(values.date + 'T12:00:00').toISOString(),
-    categoryId: values.categoryId !== '' ? values.categoryId : null
+    categoryId: values.categoryId !== '' ? values.categoryId : null,
+    accountId: values.accountId !== '' ? values.accountId : null
 });
 
 const buildCreateDto = (values: TransactionFormValues): CreateTransactionDto => ({
@@ -62,8 +62,6 @@ const buildCreateDto = (values: TransactionFormValues): CreateTransactionDto => 
 interface UseTransactionFormProps {
     /** Called after a successful create or update so the caller can close the modal. */
     onSuccess: () => void;
-    /** Query key to invalidate on mutation success. */
-    queryKey?: readonly unknown[];
 }
 
 interface UseTransactionFormReturn {
@@ -82,8 +80,7 @@ interface UseTransactionFormReturn {
  * Uses Orval mutation hooks internally.
  */
 export const useTransactionForm = ({
-    onSuccess,
-    queryKey
+    onSuccess
 }: UseTransactionFormProps): UseTransactionFormReturn => {
     const queryClient = useQueryClient();
     const [formValues, setFormValues] = useState<TransactionFormValues>(EMPTY_FORM);
@@ -127,7 +124,7 @@ export const useTransactionForm = ({
             if (!validateForm(formValues, setErrors)) return;
             const afterSave = (): void => {
                 void queryClient.invalidateQueries({
-                    queryKey: queryKey ?? getTransactionsControllerFindAllQueryKey(),
+                    queryKey: getTransactionsControllerFindAllQueryKey(),
                     exact: false
                 });
                 void queryClient.invalidateQueries({
@@ -154,7 +151,6 @@ export const useTransactionForm = ({
             createTransaction,
             updateTransaction,
             onSuccess,
-            queryKey,
             queryClient
         ]
     );

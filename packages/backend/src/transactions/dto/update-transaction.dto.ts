@@ -1,6 +1,5 @@
 import {
     IsNumber,
-    IsPositive,
     IsString,
     IsNotEmpty,
     IsOptional,
@@ -19,7 +18,6 @@ export class UpdateTransactionDto {
         type: Number
     })
     @IsNumber({maxDecimalPlaces: 2})
-    @IsPositive()
     @Type(() => Number)
     @IsOptional()
     amount?: number;
