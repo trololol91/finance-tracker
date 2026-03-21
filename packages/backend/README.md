@@ -407,4 +407,4 @@ See root [Contributing Guide](../../.github/copilot-instructions.md) for guideli
 
 ## License
 
-UNLICENSED - Private project
+Apache 2.0 — applies to all versions of this project from the initial commit onward.

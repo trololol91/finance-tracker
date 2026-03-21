@@ -130,7 +130,7 @@ POSTGRES_DB=finance_tracker
 
 ## License
 
-This project is licensed under the ISC License - see the LICENSE file for details.
+Apache 2.0 — applies to all versions of this project from the initial commit onward.
 
 ## Contributing
 
