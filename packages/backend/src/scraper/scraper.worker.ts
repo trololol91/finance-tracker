@@ -100,7 +100,7 @@ try {
                     date: new Date(t.date),
                     originalDate: new Date(t.date),
                     description: t.description,
-                    amount: t.amount,
+                    amount: Math.abs(t.amount),
                     transactionType: t.amount >= 0 ? 'income' : 'expense',
                     isActive: true,
                     isPending: t.pending
