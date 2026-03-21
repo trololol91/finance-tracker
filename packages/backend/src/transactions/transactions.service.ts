@@ -42,7 +42,7 @@ export class TransactionsService {
         return this.prisma.transaction.create({
             data: {
                 userId,
-                amount: createDto.amount,
+                amount: Math.abs(createDto.amount),
                 description: createDto.description,
                 notes: createDto.notes ?? null,
                 categoryId: createDto.categoryId ?? null,
@@ -112,7 +112,7 @@ export class TransactionsService {
         return this.prisma.transaction.update({
             where: {id: transactionId},
             data: {
-                ...(updateDto.amount !== undefined && {amount: updateDto.amount}),
+                ...(updateDto.amount !== undefined && {amount: Math.abs(updateDto.amount)}),
                 ...(updateDto.description !== undefined && {description: updateDto.description}),
                 ...(updateDto.notes !== undefined && {notes: updateDto.notes}),
                 ...(updateDto.categoryId !== undefined && {categoryId: updateDto.categoryId}),
