@@ -46,7 +46,26 @@ The `.env` file contains your secrets. Store a copy on an encrypted USB drive or
 docker compose up -d --build
 ```
 
-### 5. Install Playwright Browsers
+### 5. Create Your Admin Account
+
+Register via the API, then promote the account to admin directly in the database:
+
+```bash
+# Register
+curl -X POST http://localhost:3001/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"yourpassword","name":"Your Name"}'
+
+# Promote to admin
+source .env
+docker compose exec postgres psql -U $POSTGRES_USER $POSTGRES_DB \
+  -c "UPDATE \"User\" SET role='ADMIN' WHERE email='you@example.com';"
+```
+
+> Do not run the dev seed (`prisma db seed`) in production — it creates accounts with
+> known default passwords.
+
+### 6. Install Playwright Browsers
 
 The scraper feature requires Chromium. Browser binaries are stored in a Docker volume (not
 the image) and only need to be installed once:
@@ -57,7 +76,7 @@ docker compose exec backend npx playwright install chromium
 
 > Skip this step if you don't use the bank scraper feature.
 
-### 6. Verify
+### 7. Verify
 
 ```bash
 docker compose ps                    # all services should show "healthy"
