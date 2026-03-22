@@ -9,7 +9,7 @@ COPY packages/frontend/package.json ./packages/frontend/
 COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/
 COPY packages/scraper-cibc/package.json ./packages/scraper-cibc/
 COPY packages/scraper-stub/package.json ./packages/scraper-stub/
-COPY templates/plugin-starter/package.json ./templates/plugin-starter/
+COPY templates/scraper-starter/package.json ./templates/scraper-starter/
 
 RUN npm ci
 

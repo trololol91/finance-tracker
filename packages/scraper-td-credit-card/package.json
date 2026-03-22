@@ -1,7 +1,7 @@
 {
-  "name": "@finance-tracker/scraper-cibc",
+  "name": "@finance-tracker/scraper-td-credit-card",
   "version": "0.1.0",
-  "description": "CIBC scraper plugin for finance-tracker",
+  "description": "TD credit card scraper plugin for finance-tracker",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
