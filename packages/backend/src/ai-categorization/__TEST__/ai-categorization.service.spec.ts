@@ -108,6 +108,30 @@ describe('AiCategorizationService.suggestCategory', () => {
             expect(result).toBeNull();
         });
 
+        it('parses JSON wrapped in markdown code fences', async () => {
+            mockCreate.mockResolvedValue(
+                openAiResponse('```json\n{"category": "Housing"}\n```')
+            );
+
+            const result = await svc.suggestCategory(
+                'Rent payment', 1500, 'expense', CATEGORIES
+            );
+
+            expect(result).toBe('Housing');
+        });
+
+        it('parses JSON wrapped in plain code fences (no language tag)', async () => {
+            mockCreate.mockResolvedValue(
+                openAiResponse('```\n{"category": "Income"}\n```')
+            );
+
+            const result = await svc.suggestCategory(
+                'Payroll', 3000, 'income', CATEGORIES
+            );
+
+            expect(result).toBe('Income');
+        });
+
         it('returns null when JSON is valid but has no "category" key', async () => {
             mockCreate.mockResolvedValue(openAiResponse('{"name": "Food & Dining"}'));
 

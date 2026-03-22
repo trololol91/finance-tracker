@@ -258,7 +258,7 @@ Categories: ${categoryNames.join(', ')}`;
             });
             const content = response.choices[0]?.message?.content;
             if (!content) return null;
-            return content.trim();
+            return this.stripCodeFences(content);
         } else {
             // safe: available === true guarantees this client was initialised in constructor
             const response = await this.anthropicClient!.messages.create({
@@ -272,7 +272,11 @@ Categories: ${categoryNames.join(', ')}`;
             if (first.type !== 'text') {
                 return null;
             }
-            return first.text.trim();
+            return this.stripCodeFences(first.text);
         }
+    }
+
+    private stripCodeFences(raw: string): string {
+        return raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
     }
 }
