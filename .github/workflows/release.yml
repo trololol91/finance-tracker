@@ -46,6 +46,17 @@ jobs:
           node ../../scripts/pack-plugin.mjs
           mv scraper-cibc-*.zip scraper-cibc-${VERSION}.zip
 
+      - name: Build scraper-td-credit-card
+        run: npm run build -w packages/scraper-td-credit-card
+
+      - name: Pack scraper-td-credit-card
+        working-directory: packages/scraper-td-credit-card
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          node ../../scripts/pack-plugin.mjs
+          mv scraper-td-credit-card-*.zip scraper-td-credit-card-${VERSION}.zip
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -89,4 +100,5 @@ jobs:
           generate_release_notes: true
           files: |
             packages/scraper-cibc/scraper-cibc-${{ steps.version.outputs.VERSION }}.zip
+            packages/scraper-td-credit-card/scraper-td-credit-card-${{ steps.version.outputs.VERSION }}.zip
             docker-compose.release.yml

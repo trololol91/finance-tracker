@@ -11,7 +11,7 @@
     "backend": "npm run -w packages/backend",
     "frontend": "npm run -w packages/frontend",
     "build:sdk": "npm run build -w packages/plugin-sdk",
-    "build:scrapers": "npm run build -w packages/plugin-sdk && npm run build -w packages/scraper-cibc && npm run build -w packages/scraper-stub",
+    "build:scrapers": "npm run build -w packages/plugin-sdk && npm run build -w packages/scraper-cibc && npm run build -w packages/scraper-td-credit-card && npm run build -w packages/scraper-stub",
     "prepare": "husky",
     "typecheck:all": "npm run -w packages/backend typecheck && npm run -w packages/frontend typecheck",
     "lint:all": "npm run -w packages/backend lint:eslint && npm run -w packages/frontend lint:eslint",
