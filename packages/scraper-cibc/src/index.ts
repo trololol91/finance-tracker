@@ -113,7 +113,7 @@ const scrapeTransactionsFromSection = async (
         const dateText = dateCell ? (await dateCell.textContent())?.trim() : undefined;
 
         // Description
-        const descCell = await row.$('td.transactions .transactionDescription');
+        const descCell = await row.$('td.transactions span.transactionDescription');
         const descText = descCell ? (await descCell.textContent())?.trim() : undefined;
 
         // Card number (optional)
