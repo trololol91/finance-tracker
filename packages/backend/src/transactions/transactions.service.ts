@@ -162,11 +162,18 @@ export class TransactionsService {
     /**
      * Get income/expense totals for a date range (active transactions only).
      * Transfers are excluded from both totals.
+     * Optional filters: accountId, categoryId, transactionType, search.
      */
     public async getTotals(
         userId: string,
         startDate: string,
-        endDate: string
+        endDate: string,
+        filters?: {
+            accountId?: string;
+            categoryId?: string;
+            transactionType?: TransactionType;
+            search?: string;
+        }
     ): Promise<TransactionTotals> {
         const start = new Date(startDate);
         const end = new Date(endDate);
@@ -177,22 +184,43 @@ export class TransactionsService {
             throw new BadRequestException(`Invalid endDate: "${endDate}"`);
         }
 
-        const dateFilter = {
-            gte: start,
-            lte: end
+        const baseWhere: Prisma.TransactionWhereInput = {
+            userId,
+            isActive: true,
+            date: {gte: start, lte: end}
         };
 
-        const baseWhere = {userId, isActive: true, date: dateFilter};
+        if (filters?.accountId) {
+            baseWhere.accountId = filters.accountId;
+        }
+        if (filters?.categoryId) {
+            baseWhere.categoryId = filters.categoryId;
+        }
+        if (filters?.search) {
+            baseWhere.description = {contains: filters.search, mode: 'insensitive'};
+        }
+
+        // transfers are excluded from totals; skip both aggregates when filtered to transfer only
+        const skipIncome =
+            filters?.transactionType === TransactionType.expense ||
+            filters?.transactionType === TransactionType.transfer;
+        const skipExpense =
+            filters?.transactionType === TransactionType.income ||
+            filters?.transactionType === TransactionType.transfer;
 
         const [incomeResult, expenseResult] = await Promise.all([
-            this.prisma.transaction.aggregate({
-                where: {...baseWhere, transactionType: TransactionType.income},
-                _sum: {amount: true}
-            }),
-            this.prisma.transaction.aggregate({
-                where: {...baseWhere, transactionType: TransactionType.expense},
-                _sum: {amount: true}
-            })
+            skipIncome
+                ? Promise.resolve({_sum: {amount: null}})
+                : this.prisma.transaction.aggregate({
+                    where: {...baseWhere, transactionType: TransactionType.income},
+                    _sum: {amount: true}
+                }),
+            skipExpense
+                ? Promise.resolve({_sum: {amount: null}})
+                : this.prisma.transaction.aggregate({
+                    where: {...baseWhere, transactionType: TransactionType.expense},
+                    _sum: {amount: true}
+                })
         ]);
 
         const totalIncome = incomeResult._sum.amount?.toNumber() ?? 0;

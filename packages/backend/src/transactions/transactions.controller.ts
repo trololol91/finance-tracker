@@ -32,6 +32,7 @@ import {CategorizeSuggestionRequestDto} from './dto/categorize-suggestion-reques
 import {CategorizeSuggestionResponseDto} from './dto/categorize-suggestion-response.dto.js';
 import {BulkCategorizeResponseDto} from './dto/bulk-categorize-response.dto.js';
 import {BulkCategorizeQueryDto} from './dto/bulk-categorize-query.dto.js';
+import {GetTotalsQueryDto} from './dto/get-totals-query.dto.js';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
@@ -156,14 +157,28 @@ export class TransactionsController {
     })
     @ApiQuery({name: 'startDate', required: true, description: 'Start of date range (ISO 8601)', example: '2026-01-01T00:00:00.000Z'})
     @ApiQuery({name: 'endDate', required: true, description: 'End of date range (ISO 8601)', example: '2026-12-31T23:59:59.999Z'})
+    @ApiQuery({name: 'accountId', required: false, description: 'Filter by account UUID'})
+    @ApiQuery({name: 'categoryId', required: false, description: 'Filter by category UUID'})
+    @ApiQuery({name: 'transactionType', required: false, enum: ['income', 'expense', 'transfer'], description: 'Filter by transaction type'})
+    @ApiQuery({name: 'search', required: false, description: 'Filter by description text (partial match, min 1 char)'})
     @ApiResponse({status: 200, description: 'Transaction totals', type: TransactionTotalsResponseDto})
+    @ApiResponse({status: 400, description: 'Invalid date format or filter value'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async getTotals(
-        @Query('startDate') startDate: string,
-        @Query('endDate') endDate: string,
+        @Query() query: GetTotalsQueryDto,
         @CurrentUser() currentUser: User
     ): Promise<TransactionTotalsResponseDto> {
-        return this.transactionsService.getTotals(currentUser.id, startDate, endDate);
+        return this.transactionsService.getTotals(
+            currentUser.id,
+            query.startDate,
+            query.endDate,
+            {
+                accountId: query.accountId,
+                categoryId: query.categoryId,
+                transactionType: query.transactionType,
+                search: query.search
+            }
+        );
     }
 
     /**

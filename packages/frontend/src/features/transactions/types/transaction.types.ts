@@ -3,9 +3,11 @@
 
 import type {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 import type {TransactionsControllerFindAllTransactionType} from '@/api/model/transactionsControllerFindAllTransactionType.js';
+import type {TransactionsControllerGetTotalsTransactionType} from '@/api/model/transactionsControllerGetTotalsTransactionType.js';
 
 export type {TransactionsControllerFindAllIsActive};
 export type {TransactionsControllerFindAllTransactionType};
+export type {TransactionsControllerGetTotalsTransactionType};
 
 /** Valid transaction type strings. */
 export type TransactionType = 'income' | 'expense' | 'transfer';

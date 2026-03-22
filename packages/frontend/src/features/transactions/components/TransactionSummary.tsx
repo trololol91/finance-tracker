@@ -1,21 +1,26 @@
 import React from 'react';
 import {useTransactionsControllerGetTotals} from '@/api/transactions/transactions.js';
 import {Loading} from '@components/common/Loading/Loading.js';
+import type {TransactionsControllerGetTotalsTransactionType} from '@features/transactions/types/transaction.types.js';
 import '@features/transactions/components/TransactionSummary.css';
 
 interface TransactionSummaryProps {
     startDate: string;
     endDate: string;
+    accountId?: string;
+    categoryId?: string;
+    transactionType?: TransactionsControllerGetTotalsTransactionType;
+    search?: string;
 }
 
 const formatCurrency = (value: number): string =>
     new Intl.NumberFormat('en-CA', {style: 'currency', currency: 'CAD'}).format(value);
 
 export const TransactionSummary = (
-    {startDate, endDate}: TransactionSummaryProps
+    {startDate, endDate, accountId, categoryId, transactionType, search}: TransactionSummaryProps
 ): React.JSX.Element => {
-    const {data: totals, isLoading} = useTransactionsControllerGetTotals(
-        {startDate, endDate},
+    const {data: totals, isLoading, isError} = useTransactionsControllerGetTotals(
+        {startDate, endDate, accountId, categoryId, transactionType, search},
         {query: {enabled: startDate !== '' && endDate !== ''}}
     );
 
@@ -23,6 +28,14 @@ export const TransactionSummary = (
         return (
             <div className="tx-summary tx-summary--loading">
                 <Loading size="small" text="Loading totals..." />
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="tx-summary tx-summary--error">
+                <p className="tx-summary__error-text">Could not load totals. Please try again.</p>
             </div>
         );
     }

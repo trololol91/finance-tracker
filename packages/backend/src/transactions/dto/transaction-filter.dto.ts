@@ -6,6 +6,7 @@ import {
     IsInt,
     Min,
     Max,
+    MinLength,
     IsDateString,
     IsString
 } from 'class-validator';
@@ -80,6 +81,7 @@ export class TransactionFilterDto {
         required: false
     })
     @IsString()
+    @MinLength(1)
     @IsOptional()
     search?: string;
 

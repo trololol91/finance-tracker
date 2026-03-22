@@ -110,7 +110,15 @@ export const TransactionsPage = (): React.JSX.Element => {
                             exact: false
                         });
                         void queryClient.invalidateQueries({
-                            queryKey: getTransactionsControllerGetTotalsQueryKey(),
+                            queryKey: getTransactionsControllerGetTotalsQueryKey({
+                                // startDate/endDate always set — defaulted to this month
+                                startDate: apiParams.startDate!,
+                                endDate: apiParams.endDate!,
+                                accountId: apiParams.accountId,
+                                categoryId: apiParams.categoryId,
+                                transactionType: apiParams.transactionType,
+                                search: apiParams.search
+                            }),
                             exact: false
                         });
                     }
@@ -131,7 +139,15 @@ export const TransactionsPage = (): React.JSX.Element => {
                             exact: false
                         });
                         void queryClient.invalidateQueries({
-                            queryKey: getTransactionsControllerGetTotalsQueryKey(),
+                            queryKey: getTransactionsControllerGetTotalsQueryKey({
+                                // startDate/endDate always set — defaulted to this month
+                                startDate: apiParams.startDate!,
+                                endDate: apiParams.endDate!,
+                                accountId: apiParams.accountId,
+                                categoryId: apiParams.categoryId,
+                                transactionType: apiParams.transactionType,
+                                search: apiParams.search
+                            }),
                             exact: false
                         });
                     }
@@ -160,7 +176,15 @@ export const TransactionsPage = (): React.JSX.Element => {
                         exact: false
                     });
                     void queryClient.invalidateQueries({
-                        queryKey: getTransactionsControllerGetTotalsQueryKey(),
+                        queryKey: getTransactionsControllerGetTotalsQueryKey({
+                            // startDate/endDate always set — defaulted to this month
+                            startDate: apiParams.startDate!,
+                            endDate: apiParams.endDate!,
+                            accountId: apiParams.accountId,
+                            categoryId: apiParams.categoryId,
+                            transactionType: apiParams.transactionType,
+                            search: apiParams.search
+                        }),
                         exact: false
                     });
                     setTimeout(() => { setBulkCategorizeMessage(null); }, 4000);
@@ -208,7 +232,14 @@ export const TransactionsPage = (): React.JSX.Element => {
                 </div>
 
                 {/* Summary */}
-                <TransactionSummary startDate={filters.startDate} endDate={filters.endDate} />
+                <TransactionSummary
+                    startDate={filters.startDate}
+                    endDate={filters.endDate}
+                    accountId={filters.accountId || undefined}
+                    categoryId={filters.categoryId || undefined}
+                    transactionType={filters.transactionType || undefined}
+                    search={filters.search || undefined}
+                />
 
                 {/* Filters */}
                 <TransactionFilters

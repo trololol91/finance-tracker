@@ -26,6 +26,7 @@ import {TransactionType} from '#generated/prisma/client.js';
 import type {CreateTransactionDto} from '#transactions/dto/create-transaction.dto.js';
 import type {UpdateTransactionDto} from '#transactions/dto/update-transaction.dto.js';
 import type {TransactionFilterDto} from '#transactions/dto/transaction-filter.dto.js';
+import type {GetTotalsQueryDto} from '#transactions/dto/get-totals-query.dto.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -87,7 +88,9 @@ describe('TransactionsController', () => {
             toggleActive: vi.fn(),
             remove: vi.fn(),
             getTotals: vi.fn(),
-            getMonthlyTotals: vi.fn()
+            getMonthlyTotals: vi.fn(),
+            categorizeSuggestion: vi.fn(),
+            bulkCategorize: vi.fn()
         } as unknown as TransactionsService;
 
         controller = new TransactionsController(service);
@@ -334,16 +337,51 @@ describe('TransactionsController', () => {
     describe('getTotals', () => {
         const startDate = '2026-01-01T00:00:00.000Z';
         const endDate = '2026-01-31T23:59:59.999Z';
+        const baseQuery = {startDate, endDate} as GetTotalsQueryDto;
 
-        it('should call service.getTotals with userId, startDate, endDate', async () => {
+        it('should call service.getTotals with userId, startDate, endDate and no filters', async () => {
             const totals: TransactionTotals = {
                 totalIncome: 3000, totalExpense: 1200, netTotal: 1800, startDate, endDate
             };
             vi.mocked(service.getTotals).mockResolvedValue(totals);
 
-            await controller.getTotals(startDate, endDate, mockCurrentUser);
+            await controller.getTotals(baseQuery, mockCurrentUser);
 
-            expect(service.getTotals).toHaveBeenCalledWith(mockCurrentUser.id, startDate, endDate);
+            expect(service.getTotals).toHaveBeenCalledWith(
+                mockCurrentUser.id, startDate, endDate,
+                {
+                    accountId: undefined,
+                    categoryId: undefined,
+                    transactionType: undefined,
+                    search: undefined
+                }
+            );
+        });
+
+        it('should forward optional filters to service.getTotals', async () => {
+            const totals: TransactionTotals = {
+                totalIncome: 500, totalExpense: 0, netTotal: 500, startDate, endDate
+            };
+            vi.mocked(service.getTotals).mockResolvedValue(totals);
+            const query = {
+                ...baseQuery,
+                accountId: 'acc-1',
+                categoryId: 'cat-1',
+                transactionType: TransactionType.income,
+                search: 'coffee'
+            } as GetTotalsQueryDto;
+
+            await controller.getTotals(query, mockCurrentUser);
+
+            expect(service.getTotals).toHaveBeenCalledWith(
+                mockCurrentUser.id, startDate, endDate,
+                {
+                    accountId: 'acc-1',
+                    categoryId: 'cat-1',
+                    transactionType: TransactionType.income,
+                    search: 'coffee'
+                }
+            );
         });
 
         it('should return totals directly from service', async () => {
@@ -352,7 +390,7 @@ describe('TransactionsController', () => {
             };
             vi.mocked(service.getTotals).mockResolvedValue(totals);
 
-            const result = await controller.getTotals(startDate, endDate, mockCurrentUser);
+            const result = await controller.getTotals(baseQuery, mockCurrentUser);
 
             expect(result.totalIncome).toBe(3000);
             expect(result.totalExpense).toBe(1200);
@@ -367,7 +405,7 @@ describe('TransactionsController', () => {
             );
 
             await expect(
-                controller.getTotals('not-a-date', endDate, mockCurrentUser)
+                controller.getTotals({startDate: 'not-a-date', endDate} as GetTotalsQueryDto, mockCurrentUser)
             ).rejects.toThrow(BadRequestException);
         });
 
@@ -377,7 +415,7 @@ describe('TransactionsController', () => {
             );
 
             await expect(
-                controller.getTotals(startDate, 'not-a-date', mockCurrentUser)
+                controller.getTotals({startDate, endDate: 'not-a-date'} as GetTotalsQueryDto, mockCurrentUser)
             ).rejects.toThrow(BadRequestException);
         });
     });

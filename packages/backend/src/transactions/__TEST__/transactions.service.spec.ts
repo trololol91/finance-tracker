@@ -800,6 +800,111 @@ describe('TransactionsService', () => {
                 expect(prisma.transaction.aggregate).not.toHaveBeenCalled();
             });
         });
+
+        describe('optional filters', () => {
+            beforeEach(() => {
+                vi.mocked(prisma.transaction.aggregate).mockResolvedValue(
+                    {_sum: {amount: null}} as never
+                );
+            });
+
+            it('should apply accountId to both aggregate where clauses', async () => {
+                await service.getTotals(userId, startDate, endDate, {accountId: 'acc-uuid'});
+
+                const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
+                expect(calls).toHaveLength(2);
+                expect(calls[0][0].where).toMatchObject({accountId: 'acc-uuid'});
+                expect(calls[1][0].where).toMatchObject({accountId: 'acc-uuid'});
+            });
+
+            it('should apply categoryId to both aggregate where clauses', async () => {
+                await service.getTotals(userId, startDate, endDate, {categoryId: 'cat-uuid'});
+
+                const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
+                expect(calls).toHaveLength(2);
+                expect(calls[0][0].where).toMatchObject({categoryId: 'cat-uuid'});
+                expect(calls[1][0].where).toMatchObject({categoryId: 'cat-uuid'});
+            });
+
+            it('should apply search as case-insensitive description contains filter', async () => {
+                await service.getTotals(userId, startDate, endDate, {search: 'coffee'});
+
+                const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
+                expect(calls).toHaveLength(2);
+                const expectedDescription = {contains: 'coffee', mode: 'insensitive'};
+                expect(calls[0][0].where).toMatchObject({description: expectedDescription});
+                expect(calls[1][0].where).toMatchObject({description: expectedDescription});
+            });
+
+            it('should skip the expense aggregate and return 0 expense when transactionType is income', async () => {
+                vi.mocked(prisma.transaction.aggregate).mockResolvedValueOnce(
+                    {_sum: {amount: mockDecimal(500)}} as never
+                );
+
+                const result = await service.getTotals(
+                    userId, startDate, endDate, {transactionType: TransactionType.income}
+                );
+
+                expect(prisma.transaction.aggregate).toHaveBeenCalledTimes(1);
+                expect(prisma.transaction.aggregate).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        where: expect.objectContaining({transactionType: TransactionType.income})
+                    })
+                );
+                expect(result.totalIncome).toBe(500);
+                expect(result.totalExpense).toBe(0);
+                expect(result.netTotal).toBe(500);
+            });
+
+            it('should skip the income aggregate and return 0 income when transactionType is expense', async () => {
+                vi.mocked(prisma.transaction.aggregate).mockResolvedValueOnce(
+                    {_sum: {amount: mockDecimal(300)}} as never
+                );
+
+                const result = await service.getTotals(
+                    userId, startDate, endDate, {transactionType: TransactionType.expense}
+                );
+
+                expect(prisma.transaction.aggregate).toHaveBeenCalledTimes(1);
+                expect(prisma.transaction.aggregate).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        where: expect.objectContaining({transactionType: TransactionType.expense})
+                    })
+                );
+                expect(result.totalIncome).toBe(0);
+                expect(result.totalExpense).toBe(300);
+                expect(result.netTotal).toBe(-300);
+            });
+
+            it('should skip both aggregates and return all zeros when transactionType is transfer', async () => {
+                const result = await service.getTotals(
+                    userId, startDate, endDate, {transactionType: TransactionType.transfer}
+                );
+
+                expect(prisma.transaction.aggregate).not.toHaveBeenCalled();
+                expect(result.totalIncome).toBe(0);
+                expect(result.totalExpense).toBe(0);
+                expect(result.netTotal).toBe(0);
+            });
+
+            it('should combine multiple filters in both aggregate where clauses', async () => {
+                await service.getTotals(userId, startDate, endDate, {
+                    accountId: 'acc-uuid',
+                    categoryId: 'cat-uuid',
+                    search: 'groceries'
+                });
+
+                const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
+                expect(calls).toHaveLength(2);
+                const expectedPartial = {
+                    accountId: 'acc-uuid',
+                    categoryId: 'cat-uuid',
+                    description: {contains: 'groceries', mode: 'insensitive'}
+                };
+                expect(calls[0][0].where).toMatchObject(expectedPartial);
+                expect(calls[1][0].where).toMatchObject(expectedPartial);
+            });
+        });
     });
 
     // -------------------------------------------------------------------------

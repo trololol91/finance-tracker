@@ -14,6 +14,17 @@
     min-height: 4rem;
 }
 
+.tx-summary--error {
+    justify-content: center;
+    min-height: 4rem;
+}
+
+.tx-summary__error-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-expense);
+    margin: 0;
+}
+
 .tx-summary__item {
     display: flex;
     flex-direction: column;
