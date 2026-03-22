@@ -7,7 +7,8 @@ import {
 } from 'vitest';
 import {
     NotFoundException,
-    BadRequestException
+    BadRequestException,
+    ServiceUnavailableException
 } from '@nestjs/common';
 import {TransactionsService} from '#transactions/transactions.service.js';
 import type {PrismaService} from '#database/prisma.service.js';
@@ -16,6 +17,9 @@ import {TransactionType} from '#generated/prisma/client.js';
 import type {CreateTransactionDto} from '#transactions/dto/create-transaction.dto.js';
 import type {UpdateTransactionDto} from '#transactions/dto/update-transaction.dto.js';
 import type {TransactionFilterDto} from '#transactions/dto/transaction-filter.dto.js';
+import type {CategoriesService} from '#categories/categories.service.js';
+import type {AiCategorizationService} from '#ai-categorization/ai-categorization.service.js';
+import type {CategoryRulesService} from '#category-rules/category-rules.service.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,6 +56,8 @@ const makeTransaction = (overrides: Partial<Transaction> = {}): Transaction => (
 describe('TransactionsService', () => {
     let service: TransactionsService;
     let prisma: PrismaService;
+    let categoriesService: CategoriesService;
+    let aiCategorizationService: AiCategorizationService;
 
     const userId = 'user-uuid-1';
     const txnId = 'txn-uuid-1';
@@ -68,10 +74,25 @@ describe('TransactionsService', () => {
                 update: vi.fn(),
                 delete: vi.fn(),
                 aggregate: vi.fn()
-            }
+            },
+            $transaction: vi.fn().mockResolvedValue([])
         } as unknown as PrismaService;
 
-        service = new TransactionsService(prisma);
+        categoriesService =
+            {findAll: vi.fn().mockResolvedValue([])} as unknown as CategoriesService;
+        aiCategorizationService =
+            {
+                available: true,
+                suggestCategory: vi.fn().mockResolvedValue('Other'),
+                suggestCategories: vi.fn().mockResolvedValue(new Map())
+            } as unknown as AiCategorizationService;
+
+        const categoryRulesService = {
+            buildMatcher: vi.fn().mockResolvedValue(() => null)
+        } as unknown as CategoryRulesService;
+        service = new TransactionsService(
+            prisma, categoriesService, aiCategorizationService, categoryRulesService
+        );
         vi.clearAllMocks();
     });
 
@@ -1042,6 +1063,325 @@ describe('TransactionsService', () => {
                 expect(gte!.toISOString()).toBe('2024-02-01T00:00:00.000Z');
                 expect(lte!.toISOString()).toBe('2024-02-29T23:59:59.999Z');
             });
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // categorizeSuggestion
+    // -------------------------------------------------------------------------
+
+    describe('categorizeSuggestion', () => {
+        const makeCategory = (id: string, name: string, isActive = true) => ({
+            id,
+            name,
+            isActive,
+            userId,
+            description: null,
+            color: null,
+            icon: null,
+            parentId: null,
+            transactionCount: 0,
+            children: []
+        });
+
+        const activeCategories = [
+            makeCategory('cat-food', 'Food & Dining'),
+            makeCategory('cat-other', 'Other'),
+            makeCategory('cat-transport', 'Transport')
+        ];
+
+        it('should return matching categoryId and name when AI returns a known category name', async () => {
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(ai.suggestCategory).mockResolvedValue('Food & Dining');
+
+            const result = await service.categorizeSuggestion(userId, {
+                description: 'Starbucks',
+                amount: 5.50,
+                transactionType: TransactionType.expense
+            });
+
+            expect(result.categoryId).toBe('cat-food');
+            expect(result.categoryName).toBe('Food & Dining');
+        });
+
+        it('should fall back to Other category when AI returns unknown name', async () => {
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(ai.suggestCategory).mockResolvedValue('Nonexistent Category');
+
+            const result = await service.categorizeSuggestion(userId, {
+                description: 'Mystery charge',
+                amount: 9.99,
+                transactionType: TransactionType.expense
+            });
+
+            expect(result.categoryId).toBe('cat-other');
+            expect(result.categoryName).toBe('Other');
+        });
+
+        it('should throw BadRequestException when user has no active categories', async () => {
+            const cats = categoriesService;
+            vi.mocked(cats.findAll).mockResolvedValue([
+                makeCategory('cat-x', 'Archived', false)
+            ] as never);
+
+            await expect(
+                service.categorizeSuggestion(userId, {
+                    description: 'test',
+                    amount: 1.00,
+                    transactionType: TransactionType.expense
+                })
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should match category case-insensitively', async () => {
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(ai.suggestCategory).mockResolvedValue('food & dining');
+
+            const result = await service.categorizeSuggestion(userId, {
+                description: 'Pizza',
+                amount: 22.00,
+                transactionType: TransactionType.expense
+            });
+
+            expect(result.categoryId).toBe('cat-food');
+            expect(result.categoryName).toBe('Food & Dining');
+        });
+
+        // Issue 4: ServiceUnavailableException when AI is disabled
+        it('should throw ServiceUnavailableException when aiCategorization.available is false', async () => {
+            Object.defineProperty(aiCategorizationService, 'available', {value: false, configurable: true});
+
+            await expect(
+                service.categorizeSuggestion(userId, {
+                    description: 'test',
+                    amount: 5.00,
+                    transactionType: TransactionType.expense
+                })
+            ).rejects.toThrow(ServiceUnavailableException);
+        });
+
+        it('should fall back to first active category when Other is not present and AI returns null', async () => {
+            const categoriesNoOther = [
+                makeCategory('cat-food', 'Food & Dining'),
+                makeCategory('cat-transport', 'Transport')
+            ];
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(categoriesNoOther as never);
+            vi.mocked(ai.suggestCategory).mockResolvedValue(null);
+
+            const result = await service.categorizeSuggestion(userId, {
+                description: 'Something',
+                amount: 10.00,
+                transactionType: TransactionType.expense
+            });
+
+            // Should fall back to first active category
+            expect(result.categoryId).toBe('cat-food');
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // bulkCategorize
+    // -------------------------------------------------------------------------
+
+    describe('bulkCategorize', () => {
+        const makeCategory = (id: string, name: string, isActive = true) => ({
+            id,
+            name,
+            isActive,
+            userId,
+            description: null,
+            color: null,
+            icon: null,
+            parentId: null,
+            transactionCount: 0,
+            children: []
+        });
+
+        const activeCategories = [
+            makeCategory('cat-food', 'Food & Dining'),
+            makeCategory('cat-other', 'Other')
+        ];
+
+        it('should return { categorized: 0, skipped: 0, total: 0, processed: 0 } when no uncategorized transactions', async () => {
+            const cats = categoriesService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+
+            const result = await service.bulkCategorize(userId, {});
+
+            expect(result).toEqual({categorized: 0, skipped: 0, total: 0, processed: 0});
+        });
+
+        it('should categorize transactions and return correct counts', async () => {
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(2);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([
+                makeTransaction({id: 'txn-1', categoryId: null}),
+                makeTransaction({id: 'txn-2', categoryId: null})
+            ]);
+            vi.mocked(ai.suggestCategories).mockResolvedValue(
+                new Map([['txn-1', 'Food & Dining'], ['txn-2', 'Food & Dining']])
+            );
+            vi.mocked(prisma.transaction.update).mockResolvedValue(makeTransaction());
+
+            const result = await service.bulkCategorize(userId, {});
+
+            expect(result.categorized).toBe(2);
+            expect(result.skipped).toBe(0);
+            expect(result.total).toBe(2);
+        });
+
+        it('should fall back to Other when AI returns null (no skipping)', async () => {
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(3);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([
+                makeTransaction({id: 'txn-1', categoryId: null}),
+                makeTransaction({id: 'txn-2', categoryId: null}),
+                makeTransaction({id: 'txn-3', categoryId: null})
+            ]);
+            vi.mocked(ai.suggestCategories).mockResolvedValue(
+                new Map<string, string | null>([
+                    ['txn-1', 'Food & Dining'],
+                    ['txn-2', null],
+                    ['txn-3', null]
+                ])
+            );
+
+            const result = await service.bulkCategorize(userId, {});
+
+            expect(result.categorized).toBe(3);
+            expect(result.skipped).toBe(0);
+            expect(result.total).toBe(3);
+        });
+
+        it('should apply accountId filter when provided', async () => {
+            const cats = categoriesService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+
+            await service.bulkCategorize(userId, {accountId: 'acc-uuid'});
+
+            expect(prisma.transaction.count).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({accountId: 'acc-uuid'})
+                })
+            );
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({accountId: 'acc-uuid'})
+                })
+            );
+        });
+
+        it('should throw BadRequestException when no active categories', async () => {
+            const cats = categoriesService;
+            vi.mocked(cats.findAll).mockResolvedValue([
+                makeCategory('cat-x', 'Archived', false)
+            ] as never);
+
+            await expect(service.bulkCategorize(userId, {})).rejects.toThrow(BadRequestException);
+        });
+
+        it('should cap findMany at 200 records but report full total', async () => {
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(500);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(ai.suggestCategories).mockResolvedValue(new Map());
+
+            const result = await service.bulkCategorize(userId, {});
+
+            expect(result.total).toBe(500);
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({take: 200})
+            );
+        });
+
+        it('should include processed count equal to number of transactions fetched', async () => {
+            const cats = categoriesService; const ai = aiCategorizationService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(500);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([
+                makeTransaction({id: 'txn-1', categoryId: null}),
+                makeTransaction({id: 'txn-2', categoryId: null})
+            ]);
+            vi.mocked(ai.suggestCategories).mockResolvedValue(
+                new Map([['txn-1', 'Food & Dining'], ['txn-2', 'Food & Dining']])
+            );
+            vi.mocked(prisma.transaction.update).mockResolvedValue(makeTransaction());
+
+            const result = await service.bulkCategorize(userId, {});
+
+            expect(result.processed).toBe(2);
+            expect(result.total).toBe(500);
+        });
+
+        // Issue 1: date filter correctness when both startDate and endDate are provided
+        it('should include both gte and lte on the date field when both startDate and endDate are provided', async () => {
+            const cats = categoriesService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+
+            await service.bulkCategorize(userId, {
+                startDate: '2026-01-01T00:00:00.000Z',
+                endDate: '2026-01-31T23:59:59.999Z'
+            });
+
+            const expectedWhere = expect.objectContaining({
+                date: {
+                    gte: new Date('2026-01-01T00:00:00.000Z'),
+                    lte: new Date('2026-01-31T23:59:59.999Z')
+                }
+            });
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({where: expectedWhere})
+            );
+            expect(prisma.transaction.count).toHaveBeenCalledWith(
+                expect.objectContaining({where: expectedWhere})
+            );
+        });
+
+        it('should apply only startDate as gte when endDate is omitted', async () => {
+            const cats = categoriesService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+
+            await service.bulkCategorize(userId, {startDate: '2026-01-01T00:00:00.000Z'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        date: {gte: new Date('2026-01-01T00:00:00.000Z')}
+                    })
+                })
+            );
+        });
+
+        it('should apply only endDate as lte when startDate is omitted', async () => {
+            const cats = categoriesService;
+            vi.mocked(cats.findAll).mockResolvedValue(activeCategories as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+
+            await service.bulkCategorize(userId, {endDate: '2026-01-31T23:59:59.999Z'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        date: {lte: new Date('2026-01-31T23:59:59.999Z')}
+                    })
+                })
+            );
         });
     });
 });

@@ -7,10 +7,13 @@ import {
 } from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
 import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNamespace.js';
-import type {Category} from '#generated/prisma/client.js';
+import type {
+    Category, Prisma
+} from '#generated/prisma/client.js';
 import type {CreateCategoryDto} from './dto/create-category.dto.js';
 import type {UpdateCategoryDto} from './dto/update-category.dto.js';
 import {CategoryResponseDto} from './dto/category-response.dto.js';
+import {DEFAULT_CATEGORIES} from './default-categories.js';
 
 @Injectable()
 export class CategoriesService {
@@ -214,6 +217,29 @@ export class CategoriesService {
         // Hard-delete: no transactions and no children
         await this.prisma.category.delete({where: {id}});
         return null;
+    }
+
+    /**
+     * Seed the 13 default categories for a newly registered user.
+     * Uses skipDuplicates so it is safe to call more than once.
+     * Accepts an optional interactive transaction client (`tx`) so this call
+     * can participate in a `prisma.$transaction` initiated by the caller.
+     */
+    public async seedDefaultCategories(
+        userId: string,
+        tx?: Prisma.TransactionClient
+    ): Promise<void> {
+        const client = tx ?? this.prisma;
+        await client.category.createMany({
+            data: DEFAULT_CATEGORIES.map(c => ({
+                userId,
+                name: c.name,
+                color: c.color,
+                icon: c.icon,
+                isActive: true
+            })),
+            skipDuplicates: true
+        });
     }
 
     // ---------------------------------------------------------------------------

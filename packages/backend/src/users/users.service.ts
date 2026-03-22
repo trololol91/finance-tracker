@@ -8,10 +8,14 @@ import {CreateUserDto} from './dto/create-user.dto.js';
 import {UpdateUserDto} from './dto/update-user.dto.js';
 import type {AdminUserListItemDto} from './dto/admin-user-list-item.dto.js';
 import type {UserRole} from '#generated/prisma/enums.js';
+import {CategoriesService} from '#categories/categories.service.js';
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly categoriesService: CategoriesService
+    ) {}
 
     /**
      * Create a new user with hashed password
@@ -30,16 +34,20 @@ export class UsersService {
         const saltRounds = 10;
         const passwordHash: string = await bcrypt.hash(createUserDto.password, saltRounds);
 
-        // Create user
-        const user: User = await this.prisma.user.create({
-            data: {
-                email: createUserDto.email,
-                passwordHash,
-                firstName: createUserDto.firstName,
-                lastName: createUserDto.lastName,
-                timezone: createUserDto.timezone ?? 'UTC',
-                currency: createUserDto.currency ?? 'USD'
-            }
+        // Create user and seed default categories atomically
+        const user: User = await this.prisma.$transaction(async (tx) => {
+            const created = await tx.user.create({
+                data: {
+                    email: createUserDto.email,
+                    passwordHash,
+                    firstName: createUserDto.firstName,
+                    lastName: createUserDto.lastName,
+                    timezone: createUserDto.timezone ?? 'UTC',
+                    currency: createUserDto.currency ?? 'USD'
+                }
+            });
+            await this.categoriesService.seedDefaultCategories(created.id, tx);
+            return created;
         });
 
         return user;

@@ -55,6 +55,10 @@ services:
             - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
             - PLAYWRIGHT_SERVER_URL=${PLAYWRIGHT_SERVER_URL:-ws://playwright-server:3003/ws}
             - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+            - AI_PROVIDER=${AI_PROVIDER:-anthropic}
+            - AI_MODEL=${AI_MODEL:-claude-haiku-4-5-20251001}
+            - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+            - OPENAI_API_KEY=${OPENAI_API_KEY:-}
         volumes:
             - ./packages/backend/logs:/usr/src/app/packages/backend/logs
             - scraper_plugins:/data/scraper-plugins

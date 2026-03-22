@@ -39,6 +39,7 @@ const mockScheduleBase = {
     lastRunStatus: null,
     lastSuccessfulSyncAt: null,
     lookbackDays: 3,
+    autoCategorizeLlm: false,
     createdAt: new Date('2026-01-15'),
     updatedAt: new Date('2026-01-15')
 };

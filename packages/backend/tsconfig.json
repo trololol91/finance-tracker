@@ -62,6 +62,12 @@
             ],
             "#dashboard/*": [
                 "./dashboard/*"
+            ],
+            "#ai-categorization/*": [
+                "./ai-categorization/*"
+            ],
+            "#category-rules/*": [
+                "./category-rules/*"
             ]
         },
         "incremental": true,

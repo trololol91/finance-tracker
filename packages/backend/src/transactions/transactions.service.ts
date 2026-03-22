@@ -1,7 +1,8 @@
 import {
     Injectable,
     NotFoundException,
-    BadRequestException
+    BadRequestException,
+    ServiceUnavailableException
 } from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
 import type {
@@ -12,6 +13,13 @@ import {TransactionType} from '#generated/prisma/client.js';
 import type {CreateTransactionDto} from './dto/create-transaction.dto.js';
 import type {UpdateTransactionDto} from './dto/update-transaction.dto.js';
 import type {TransactionFilterDto} from './dto/transaction-filter.dto.js';
+import type {CategorizeSuggestionRequestDto} from './dto/categorize-suggestion-request.dto.js';
+import type {CategorizeSuggestionResponseDto} from './dto/categorize-suggestion-response.dto.js';
+import type {BulkCategorizeResponseDto} from './dto/bulk-categorize-response.dto.js';
+import type {BulkCategorizeQueryDto} from './dto/bulk-categorize-query.dto.js';
+import {CategoriesService} from '#categories/categories.service.js';
+import {AiCategorizationService} from '#ai-categorization/ai-categorization.service.js';
+import {CategoryRulesService} from '#category-rules/category-rules.service.js';
 
 export interface PaginatedTransactions {
     data: Transaction[];
@@ -30,7 +38,12 @@ export interface TransactionTotals {
 
 @Injectable()
 export class TransactionsService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly categoriesService: CategoriesService,
+        private readonly aiCategorizationService: AiCategorizationService,
+        private readonly categoryRulesService: CategoryRulesService
+    ) {}
 
     /**
      * Create a transaction for the given user.
@@ -214,6 +227,133 @@ export class TransactionsService {
         const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
         return this.getTotals(userId, start.toISOString(), end.toISOString());
+    }
+
+    /**
+     * Get an AI-suggested category for a transaction description/amount/type.
+     * Falls back to the 'Other' category (or first active category) if no match.
+     */
+    public async categorizeSuggestion(
+        userId: string,
+        dto: CategorizeSuggestionRequestDto
+    ): Promise<CategorizeSuggestionResponseDto> {
+        if (!this.aiCategorizationService.available) {
+            throw new ServiceUnavailableException('AI categorization is not configured');
+        }
+
+        const categories = await this.categoriesService.findAll(userId);
+        const active = categories.filter(c => c.isActive);
+
+        if (active.length === 0) {
+            throw new BadRequestException('No active categories available for suggestion');
+        }
+
+        const categoryNames = active.map(c => c.name);
+
+        const suggestedName = await this.aiCategorizationService.suggestCategory(
+            dto.description,
+            dto.amount,
+            dto.transactionType,
+            categoryNames
+        );
+
+        const fallback = active.find(c => c.name === 'Other') ?? active[0];
+
+        const match = suggestedName !== null
+            ? (active.find(c => c.name.toLowerCase() === suggestedName.toLowerCase()) ?? fallback)
+            : fallback;
+
+        return {categoryId: match.id, categoryName: match.name};
+    }
+
+    /**
+     * Auto-categorize all uncategorized active transactions for the given user.
+     * Optionally filtered by accountId, startDate, endDate.
+     */
+    public async bulkCategorize(
+        userId: string,
+        filters: BulkCategorizeQueryDto
+    ): Promise<BulkCategorizeResponseDto> {
+        if (filters.startDate !== undefined) {
+            if (isNaN(new Date(filters.startDate).getTime())) {
+                throw new BadRequestException('Invalid date format');
+            }
+        }
+        if (filters.endDate !== undefined) {
+            if (isNaN(new Date(filters.endDate).getTime())) {
+                throw new BadRequestException('Invalid date format');
+            }
+        }
+
+        const categories = await this.categoriesService.findAll(userId);
+        const active = categories.filter(c => c.isActive);
+
+        if (active.length === 0) {
+            throw new BadRequestException('No active categories found. Add categories before bulk categorizing.');
+        }
+
+        const categoryNames = active.map(c => c.name);
+        const otherCat = active.find(c => c.name === 'Other') ?? active[0];
+
+        const where: Prisma.TransactionWhereInput = {
+            userId,
+            categoryId: null,
+            isActive: true,
+            ...(filters.accountId && {accountId: filters.accountId}),
+            ...((filters.startDate ?? filters.endDate) && {
+                date: {
+                    ...(filters.startDate && {gte: new Date(filters.startDate)}),
+                    ...(filters.endDate && {lte: new Date(filters.endDate)})
+                }
+            })
+        };
+
+        const total = await this.prisma.transaction.count({where});
+        const transactions = await this.prisma.transaction.findMany({where, take: 200});
+
+        const matchRule = await this.categoryRulesService.buildMatcher(userId);
+
+        const needsAi: typeof transactions = [];
+        const updates: {id: string, categoryId: string}[] = [];
+
+        for (const tx of transactions) {
+            const ruleMatch = matchRule(tx.description);
+            if (ruleMatch !== null) {
+                updates.push({id: tx.id, categoryId: ruleMatch});
+            } else {
+                needsAi.push(tx);
+            }
+        }
+
+        const suggestionMap = await this.aiCategorizationService.suggestCategories(
+            needsAi.map(tx => ({
+                id: tx.id,
+                description: tx.description,
+                amount: Number(tx.amount),
+                transactionType: tx.transactionType
+            })),
+            categoryNames
+        );
+
+        for (const tx of needsAi) {
+            const suggestedName = suggestionMap.get(tx.id) ?? null;
+            const found = active.find(c => c.name.toLowerCase() === suggestedName?.toLowerCase());
+            const match = suggestedName !== null ? (found ?? otherCat) : otherCat;
+            updates.push({id: tx.id, categoryId: match.id});
+        }
+
+        if (updates.length > 0) {
+            await this.prisma.$transaction(
+                updates.map(u =>
+                    this.prisma.transaction.update({
+                        where: {id: u.id},
+                        data: {categoryId: u.categoryId}
+                    })
+                )
+            );
+        }
+
+        return {categorized: updates.length, skipped: 0, total, processed: transactions.length};
     }
 
     // ---------------------------------------------------------------------------

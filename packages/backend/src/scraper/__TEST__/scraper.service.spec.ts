@@ -12,6 +12,9 @@ import type {
     RawTransaction, ScraperWorkerInput
 } from '#scraper/interfaces/bank-scraper.interface.js';
 import type {ScraperRegistry} from '#scraper/scraper.registry.js';
+import type {CategoriesService} from '#categories/categories.service.js';
+import type {AiCategorizationService} from '#ai-categorization/ai-categorization.service.js';
+import type {CategoryRulesService} from '#category-rules/category-rules.service.js';
 
 // ---------------------------------------------------------------------------
 // Worker mock — prevents real worker_threads spawning in unit tests
@@ -59,6 +62,7 @@ const mockSchedule = {
     lastRunStatus: null,
     lastSuccessfulSyncAt: null,
     lookbackDays: 3,
+    autoCategorizeLlm: false,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01')
 } as unknown as SyncSchedule;
@@ -106,8 +110,14 @@ describe('ScraperService', () => {
             },
             syncJob: {
                 create: vi.fn(),
-                update: vi.fn()
-            }
+                update: vi.fn(),
+                findUnique: vi.fn()
+            },
+            transaction: {
+                findMany: vi.fn().mockResolvedValue([]),
+                update: vi.fn().mockResolvedValue({})
+            },
+            $transaction: vi.fn().mockResolvedValue([])
         } as unknown as PrismaService;
 
         cryptoService = {
@@ -124,17 +134,33 @@ describe('ScraperService', () => {
         mockRegistry = {
             getPluginPath: vi.fn().mockReturnValue('file:///plugins/cibc.scraper.js')
         };
+        const categoriesService =
+            {findAll: vi.fn().mockResolvedValue([])} as unknown as CategoriesService;
+        const aiCategorizationService =
+            {
+                suggestCategory: vi.fn().mockResolvedValue('Other'),
+                suggestCategories: vi.fn().mockResolvedValue(new Map())
+            } as unknown as AiCategorizationService;
+
+        const categoryRulesService = {
+            buildMatcher: vi.fn().mockResolvedValue(() => null)
+        } as unknown as CategoryRulesService;
+
         service = new ScraperService(
             prisma,
             cryptoService,
             sessionStore,
             pushService,
-            mockRegistry as unknown as ScraperRegistry
+            mockRegistry as unknown as ScraperRegistry,
+            categoriesService,
+            aiCategorizationService,
+            categoryRulesService
         );
 
         vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockSchedule);
         vi.mocked(prisma.syncJob.create).mockResolvedValue(mockJob);
         vi.mocked(prisma.syncJob.update).mockResolvedValue(mockJob);
+        vi.mocked(prisma.syncJob.findUnique).mockResolvedValue(mockJob);
         vi.mocked(prisma.syncSchedule.update).mockResolvedValue(mockSchedule);
     });
 
@@ -389,6 +415,114 @@ describe('ScraperService', () => {
 
             const completeEvent = received.find(d => d.includes('"complete"'));
             expect(completeEvent).toContain('"importedCount":2');
+        });
+
+        // TC-SV-03: autoCategorizeLlm=true triggers AI categorization
+        it('should call suggestCategories and batch-update when autoCategorizeLlm=true', async () => {
+            const svc = service as unknown as InternalService;
+            sessionStore.createSession('job-llm-true');
+
+            const scheduleWithLlm =
+                {...mockSchedule, autoCategorizeLlm: true} as unknown as SyncSchedule;
+
+            const mockTx = {
+                id: 'tx-1',
+                description: 'GROCERY STORE',
+                amount: 50,
+                transactionType: 'expense'
+            };
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([mockTx] as never);
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue({
+                ...mockJob,
+                startedAt: new Date('2026-01-01T08:00:00.000Z')
+            } as never);
+
+            const mockCategory = {id: 'cat-1', name: 'Food & Dining', isActive: true};
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const categoriesService = (service as any).categoriesService as
+                {findAll: ReturnType<typeof vi.fn>};
+            categoriesService.findAll.mockResolvedValue([mockCategory]);
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const aiService = (service as any).aiCategorizationService as
+                {suggestCategories: ReturnType<typeof vi.fn>};
+            aiService.suggestCategories.mockResolvedValue(
+                new Map([['tx-1', 'Food & Dining']])
+            );
+
+            await svc.handleResult('job-llm-true', 'job-llm-true', scheduleWithLlm, {
+                transactions: [{} as RawTransaction],
+                importedCount: 1,
+                skippedCount: 0
+            });
+
+            expect(aiService.suggestCategories).toHaveBeenCalledWith(
+                [{
+                    id: 'tx-1',
+                    description: 'GROCERY STORE',
+                    amount: 50,
+                    transactionType: 'expense'
+                }],
+                ['Food & Dining']
+            );
+            expect(prisma.$transaction).toHaveBeenCalled();
+        });
+
+        // Issue 2: autoCategorizeSyncedTransactions skips when no active categories
+        it('should NOT call suggestCategories when categoriesService returns no active categories', async () => {
+            const svc = service as unknown as InternalService;
+            sessionStore.createSession('job-no-cats');
+
+            const scheduleWithLlm =
+                {...mockSchedule, autoCategorizeLlm: true} as unknown as SyncSchedule;
+
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue({
+                ...mockJob,
+                startedAt: new Date('2026-01-01T08:00:00.000Z')
+            } as never);
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const categoriesService = (service as any).categoriesService as
+                {findAll: ReturnType<typeof vi.fn>};
+            // Return only inactive categories — active.length will be 0
+            categoriesService.findAll.mockResolvedValue([
+                {id: 'cat-x', name: 'Archived', isActive: false}
+            ]);
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const aiService = (service as any).aiCategorizationService as
+                {suggestCategories: ReturnType<typeof vi.fn>};
+            aiService.suggestCategories.mockClear();
+
+            await svc.handleResult('job-no-cats', 'job-no-cats', scheduleWithLlm, {
+                transactions: [{} as RawTransaction],
+                importedCount: 1,
+                skippedCount: 0
+            });
+
+            expect(aiService.suggestCategories).not.toHaveBeenCalled();
+        });
+
+        // TC-SV-04: autoCategorizeLlm=false does NOT call suggestCategories
+        it('should NOT call suggestCategories when autoCategorizeLlm=false', async () => {
+            const svc = service as unknown as InternalService;
+            sessionStore.createSession('job-llm-false');
+
+            const scheduleNoLlm =
+                {...mockSchedule, autoCategorizeLlm: false} as unknown as SyncSchedule;
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const aiService = (service as any).aiCategorizationService as
+                {suggestCategories: ReturnType<typeof vi.fn>};
+            aiService.suggestCategories.mockClear();
+
+            await svc.handleResult('job-llm-false', 'job-llm-false', scheduleNoLlm, {
+                transactions: [{} as RawTransaction],
+                importedCount: 1,
+                skippedCount: 0
+            });
+
+            expect(aiService.suggestCategories).not.toHaveBeenCalled();
         });
 
         // TC-SV-02

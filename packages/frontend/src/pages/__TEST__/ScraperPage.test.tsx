@@ -135,7 +135,7 @@ const mockSyncJob = vi.mocked(useSyncJob);
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const defaultFormValues: SyncScheduleFormValues = {
     accountId: '', bankId: '', inputs: {},
-    cron: '0 8 * * *', lookbackDays: '3', enabled: true
+    cron: '0 8 * * *', lookbackDays: '3', enabled: true, autoCategorizeLlm: false
 };
 
 const makeSchedule = (
@@ -153,6 +153,7 @@ const makeSchedule = (
     pendingTransactionsIncluded: false,
     lastRunAt: null,
     lastRunStatus: null,
+    autoCategorizeLlm: false,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import {PrismaClient} from '../src/generated/prisma/client.js';
 import {PrismaPg} from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
+import {DEFAULT_CATEGORIES} from '../src/categories/default-categories.js';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -34,6 +35,18 @@ async function main(): Promise<void> {
     });
 
     console.log(`Admin user seeded (id: ${admin.id})`);
+
+    await prisma.category.createMany({
+        data: DEFAULT_CATEGORIES.map(c => ({
+            userId: admin.id,
+            name: c.name,
+            color: c.color,
+            icon: c.icon,
+            isActive: true
+        })),
+        skipDuplicates: true
+    });
+    console.log(`Seeded ${DEFAULT_CATEGORIES.length} default categories for admin`);
 
     // Regular user
     const userEmail = 'user@example.com';
@@ -90,14 +103,22 @@ async function main(): Promise<void> {
     console.log(`Accounts: ${chequing.name}, ${savings.name}`);
 
     // Categories
-    const groceriesCat = await prisma.category.findFirst({where: {userId: user.id, name: 'Groceries', parentId: null}})
-        ?? await prisma.category.create({data: {userId: user.id, name: 'Groceries', color: '#F59E0B', icon: '🛒'}});
+    await prisma.category.createMany({
+        data: DEFAULT_CATEGORIES.map(c => ({
+            userId: user.id,
+            name: c.name,
+            color: c.color,
+            icon: c.icon,
+            isActive: true
+        })),
+        skipDuplicates: true
+    });
+    console.log(`Seeded ${DEFAULT_CATEGORIES.length} default categories`);
 
-    const salaryCat = await prisma.category.findFirst({where: {userId: user.id, name: 'Salary', parentId: null}})
-        ?? await prisma.category.create({data: {userId: user.id, name: 'Salary', color: '#10B981', icon: '💰'}});
-
-    const utilitiesCat = await prisma.category.findFirst({where: {userId: user.id, name: 'Utilities', parentId: null}})
-        ?? await prisma.category.create({data: {userId: user.id, name: 'Utilities', color: '#6366F1', icon: '⚡'}});
+    const getCat = (name: string) => prisma.category.findFirstOrThrow({where: {userId: user.id, name}});
+    const salaryCat = await getCat('Income');
+    const groceriesCat = await getCat('Food & Dining');
+    const utilitiesCat = await getCat('Housing');
 
     // Transactions (current month)
     const now = new Date();

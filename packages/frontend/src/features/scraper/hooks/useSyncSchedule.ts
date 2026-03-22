@@ -27,7 +27,8 @@ const EMPTY_FORM: SyncScheduleFormValues = {
     inputs: {},
     cron: '0 8 * * *',
     lookbackDays: '3',
-    enabled: true
+    enabled: true,
+    autoCategorizeLlm: false
 };
 
 const validateForm = (
@@ -113,7 +114,8 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
             inputs: {},
             cron: schedule.cron,
             lookbackDays: String(schedule.lookbackDays),
-            enabled: schedule.enabled
+            enabled: schedule.enabled,
+            autoCategorizeLlm: schedule.autoCategorizeLlm
         });
         setErrors({});
         setModalMode('edit');
@@ -166,7 +168,11 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
             };
             const onError = (label: string) => (err: unknown): void => {
                 console.error('[useSyncSchedule]', err);
-                setErrors({cron: (err as {message?: string}).message ?? `Failed to ${label} schedule`});
+                const serverMessage =
+                    (err as {response?: {data?: {message?: string}}}).response?.data?.message
+                    ?? (err as {message?: string}).message
+                    ?? `Failed to ${label} schedule`;
+                setErrors({general: serverMessage});
             };
 
             if (editTarget !== null) {
@@ -178,7 +184,8 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
                             ...(hasInputs ? {inputs: formValues.inputs} : {}),
                             cron: formValues.cron,
                             lookbackDays: parseInt(formValues.lookbackDays, 10),
-                            enabled: formValues.enabled
+                            enabled: formValues.enabled,
+                            autoCategorizeLlm: formValues.autoCategorizeLlm
                         }
                     },
                     {onSuccess, onError: onError('update')}
@@ -191,7 +198,8 @@ export const useSyncSchedule = (): UseSyncScheduleReturn => {
                             bankId: formValues.bankId,
                             inputs: formValues.inputs,
                             cron: formValues.cron,
-                            lookbackDays: parseInt(formValues.lookbackDays, 10)
+                            lookbackDays: parseInt(formValues.lookbackDays, 10),
+                            autoCategorizeLlm: formValues.autoCategorizeLlm
                         }
                     },
                     {onSuccess, onError: onError('create')}

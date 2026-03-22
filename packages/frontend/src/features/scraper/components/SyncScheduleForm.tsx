@@ -15,6 +15,8 @@ interface SyncScheduleFormProps {
     onChange: (field: keyof SyncScheduleFormValues, value: string | boolean) => void;
     onInputChange: (key: string, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
+    /** When false, the AI auto-categorize checkbox is disabled. Defaults to true. */
+    aiAvailable?: boolean;
 }
 
 export const SyncScheduleForm = ({
@@ -25,7 +27,8 @@ export const SyncScheduleForm = ({
     firstFieldRef,
     onChange,
     onInputChange,
-    onSubmit
+    onSubmit,
+    aiAvailable = true
 }: SyncScheduleFormProps): React.JSX.Element => {
     const {data: scrapers} = useScraperControllerListScrapers();
     const {data: accountsResponse} = useAccountsControllerFindAll();
@@ -217,13 +220,39 @@ export const SyncScheduleForm = ({
                 </div>
             )}
 
+            {/* Auto-categorize with AI */}
+            <div className={styles.field}>
+                <label className={styles.checkboxLabel}>
+                    <input
+                        type="checkbox"
+                        checked={values.autoCategorizeLlm}
+                        disabled={!aiAvailable}
+                        aria-describedby="auto-categorize-hint"
+                        onChange={(e) => { onChange('autoCategorizeLlm', e.target.checked); }}
+                    />
+                    <span>Auto-categorize transactions with AI on each sync</span>
+                </label>
+                {aiAvailable ? (
+                    <p id="auto-categorize-hint" className={styles.hint}>
+                        Uses AI to assign categories to newly imported transactions
+                    </p>
+                ) : (
+                    <p id="auto-categorize-hint" className={styles.hint}>AI categorization is not configured</p>
+                )}
+            </div>
+
+            {errors.general !== undefined && (
+                <p role="alert" className={styles.error}>{errors.general}</p>
+            )}
             <div className={styles.actions}>
                 <button
                     type="submit"
                     className={styles.submitBtn}
                     disabled={isSubmitting}
                 >
-                    {isSubmitting ? (editMode ? 'Saving…' : 'Creating…') : (editMode ? 'Save Changes' : 'Create Schedule')}
+                    {isSubmitting
+                        ? (editMode ? 'Saving…' : 'Creating…')
+                        : (editMode ? 'Save Changes' : 'Create Schedule')}
                 </button>
             </div>
         </form>

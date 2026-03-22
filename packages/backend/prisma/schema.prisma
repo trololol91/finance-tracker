@@ -80,6 +80,7 @@ model User {
   importJobs     ImportJob[]
   syncSchedules  SyncSchedule[]
   syncJobs       SyncJob[]
+  categoryRules  CategoryRule[]
 
   // Notification preferences for scraper MFA alerts
   notifyPush     Boolean  @default(true)  @map("notify_push")
@@ -152,6 +153,7 @@ model Category {
   parent       Category?     @relation("CategoryChildren", fields: [parentId], references: [id])
   children     Category[]    @relation("CategoryChildren")
   transactions Transaction[]
+  rules        CategoryRule[]
 
   @@unique([userId, name, parentId])
   @@index([userId])
@@ -214,6 +216,23 @@ model ImportJob {
   @@map("import_jobs")
 }
 
+model CategoryRule {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  pattern    String
+  categoryId String   @map("category_id") @db.Uuid
+
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt      @map("updated_at") @db.Timestamptz
+
+  user       User     @relation(fields: [userId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, pattern])
+  @@index([userId])
+  @@map("category_rules")
+}
+
 model SyncSchedule {
   id              String         @id @default(uuid()) @db.Uuid
   userId          String         @map("user_id") @db.Uuid
@@ -228,6 +247,7 @@ model SyncSchedule {
   lastRunStatus        SyncRunStatus? @map("last_run_status")
   lastSuccessfulSyncAt DateTime?      @map("last_successful_sync_at")  @db.Timestamptz
   lookbackDays         Int            @default(3)                      @map("lookback_days")
+  autoCategorizeLlm    Boolean        @default(false)                  @map("auto_categorize_llm")
 
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime       @updatedAt      @map("updated_at") @db.Timestamptz

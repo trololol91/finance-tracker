@@ -24,6 +24,7 @@ export default defineConfig({
                 '**/index.ts',
                 '**/*.dto.ts',
                 '**/*.entity.ts',
+                '**/*.interface.ts',
                 // Scraper stubs and worker thread entry point are not unit-testable
                 'src/scraper/banks/**',
                 'src/scraper/scraper.worker.ts'
@@ -54,7 +55,9 @@ export default defineConfig({
             '#ai': resolve(__dirname, './src/ai'),
             '#integrations': resolve(__dirname, './src/integrations'),
             '#generated': resolve(__dirname, './src/generated'),
-            '#dashboard': resolve(__dirname, './src/dashboard')
+            '#dashboard': resolve(__dirname, './src/dashboard'),
+            '#ai-categorization': resolve(__dirname, './src/ai-categorization'),
+            '#category-rules': resolve(__dirname, './src/category-rules')
         }
     }
 });

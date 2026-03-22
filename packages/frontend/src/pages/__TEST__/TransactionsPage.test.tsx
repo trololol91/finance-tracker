@@ -119,6 +119,12 @@ vi.mock('@components/common/Button/Button.js', () => ({
 // Hook stubs
 // ---------------------------------------------------------------------------
 
+vi.mock('@features/transactions/hooks/useAiStatus.js', () => ({
+    useAiStatus: vi.fn(() => ({available: true, isLoading: false}))
+}));
+
+import {useAiStatus} from '@features/transactions/hooks/useAiStatus.js';
+
 const mockUpdateFilter = vi.fn();
 const mockSetDateRange = vi.fn();
 const mockClearFilters = vi.fn();
@@ -163,6 +169,8 @@ const mockOpenEdit = vi.fn();
 const mockHandleFieldChange = vi.fn();
 const mockHandleSubmit = vi.fn();
 
+const mockHandleSuggestCategory = vi.fn();
+
 vi.mock('@features/transactions/hooks/useTransactionForm.js', () => ({
     useTransactionForm: vi.fn(() => ({
         formValues: {
@@ -177,10 +185,12 @@ vi.mock('@features/transactions/hooks/useTransactionForm.js', () => ({
         errors: {},
         editTarget: null,
         isSubmitting: false,
+        isSuggestingCategory: false,
         openCreate: mockOpenCreate,
         openEdit: mockOpenEdit,
         handleFieldChange: mockHandleFieldChange,
-        handleSubmit: mockHandleSubmit
+        handleSubmit: mockHandleSubmit,
+        handleSuggestCategory: mockHandleSuggestCategory
     }))
 }));
 
@@ -200,6 +210,10 @@ const mockToggleMutate = vi.fn(
 vi.mock('@/api/transactions/transactions.js', () => ({
     useTransactionsControllerRemove: vi.fn(() => ({mutate: mockRemoveMutate})),
     useTransactionsControllerToggleActive: vi.fn(() => ({mutate: mockToggleMutate})),
+    useTransactionsControllerBulkCategorize: vi.fn(() => ({
+        mutate: vi.fn(),
+        isPending: false
+    })),
     getTransactionsControllerFindAllQueryKey: vi.fn(
         (params?: unknown) => ['/transactions', params]
     ),
@@ -290,6 +304,7 @@ describe('TransactionsPage', () => {
             clearFilters: mockClearFilters,
             setPage: mockSetPage
         });
+        vi.mocked(useAiStatus).mockReturnValue({available: true, isLoading: false});
     });
 
     // -------------------------------------------------------------------------
@@ -365,6 +380,22 @@ describe('TransactionsPage', () => {
             });
             renderPage(qc);
             expect(screen.getByTestId('error')).toBeInTheDocument();
+        });
+
+        it('renders the "Auto-categorize" button when aiAvailable is true', () => {
+            vi.mocked(useAiStatus).mockReturnValue({available: true, isLoading: false});
+            renderPage(qc);
+            expect(
+                screen.getByRole('button', {name: /auto-categorize/i})
+            ).toBeInTheDocument();
+        });
+
+        it('does not render the "Auto-categorize" button when aiAvailable is false', () => {
+            vi.mocked(useAiStatus).mockReturnValue({available: false, isLoading: false});
+            renderPage(qc);
+            expect(
+                screen.queryByRole('button', {name: /auto-categorize/i})
+            ).not.toBeInTheDocument();
         });
     });
 

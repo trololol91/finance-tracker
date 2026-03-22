@@ -295,6 +295,36 @@ describe('AccountsService', () => {
             );
         });
 
+        it('updates all optional fields when provided', async () => {
+            const existing = makeAccount();
+            vi.mocked(prisma.account.findFirst).mockResolvedValue(existing);
+            vi.mocked(prisma.account.update).mockResolvedValue(existing);
+            vi.mocked(prisma.transaction.groupBy).mockResolvedValue(emptyGroupBy as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.update(userId, accId, {
+                type: 'savings',
+                institution: 'RBC',
+                openingBalance: 500,
+                color: '#00ff00',
+                notes: 'savings account',
+                isActive: false
+            });
+
+            expect(prisma.account.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        type: 'savings',
+                        institution: 'RBC',
+                        openingBalance: 500,
+                        color: '#00ff00',
+                        notes: 'savings account',
+                        isActive: false
+                    })
+                })
+            );
+        });
+
         it('throws ConflictException when new name conflicts', async () => {
             vi.mocked(prisma.account.findFirst)
                 .mockResolvedValueOnce(makeAccount({name: 'Old Name'})) // lookup

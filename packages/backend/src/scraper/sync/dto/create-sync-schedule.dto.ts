@@ -8,6 +8,7 @@ import {
     IsNotEmpty,
     IsOptional,
     IsInt,
+    IsBoolean,
     IsObject,
     Min,
     Max,
@@ -56,4 +57,11 @@ export class CreateSyncScheduleDto {
     @Min(1)
     @Max(365)
     public lookbackDays?: number;
+
+    @ApiPropertyOptional({
+        description: 'Automatically categorize imported transactions using LLM (default: false)'
+    })
+    @IsOptional()
+    @IsBoolean()
+    public autoCategorizeLlm?: boolean;
 }

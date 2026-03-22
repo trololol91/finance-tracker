@@ -95,6 +95,8 @@ const makeSchedule = (
     pendingTransactionsIncluded: false,
     lastRunAt: null,
     lastRunStatus: null,
+    lastSuccessfulSyncAt: null,
+    autoCategorizeLlm: false,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides
@@ -334,6 +336,39 @@ describe('useSyncSchedule', () => {
             );
         });
 
+        it('includes autoCategorizeLlm: false in create payload by default', () => {
+            const mutate = vi.fn();
+            mockCreate.mockReturnValue(makeCreate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleInputChange('username', 'user123');
+                result.current.handleInputChange('password', 'pass123');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            interface CreateArg {data: Record<string, unknown>}
+            const firstArg = mutate.mock.calls[0][0] as CreateArg;
+            expect(firstArg.data.autoCategorizeLlm).toBe(false);
+        });
+
+        it('includes autoCategorizeLlm: true in create payload when toggled on', () => {
+            const mutate = vi.fn();
+            mockCreate.mockReturnValue(makeCreate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleInputChange('username', 'user123');
+                result.current.handleInputChange('password', 'pass123');
+                result.current.handleFieldChange('autoCategorizeLlm', true);
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            interface CreateArg {data: Record<string, unknown>}
+            const firstArg = mutate.mock.calls[0][0] as CreateArg;
+            expect(firstArg.data.autoCategorizeLlm).toBe(true);
+        });
+
         it('closes modal via onSuccess callback after create', () => {
             const mutate = vi.fn((_, cbs: {onSuccess: () => void}) => { cbs.onSuccess(); });
             mockCreate.mockReturnValue(makeCreate(mutate));
@@ -350,7 +385,7 @@ describe('useSyncSchedule', () => {
             expect(result.current.editTarget).toBeNull();
         });
 
-        it('shows cron error via onError callback after create', () => {
+        it('shows general error via onError callback after create', () => {
             const mutate = vi.fn(
                 (_, cbs: {onError: (e: unknown) => void}) => {
                     cbs.onError({message: 'Cron invalid'});
@@ -365,10 +400,31 @@ describe('useSyncSchedule', () => {
                 result.current.handleInputChange('password', 'pass');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            expect(result.current.errors.cron).toBe('Cron invalid');
+            expect(result.current.errors.general).toBe('Cron invalid');
         });
 
-        it('shows fallback error when onError has no message', () => {
+        it('extracts server message from response.data.message when present', () => {
+            const mutate = vi.fn(
+                (_, cbs: {onError: (e: unknown) => void}) => {
+                    cbs.onError({
+                        response: {data: {message: 'Cron expression is invalid'}},
+                        message: 'Request failed with status code 400'
+                    });
+                }
+            );
+            mockCreate.mockReturnValue(makeCreate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => {
+                result.current.handleFieldChange('accountId', 'acc-1');
+                result.current.handleFieldChange('bankId', 'td');
+                result.current.handleInputChange('username', 'user');
+                result.current.handleInputChange('password', 'pass');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.general).toBe('Cron expression is invalid');
+        });
+
+        it('shows fallback general error when onError has no message', () => {
             const mutate = vi.fn(
                 (_, cbs: {onError: (e: unknown) => void}) => { cbs.onError({}); }
             );
@@ -381,7 +437,7 @@ describe('useSyncSchedule', () => {
                 result.current.handleInputChange('password', 'pass');
             });
             act(() => { result.current.handleSubmit(fakeEvent()); });
-            expect(result.current.errors.cron).toContain('create');
+            expect(result.current.errors.general).toContain('create');
         });
 
         it('calls update mutation when form is valid in edit mode', () => {
@@ -407,6 +463,17 @@ describe('useSyncSchedule', () => {
             act(() => { result.current.openEdit(makeSchedule()); });
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.modalMode).toBeNull();
+        });
+
+        it('includes autoCategorizeLlm in update payload', () => {
+            const mutate = vi.fn();
+            mockUpdate.mockReturnValue(makeUpdate(mutate));
+            const {result} = renderHook(() => useSyncSchedule(), {wrapper: createWrapper()});
+            act(() => { result.current.openEdit(makeSchedule({id: 'sched-u', autoCategorizeLlm: true})); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            interface UpdateArg {id: string, data: Record<string, unknown>}
+            const firstArg = mutate.mock.calls[0][0] as UpdateArg;
+            expect(firstArg.data.autoCategorizeLlm).toBe(true);
         });
 
         it('omits inputs from update payload when inputs is empty', () => {

@@ -367,5 +367,112 @@ describe('TransactionForm', () => {
             await user.selectOptions(screen.getByLabelText(/account/i), 'acc-1');
             expect(onFieldChange).toHaveBeenCalledWith('accountId', 'acc-1');
         });
+
+        it('calls onSuggestCategory when Suggest button is clicked', async () => {
+            const onSuggestCategory = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionForm
+                    {...defaultProps}
+                    onSuggestCategory={onSuggestCategory}
+                    aiAvailable={true}
+                />
+            );
+            await user.click(screen.getByRole('button', {name: /suggest category using ai/i}));
+            expect(onSuggestCategory).toHaveBeenCalledOnce();
+        });
+
+        it('calls onFieldChange with categoryId when category is changed', async () => {
+            const onFieldChange = vi.fn();
+            const user = userEvent.setup();
+            const cats = [{id: 'cat-1', name: 'Food', icon: '🍔', isActive: true, userId: 'u-1',
+                createdAt: '', updatedAt: '', color: null, description: null, parentId: null,
+                transactionCount: 0, children: []}];
+            render(
+                <TransactionForm
+                    {...defaultProps}
+                    categories={cats}
+                    onFieldChange={onFieldChange}
+                />
+            );
+            await user.selectOptions(screen.getByLabelText(/category/i), 'cat-1');
+            expect(onFieldChange).toHaveBeenCalledWith('categoryId', 'cat-1');
+        });
+    });
+
+    describe('Save as rule panel', () => {
+        const cat = {id: 'cat-1', name: 'Food', icon: '🍔', isActive: true, userId: 'u-1',
+            createdAt: '', updatedAt: '', color: null, description: null, parentId: null,
+            transactionCount: 0, children: []};
+        const editingProps = {
+            ...defaultProps,
+            editTarget: mockTx,
+            formValues: {...filledValues, categoryId: 'cat-1'},
+            categories: [cat],
+            onSaveAsRule: vi.fn(async () => { /* noop */ })
+        };
+
+        it('shows "Save as rule" button when editing with a category selected', () => {
+            render(<TransactionForm {...editingProps} />);
+            expect(screen.getByRole('button', {name: /save as rule/i})).toBeInTheDocument();
+        });
+
+        it('does not show "Save as rule" button without onSaveAsRule prop', () => {
+            render(<TransactionForm {...defaultProps} editTarget={mockTx} />);
+            expect(screen.queryByRole('button', {name: /save as rule/i})).not.toBeInTheDocument();
+        });
+
+        it('shows the rule panel when "Save as rule" is clicked', async () => {
+            const user = userEvent.setup();
+            render(<TransactionForm {...editingProps} />);
+            await user.click(screen.getByRole('button', {name: /save as rule/i}));
+            expect(screen.getByRole('region', {name: /save as rule/i})).toBeInTheDocument();
+            expect(screen.getByPlaceholderText(/SOBEYS/i)).toBeInTheDocument();
+        });
+
+        it('pre-fills the pattern with the transaction description', async () => {
+            const user = userEvent.setup();
+            render(<TransactionForm {...editingProps} />);
+            await user.click(screen.getByRole('button', {name: /save as rule/i}));
+            expect(screen.getByPlaceholderText(/SOBEYS/i)).toHaveValue('Starbucks Coffee');
+        });
+
+        it('hides the rule panel when Cancel is clicked', async () => {
+            const user = userEvent.setup();
+            render(<TransactionForm {...editingProps} />);
+            await user.click(screen.getByRole('button', {name: /save as rule/i}));
+            await user.click(screen.getAllByRole('button', {name: /^cancel$/i})[0]);
+            expect(screen.queryByRole('region', {name: /save as rule/i})).not.toBeInTheDocument();
+        });
+
+        it('calls onSaveAsRule with pattern and applyToExisting when Save Rule is clicked', async () => {
+            const onSaveAsRule = vi.fn(async () => { /* noop */ });
+            const user = userEvent.setup();
+            render(<TransactionForm {...editingProps} onSaveAsRule={onSaveAsRule} />);
+            await user.click(screen.getByRole('button', {name: /save as rule/i}));
+            await user.click(screen.getByRole('button', {name: /save rule/i}));
+            expect(onSaveAsRule).toHaveBeenCalledWith('Starbucks Coffee', false);
+        });
+
+        it('toggles applyToExisting checkbox', async () => {
+            const onSaveAsRule = vi.fn(async () => { /* noop */ });
+            const user = userEvent.setup();
+            render(<TransactionForm {...editingProps} onSaveAsRule={onSaveAsRule} />);
+            await user.click(screen.getByRole('button', {name: /save as rule/i}));
+            await user.click(screen.getByRole('checkbox'));
+            await user.click(screen.getByRole('button', {name: /save rule/i}));
+            expect(onSaveAsRule).toHaveBeenCalledWith('Starbucks Coffee', true);
+        });
+
+        it('allows editing the pattern before saving', async () => {
+            const onSaveAsRule = vi.fn(async () => { /* noop */ });
+            const user = userEvent.setup();
+            render(<TransactionForm {...editingProps} onSaveAsRule={onSaveAsRule} />);
+            await user.click(screen.getByRole('button', {name: /save as rule/i}));
+            await user.clear(screen.getByPlaceholderText(/SOBEYS/i));
+            await user.type(screen.getByPlaceholderText(/SOBEYS/i), 'STARBUCKS');
+            await user.click(screen.getByRole('button', {name: /save rule/i}));
+            expect(onSaveAsRule).toHaveBeenCalledWith('STARBUCKS', false);
+        });
     });
 });

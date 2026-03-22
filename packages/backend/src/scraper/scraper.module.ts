@@ -2,6 +2,8 @@ import {Module} from '@nestjs/common';
 import {ScheduleModule} from '@nestjs/schedule';
 import {DatabaseModule} from '#database/database.module.js';
 import {PushModule} from '#push/push.module.js';
+import {CategoriesModule} from '#categories/categories.module.js';
+import {CategoryRulesModule} from '#category-rules/category-rules.module.js';
 import {AdminGuard} from '#common/guards/admin.guard.js';
 import {ImportController} from '#scraper/import/import.controller.js';
 import {ImportService} from '#scraper/import/import.service.js';
@@ -45,6 +47,8 @@ import {RequiredInputsConstraint} from '#common/validators/required-inputs.valid
     imports: [
         DatabaseModule,
         PushModule,
+        CategoriesModule,
+        CategoryRulesModule,
         ScheduleModule.forRoot()
     ],
     controllers: [

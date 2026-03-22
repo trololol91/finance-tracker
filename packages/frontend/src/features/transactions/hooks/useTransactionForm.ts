@@ -6,9 +6,11 @@ import {
     useTransactionsControllerCreate,
     useTransactionsControllerUpdate,
     getTransactionsControllerFindAllQueryKey,
-    getTransactionsControllerGetTotalsQueryKey
+    getTransactionsControllerGetTotalsQueryKey,
+    transactionsControllerCategorizeSuggestion
 } from '@/api/transactions/transactions.js';
 import type {CreateTransactionDtoTransactionType} from '@/api/model/createTransactionDtoTransactionType.js';
+import type {CategorizeSuggestionRequestDtoTransactionType as SuggestionTxType} from '@/api/model/categorizeSuggestionRequestDtoTransactionType.js';
 import type {CreateTransactionDto} from '@/api/model/createTransactionDto.js';
 import type {UpdateTransactionDto} from '@/api/model/updateTransactionDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
@@ -69,10 +71,12 @@ interface UseTransactionFormReturn {
     errors: FormErrors;
     editTarget: TransactionResponseDto | null;
     isSubmitting: boolean;
+    isSuggestingCategory: boolean;
     openCreate: () => void;
     openEdit: (transaction: TransactionResponseDto) => void;
     handleFieldChange: (field: keyof TransactionFormValues, value: string) => void;
     handleSubmit: (e: React.FormEvent) => void;
+    handleSuggestCategory: () => Promise<void>;
 }
 
 /**
@@ -89,6 +93,7 @@ export const useTransactionForm = ({
 
     const {mutate: createTransaction, isPending: isCreating} = useTransactionsControllerCreate();
     const {mutate: updateTransaction, isPending: isUpdating} = useTransactionsControllerUpdate();
+    const [isSuggestingCategory, setIsSuggestingCategory] = useState(false);
 
     const openCreate = useCallback((): void => {
         setEditTarget(null);
@@ -155,14 +160,36 @@ export const useTransactionForm = ({
         ]
     );
 
+    const handleSuggestCategory = useCallback(async (): Promise<void> => {
+        if (!formValues.description || !formValues.amount) return;
+        setIsSuggestingCategory(true);
+        try {
+            const txType = formValues.transactionType as SuggestionTxType;
+            const result = await transactionsControllerCategorizeSuggestion({
+                description: formValues.description,
+                amount: parseFloat(formValues.amount),
+                transactionType: txType
+            });
+            if (result.categoryId) {
+                handleFieldChange('categoryId', result.categoryId);
+            }
+        } catch {
+            // silently fail — user can pick manually
+        } finally {
+            setIsSuggestingCategory(false);
+        }
+    }, [formValues.description, formValues.amount, formValues.transactionType, handleFieldChange]);
+
     return {
         formValues,
         errors,
         editTarget,
         isSubmitting: isCreating || isUpdating,
+        isSuggestingCategory,
         openCreate,
         openEdit,
         handleFieldChange,
-        handleSubmit
+        handleSubmit,
+        handleSuggestCategory
     };
 };

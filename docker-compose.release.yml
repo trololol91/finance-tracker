@@ -33,7 +33,7 @@ services:
 
     backend:
         # Updated automatically by scripts/publish.sh — do not edit by hand.
-        image: ghcr.io/yourusername/finance-tracker-backend:latest
+        image: ghcr.io/trololol91/finance-tracker-backend:latest
         container_name: finance-tracker-backend
         restart: unless-stopped
         ports:
@@ -45,6 +45,10 @@ services:
             - JWT_SECRET=${JWT_SECRET}
             - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
             - PLAYWRIGHT_BROWSERS_PATH=/data/playwright-browsers
+            - AI_PROVIDER=${AI_PROVIDER:-anthropic}
+            - AI_MODEL=${AI_MODEL:-claude-haiku-4-5-20251001}
+            - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+            - OPENAI_API_KEY=${OPENAI_API_KEY:-}
         volumes:
             - backend_logs:/usr/src/app/packages/backend/logs
             - scraper_plugins:/data/scraper-plugins
@@ -64,7 +68,7 @@ services:
 
     frontend:
         # Updated automatically by scripts/publish.sh — do not edit by hand.
-        image: ghcr.io/yourusername/finance-tracker-frontend:latest
+        image: ghcr.io/trololol91/finance-tracker-frontend:latest
         container_name: finance-tracker-frontend
         restart: unless-stopped
         ports:

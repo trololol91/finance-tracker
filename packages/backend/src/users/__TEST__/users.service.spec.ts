@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {UsersService} from '#users/users.service.js';
 import type {PrismaService} from '#database/prisma.service.js';
+import type {CategoriesService} from '#categories/categories.service.js';
 import type {User} from '#generated/prisma/client.js';
 import type {CreateUserDto} from '#users/dto/create-user.dto.js';
 import type {UpdateUserDto} from '#users/dto/update-user.dto.js';
@@ -22,6 +23,7 @@ vi.mock('bcrypt');
 describe('UsersService', () => {
     let service: UsersService;
     let prismaService: PrismaService;
+    let categoriesService: CategoriesService;
 
     const mockUser: User = {
         id: '123e4567-e89b-12d3-a456-426614174000',
@@ -42,6 +44,15 @@ describe('UsersService', () => {
     };
 
     beforeEach(() => {
+        const txClient = {
+            user: {
+                create: vi.fn()
+            },
+            category: {
+                createMany: vi.fn()
+            }
+        };
+
         prismaService = {
             user: {
                 findUnique: vi.fn(),
@@ -50,12 +61,24 @@ describe('UsersService', () => {
                 create: vi.fn(),
                 update: vi.fn(),
                 count: vi.fn()
-            }
+            },
+            $transaction: vi.fn().mockImplementation(
+                async (fn: (tx: typeof txClient) => Promise<unknown>) => fn(txClient)
+            ),
+            _txClient: txClient
         } as unknown as PrismaService;
 
-        service = new UsersService(prismaService);
+        categoriesService = {
+            seedDefaultCategories: vi.fn().mockResolvedValue(undefined)
+        } as unknown as CategoriesService;
+
+        service = new UsersService(prismaService, categoriesService);
         vi.clearAllMocks();
     });
+
+    interface TxClientType {user: {create: ReturnType<typeof vi.fn>}}
+    const getTxClient = (): TxClientType =>
+        (prismaService as unknown as {_txClient: TxClientType})._txClient;
 
     describe('create', () => {
         const createUserDto: CreateUserDto = {
@@ -66,9 +89,10 @@ describe('UsersService', () => {
         };
 
         it('should create a new user with hashed password', async () => {
+            const txClient = getTxClient();
             vi.mocked(prismaService.user.findUnique).mockResolvedValue(null);
             vi.mocked(bcrypt.hash).mockResolvedValue('$2b$10$hashedpassword' as never);
-            vi.mocked(prismaService.user.create).mockResolvedValue(mockUser);
+            vi.mocked(txClient.user.create).mockResolvedValue(mockUser);
 
             const result: User = await service.create(createUserDto);
 
@@ -76,7 +100,7 @@ describe('UsersService', () => {
                 where: {email: createUserDto.email}
             });
             expect(bcrypt.hash).toHaveBeenCalledWith('password123', 10);
-            expect(prismaService.user.create).toHaveBeenCalledWith({
+            expect(txClient.user.create).toHaveBeenCalledWith({
                 data: {
                     email: createUserDto.email,
                     passwordHash: '$2b$10$hashedpassword',
@@ -90,6 +114,7 @@ describe('UsersService', () => {
         });
 
         it('should use default timezone and currency if not provided', async () => {
+            const txClient = getTxClient();
             const dtoWithoutDefaults: CreateUserDto = {
                 email: 'test@example.com',
                 password: 'password123'
@@ -97,11 +122,11 @@ describe('UsersService', () => {
 
             vi.mocked(prismaService.user.findUnique).mockResolvedValue(null);
             vi.mocked(bcrypt.hash).mockResolvedValue('$2b$10$hashedpassword' as never);
-            vi.mocked(prismaService.user.create).mockResolvedValue(mockUser);
+            vi.mocked(txClient.user.create).mockResolvedValue(mockUser);
 
             await service.create(dtoWithoutDefaults);
 
-            expect(prismaService.user.create).toHaveBeenCalledWith({
+            expect(txClient.user.create).toHaveBeenCalledWith({
                 data: expect.objectContaining({
                     timezone: 'UTC',
                     currency: 'USD'
@@ -121,6 +146,7 @@ describe('UsersService', () => {
         });
 
         it('should use custom timezone and currency if provided', async () => {
+            const txClient = getTxClient();
             const dtoWithCustom: CreateUserDto = {
                 email: 'test@example.com',
                 password: 'password123',
@@ -130,16 +156,30 @@ describe('UsersService', () => {
 
             vi.mocked(prismaService.user.findUnique).mockResolvedValue(null);
             vi.mocked(bcrypt.hash).mockResolvedValue('$2b$10$hashedpassword' as never);
-            vi.mocked(prismaService.user.create).mockResolvedValue(mockUser);
+            vi.mocked(txClient.user.create).mockResolvedValue(mockUser);
 
             await service.create(dtoWithCustom);
 
-            expect(prismaService.user.create).toHaveBeenCalledWith({
+            expect(txClient.user.create).toHaveBeenCalledWith({
                 data: expect.objectContaining({
                     timezone: 'America/New_York',
                     currency: 'CAD'
                 })
             });
+        });
+
+        it('should seed default categories within the same transaction', async () => {
+            const txClient = getTxClient();
+            vi.mocked(prismaService.user.findUnique).mockResolvedValue(null);
+            vi.mocked(bcrypt.hash).mockResolvedValue('$2b$10$hashedpassword' as never);
+            vi.mocked(txClient.user.create).mockResolvedValue(mockUser);
+
+            await service.create(createUserDto);
+
+            expect(categoriesService.seedDefaultCategories).toHaveBeenCalledWith(
+                mockUser.id,
+                expect.objectContaining({user: expect.anything()})
+            );
         });
     });
 

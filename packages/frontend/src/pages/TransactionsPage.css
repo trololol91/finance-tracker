@@ -26,6 +26,17 @@
     margin: 0;
 }
 
+.tx-page__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tx-page__bulk-msg {
+    font-size: 0.85rem;
+    color: var(--color-success, #10B981);
+}
+
 @media (max-width: 480px) {
     .tx-page {
         padding: 1rem 0.75rem;

@@ -8,7 +8,9 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 - **Authentication** — JWT-based login and registration
 - **User management** — profile, preferences (timezone/currency), role-based access (USER / ADMIN), soft-delete
 - **Accounts** — multiple account types (checking, savings, credit, investment, loan), opening balance, multi-currency
-- **Categories** — hierarchical categories (parent/child) with color and icon support
+- **Categories** — hierarchical categories (parent/child) with color and icon support; 13 default categories seeded on registration (Income, Housing, Food & Dining, Transport, Health, Entertainment, Shopping, Finance, Education, Travel, Personal Care, Transfers, Other)
+- **Category rules** — keyword-based auto-categorization rules per user; case-insensitive substring matching; rules checked before AI to avoid unnecessary API calls; optional back-fill of existing uncategorized transactions on rule creation
+- **AI categorization** — LLM-powered transaction categorization via Anthropic (Claude Haiku) or OpenAI (configurable); batch processing of up to 20 transactions per API call; three entry points: suggest on transaction form, auto-categorize on sync, bulk categorize action; falls back gracefully when no API key is configured
 - **Transactions** — income, expense, and transfer types; filtering, pagination, soft-delete, toggle active; FITID-based deduplication for imported data; pending transaction support
 - **Dashboard** — monthly income/expense/net balance summary, savings rate, spending by category, account balances, recent transactions
 - **Bank scraper system** — plugin-based architecture running scrapers in worker threads; built-in TD Bank scraper; external plugin support via `@finance-tracker/plugin-sdk`; admin controls to test and reload plugins
@@ -20,9 +22,9 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 ### Frontend
 - **Auth pages** — login and registration with form validation
 - **Accounts page** — list, create, edit, delete accounts with balance summary
-- **Categories page** — list, create, edit, delete hierarchical categories
-- **Transactions page** — filterable, paginated list with date range picker; create/edit modal; toggle active/delete actions; income/expense summary
-- **Scraper page** — drag-and-drop file import, import job list with status badges, sync schedule management, real-time sync status panel, MFA modal for interactive bank challenges
+- **Categories page** — list, create, edit, delete hierarchical categories; category rules management (view, delete)
+- **Transactions page** — filterable, paginated list with date range picker; create/edit modal; toggle active/delete actions; income/expense summary; bulk AI auto-categorize action; "Save as rule" button in edit modal for recording categorization patterns
+- **Scraper page** — drag-and-drop file import, import job list with status badges, sync schedule management with optional AI auto-categorize on sync, real-time sync status panel, MFA modal for interactive bank challenges
 - **Profile page** — view and edit profile, delete account
 - **Admin** — user list and role management (admin users only)
 - **Reports / Budgets** — pages scaffolded, in development
@@ -50,8 +52,11 @@ finance-tracker/
 │   │   ├── src/
 │   │   │   ├── accounts/       # Account management
 │   │   │   ├── auth/           # JWT authentication
-│   │   │   ├── categories/     # Hierarchical categories
+│   │   │   ├── ai-categorization/ # LLM-based categorization (Anthropic / OpenAI)
+│   │   │   ├── categories/     # Hierarchical categories + default seeding
+│   │   │   ├── category-rules/ # Keyword rules for auto-categorization
 │   │   │   ├── common/         # Shared guards, decorators
+│   │   │   ├── config/         # Centralized env validation (Joi)
 │   │   │   ├── dashboard/      # Monthly summary & spending breakdown
 │   │   │   ├── database/       # Prisma service
 │   │   │   ├── push/           # Web Push + email notifications
@@ -168,6 +173,12 @@ POSTGRES_USER=finance_user
 POSTGRES_DB=finance_tracker
 PORT=3001
 NODE_ENV=development
+
+# AI categorization (optional — features disabled if not set)
+AI_PROVIDER=anthropic          # anthropic | openai
+AI_MODEL=claude-haiku-4-5-20251001
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
 
 # Push notifications (optional)
 VAPID_PUBLIC_KEY=

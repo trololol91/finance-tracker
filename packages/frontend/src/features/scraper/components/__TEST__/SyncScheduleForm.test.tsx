@@ -44,7 +44,8 @@ const emptyValues: SyncScheduleFormValues = {
     inputs: {},
     cron: '0 8 * * *',
     lookbackDays: '3',
-    enabled: true
+    enabled: true,
+    autoCategorizeLlm: false
 };
 
 const defaultProps = {

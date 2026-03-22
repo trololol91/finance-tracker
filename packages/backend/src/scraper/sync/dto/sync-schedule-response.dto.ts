@@ -16,6 +16,7 @@ export class SyncScheduleResponseDto {
     @ApiProperty() public maxLookbackDays!: number;
     @ApiProperty() public pendingTransactionsIncluded!: boolean;
     @ApiProperty() public lookbackDays!: number;
+    @ApiProperty() public autoCategorizeLlm!: boolean;
     @ApiPropertyOptional({type: String, nullable: true}) public lastRunAt!: string | null;
     @ApiPropertyOptional({
         enum: ['success', 'failed', 'mfa_required'],
@@ -41,6 +42,7 @@ export class SyncScheduleResponseDto {
         dto.maxLookbackDays = scraper.maxLookbackDays;
         dto.pendingTransactionsIncluded = scraper.pendingTransactionsIncluded;
         dto.lookbackDays = schedule.lookbackDays;
+        dto.autoCategorizeLlm = schedule.autoCategorizeLlm;
         dto.lastRunAt = schedule.lastRunAt?.toISOString() ?? null;
         dto.lastRunStatus = schedule.lastRunStatus ?? null;
         dto.lastSuccessfulSyncAt = schedule.lastSuccessfulSyncAt?.toISOString() ?? null;

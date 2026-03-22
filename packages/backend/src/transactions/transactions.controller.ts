@@ -28,6 +28,10 @@ import {UpdateTransactionDto} from './dto/update-transaction.dto.js';
 import {TransactionFilterDto} from './dto/transaction-filter.dto.js';
 import {TransactionResponseDto} from './dto/transaction-response.dto.js';
 import {TransactionTotalsResponseDto} from './dto/transaction-totals-response.dto.js';
+import {CategorizeSuggestionRequestDto} from './dto/categorize-suggestion-request.dto.js';
+import {CategorizeSuggestionResponseDto} from './dto/categorize-suggestion-response.dto.js';
+import {BulkCategorizeResponseDto} from './dto/bulk-categorize-response.dto.js';
+import {BulkCategorizeQueryDto} from './dto/bulk-categorize-query.dto.js';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
@@ -73,6 +77,39 @@ export class TransactionsController {
     ): Promise<TransactionResponseDto> {
         const transaction = await this.transactionsService.create(currentUser.id, createDto);
         return TransactionResponseDto.fromEntity(transaction);
+    }
+
+    /**
+     * Get AI-suggested category for a transaction.
+     * POST /transactions/categorize-suggestion — must be declared before /:id
+     */
+    @Post('categorize-suggestion')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({summary: 'Get AI-suggested category for a transaction'})
+    @ApiBody({type: CategorizeSuggestionRequestDto})
+    @ApiResponse({status: 200, type: CategorizeSuggestionResponseDto})
+    @ApiResponse({status: 401, description: 'Unauthorized'})
+    public async categorizeSuggestion(
+        @Body() dto: CategorizeSuggestionRequestDto,
+        @CurrentUser() currentUser: User
+    ): Promise<CategorizeSuggestionResponseDto> {
+        return this.transactionsService.categorizeSuggestion(currentUser.id, dto);
+    }
+
+    /**
+     * Auto-categorize all uncategorized transactions using AI.
+     * POST /transactions/bulk-categorize — must be declared before /:id
+     */
+    @Post('bulk-categorize')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({summary: 'Auto-categorize all uncategorized transactions using AI'})
+    @ApiResponse({status: 200, type: BulkCategorizeResponseDto})
+    @ApiResponse({status: 401, description: 'Unauthorized'})
+    public async bulkCategorize(
+        @Query() query: BulkCategorizeQueryDto,
+        @CurrentUser() currentUser: User
+    ): Promise<BulkCategorizeResponseDto> {
+        return this.transactionsService.bulkCategorize(currentUser.id, query);
     }
 
     /**

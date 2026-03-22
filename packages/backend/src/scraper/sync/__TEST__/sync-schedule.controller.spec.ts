@@ -43,6 +43,7 @@ const mockScheduleResponse: SyncScheduleResponseDto = {
     maxLookbackDays: 90,
     pendingTransactionsIncluded: false,
     lookbackDays: 3,
+    autoCategorizeLlm: false,
     lastRunAt: null,
     lastRunStatus: null,
     lastSuccessfulSyncAt: null,

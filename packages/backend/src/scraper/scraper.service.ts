@@ -21,6 +21,9 @@ import type {
     WorkerMessage,
     RawTransaction
 } from '#scraper/interfaces/bank-scraper.interface.js';
+import {CategoriesService} from '#categories/categories.service.js';
+import {AiCategorizationService} from '#ai-categorization/ai-categorization.service.js';
+import {CategoryRulesService} from '#category-rules/category-rules.service.js';
 
 /** Type guard for messages received from the scraper worker thread. */
 const isWorkerMessage = (msg: unknown): msg is WorkerMessage =>
@@ -43,12 +46,16 @@ export class ScraperService {
     /** Default timeout per sync run: 5 minutes. */
     private static readonly WORKER_TIMEOUT_MS = 5 * 60 * 1000;
 
+    // eslint-disable-next-line max-params
     constructor(
         private readonly prisma: PrismaService,
         private readonly cryptoService: CryptoService,
         private readonly sessionStore: SyncSessionStore,
         private readonly pushService: PushService,
-        private readonly registry: ScraperRegistry
+        private readonly registry: ScraperRegistry,
+        private readonly categoriesService: CategoriesService,
+        private readonly aiCategorizationService: AiCategorizationService,
+        private readonly categoryRulesService: CategoryRulesService
     ) {}
 
     /**
@@ -271,6 +278,24 @@ export class ScraperService {
         } as MessageEvent);
 
         this.sessionStore.complete(sessionId);
+
+        if (schedule.autoCategorizeLlm && importedCount > 0) {
+            const job = await this.prisma.syncJob.findUnique({where: {id: jobId}});
+            let since: Date;
+            if (job?.startedAt) {
+                since = job.startedAt;
+            } else {
+                since = job?.createdAt ?? now;
+                this.logger.warn(
+                    `job.startedAt is null for job ${jobId} — falling back to createdAt for auto-categorize window`
+                );
+            }
+            await this.autoCategorizeSyncedTransactions(
+                schedule.userId,
+                schedule.accountId,
+                since
+            );
+        }
     }
 
     private async handleWorkerError(
@@ -306,6 +331,91 @@ export class ScraperService {
     // ---------------------------------------------------------------------------
     // Private helpers
     // ---------------------------------------------------------------------------
+
+    /**
+     * Auto-categorize transactions imported during a sync run.
+     * Queries uncategorized active transactions created since `since`
+     * for the given user+account and applies AI suggestions.
+     *
+     * Uses createdAt >= job.startedAt (fallback: job.createdAt) as a proxy for
+     * 'imported during this sync'. Clock skew or a long-running worker may cause
+     * some transactions to be missed.
+     */
+    private async autoCategorizeSyncedTransactions(
+        userId: string,
+        accountId: string,
+        since: Date
+    ): Promise<void> {
+        const categories = await this.categoriesService.findAll(userId);
+        const active = categories.filter(c => c.isActive);
+
+        if (active.length === 0) {
+            this.logger.warn(`No active categories for user ${userId} — skipping auto-categorization`);
+            return;
+        }
+
+        const categoryNames = active.map(c => c.name);
+        const otherCat = active.find(c => c.name === 'Other') ?? active[0];
+
+        // cap matches bulkCategorize endpoint to prevent unbounded AI calls
+        const transactions = await this.prisma.transaction.findMany({
+            where: {userId, accountId, categoryId: null, isActive: true, createdAt: {gte: since}},
+            take: 200
+        });
+
+        const matchRule = await this.categoryRulesService.buildMatcher(userId);
+
+        const needsAi: typeof transactions = [];
+        const updates: {id: string, categoryId: string}[] = [];
+
+        for (const tx of transactions) {
+            const ruleMatch = matchRule(tx.description);
+            if (ruleMatch !== null) {
+                updates.push({id: tx.id, categoryId: ruleMatch});
+            } else {
+                needsAi.push(tx);
+            }
+        }
+
+        const suggestionMap = await this.aiCategorizationService.suggestCategories(
+            needsAi.map(tx => ({
+                id: tx.id,
+                description: tx.description,
+                amount: Number(tx.amount),
+                transactionType: tx.transactionType
+            })),
+            categoryNames
+        );
+
+        for (const tx of needsAi) {
+            const suggestedName = suggestionMap.get(tx.id) ?? null;
+            if (suggestedName === null) {
+                this.logger.warn(
+                    `Failed to auto-categorize transaction ${tx.id} — AI returned null`
+                );
+                continue;
+            }
+            const match =
+                active.find(c => c.name.toLowerCase() === suggestedName.toLowerCase()) ??
+                otherCat;
+            updates.push({id: tx.id, categoryId: match.id});
+        }
+
+        if (updates.length > 0) {
+            await this.prisma.$transaction(
+                updates.map(u =>
+                    this.prisma.transaction.update({
+                        where: {id: u.id},
+                        data: {categoryId: u.categoryId}
+                    })
+                )
+            );
+        }
+
+        this.logger.log(
+            `Auto-categorized ${updates.length} of ${transactions.length} synced transactions for account ${accountId}`
+        );
+    }
 
     /**
      * Compute the start date for the sync window.

@@ -148,6 +148,12 @@ export default [
         }
     },
     {
+        files: ['**/use*.ts'],
+        rules: {
+            'max-lines-per-function': ['warn', 150]
+        }
+    },
+    {
         files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
         rules: {
             'max-lines-per-function': 'off',

@@ -1,5 +1,6 @@
 import {Module} from '@nestjs/common';
 import {ConfigModule} from '@nestjs/config';
+import {envValidationSchema} from './config/env.validation.js';
 import {AppController} from './app.controller.js';
 import {AppService} from './app.service.js';
 import {CommonModule} from '#common/common.module.js';
@@ -11,12 +12,16 @@ import {CategoriesModule} from '#categories/categories.module.js';
 import {AccountsModule} from '#accounts/accounts.module.js';
 import {ScraperModule} from '#scraper/scraper.module.js';
 import {DashboardModule} from '#dashboard/dashboard.module.js';
+import {AiCategorizationModule} from '#ai-categorization/index.js';
+import {CategoryRulesModule} from '#category-rules/category-rules.module.js';
 
 @Module({
     imports: [
         ConfigModule.forRoot({
             isGlobal: true,
-            envFilePath: '.env'
+            envFilePath: '.env',
+            validationSchema: envValidationSchema,
+            validationOptions: {abortEarly: false}
         }),
         DatabaseModule,
         CommonModule,
@@ -26,7 +31,9 @@ import {DashboardModule} from '#dashboard/dashboard.module.js';
         CategoriesModule,
         AccountsModule,
         ScraperModule,
-        DashboardModule
+        DashboardModule,
+        AiCategorizationModule,
+        CategoryRulesModule
     ],
     controllers: [AppController],
     providers: [AppService]

@@ -98,7 +98,8 @@ export class SyncScheduleService {
                     bankId: dto.bankId,
                     pluginConfigEnc,
                     cron: dto.cron,
-                    lookbackDays: dto.lookbackDays ?? 3
+                    lookbackDays: dto.lookbackDays ?? 3,
+                    autoCategorizeLlm: dto.autoCategorizeLlm ?? false
                 }
             });
 
@@ -154,7 +155,10 @@ export class SyncScheduleService {
                     ...(pluginConfigEnc !== undefined && {pluginConfigEnc}),
                     ...(dto.cron !== undefined && {cron: dto.cron}),
                     ...(dto.lookbackDays !== undefined && {lookbackDays: dto.lookbackDays}),
-                    ...(dto.enabled !== undefined && {enabled: dto.enabled})
+                    ...(dto.enabled !== undefined && {enabled: dto.enabled}),
+                    ...(dto.autoCategorizeLlm !== undefined && {
+                        autoCategorizeLlm: dto.autoCategorizeLlm
+                    })
                 }
             });
 

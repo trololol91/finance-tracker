@@ -16,7 +16,8 @@ vi.mock('@/api/transactions/transactions.js', () => ({
     useTransactionsControllerCreate: vi.fn(),
     useTransactionsControllerUpdate: vi.fn(),
     getTransactionsControllerFindAllQueryKey: vi.fn(() => ['/transactions']),
-    getTransactionsControllerGetTotalsQueryKey: vi.fn(() => ['/transactions/totals'])
+    getTransactionsControllerGetTotalsQueryKey: vi.fn(() => ['/transactions/totals']),
+    transactionsControllerCategorizeSuggestion: vi.fn()
 }));
 
 // Imported after vi.mock — Vitest hoists the mock call above all imports at runtime
@@ -25,6 +26,7 @@ import {
     useTransactionsControllerUpdate,
     getTransactionsControllerGetTotalsQueryKey
 } from '@/api/transactions/transactions.js';
+import {transactionsControllerCategorizeSuggestion} from '@/api/transactions/transactions.js';
 
 const mockCreate = vi.mocked(useTransactionsControllerCreate);
 const mockUpdate = vi.mocked(useTransactionsControllerUpdate);
@@ -378,6 +380,22 @@ describe('useTransactionForm', () => {
             expect(onSuccess).toHaveBeenCalledOnce();
         });
 
+        it('sends provided categoryId and accountId on update when non-empty', () => {
+            const mockUpdateMutate = vi.fn();
+            mockUpdate.mockReturnValue(makeUpdate(mockUpdateMutate));
+
+            const {result} = setupHook();
+            act(() => {
+                const tx = {...mockTx, categoryId: 'cat-1', accountId: 'acc-1'};
+                result.current.openEdit(tx);
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            type Call = [{id: string, data: Record<string, unknown>}];
+            const [{data}] = mockUpdateMutate.mock.calls[0] as Call;
+            expect(data.categoryId).toBe('cat-1');
+            expect(data.accountId).toBe('acc-1');
+        });
+
         it('sends null for empty notes, categoryId, and accountId on update', () => {
             const mockUpdateMutate = vi.fn();
             mockUpdate.mockReturnValue(makeUpdate(mockUpdateMutate));
@@ -412,6 +430,71 @@ describe('useTransactionForm', () => {
         it('is false when neither mutation is pending', () => {
             const {result} = setupHook();
             expect(result.current.isSubmitting).toBe(false);
+        });
+    });
+
+    describe('handleSuggestCategory', () => {
+        const mockSuggest = vi.mocked(transactionsControllerCategorizeSuggestion);
+
+        beforeEach(() => {
+            mockCreate.mockReturnValue(makeCreate());
+            mockUpdate.mockReturnValue(makeUpdate());
+        });
+
+        it('does nothing when description is empty', async () => {
+            const wrapper = createWrapper();
+            const {result} = renderHook(() => useTransactionForm({onSuccess: vi.fn()}), {wrapper});
+            act(() => { result.current.handleFieldChange('description', ''); });
+            await act(async () => { await result.current.handleSuggestCategory(); });
+            expect(mockSuggest).not.toHaveBeenCalled();
+        });
+
+        it('does nothing when amount is empty', async () => {
+            const wrapper = createWrapper();
+            const {result} = renderHook(() => useTransactionForm({onSuccess: vi.fn()}), {wrapper});
+            act(() => {
+                result.current.handleFieldChange('description', 'Sobeys');
+                result.current.handleFieldChange('amount', '');
+            });
+            await act(async () => { await result.current.handleSuggestCategory(); });
+            expect(mockSuggest).not.toHaveBeenCalled();
+        });
+
+        it('sets categoryId when API returns a categoryId', async () => {
+            mockSuggest.mockResolvedValue({categoryId: 'cat-1', categoryName: 'Food'} as never);
+            const wrapper = createWrapper();
+            const {result} = renderHook(() => useTransactionForm({onSuccess: vi.fn()}), {wrapper});
+            act(() => {
+                result.current.handleFieldChange('description', 'Sobeys');
+                result.current.handleFieldChange('amount', '50');
+            });
+            await act(async () => { await result.current.handleSuggestCategory(); });
+            expect(result.current.formValues.categoryId).toBe('cat-1');
+        });
+
+        it('does not set categoryId when API returns null categoryId', async () => {
+            mockSuggest.mockResolvedValue({categoryId: null, categoryName: null} as never);
+            const wrapper = createWrapper();
+            const {result} = renderHook(() => useTransactionForm({onSuccess: vi.fn()}), {wrapper});
+            act(() => {
+                result.current.handleFieldChange('description', 'Sobeys');
+                result.current.handleFieldChange('amount', '50');
+            });
+            await act(async () => { await result.current.handleSuggestCategory(); });
+            expect(result.current.formValues.categoryId).toBe('');
+        });
+
+        it('silently handles errors from the API', async () => {
+            mockSuggest.mockRejectedValue(new Error('network error'));
+            const wrapper = createWrapper();
+            const {result} = renderHook(() => useTransactionForm({onSuccess: vi.fn()}), {wrapper});
+            act(() => {
+                result.current.handleFieldChange('description', 'Sobeys');
+                result.current.handleFieldChange('amount', '50');
+            });
+            await expect(
+                act(async () => { await result.current.handleSuggestCategory(); })
+            ).resolves.not.toThrow();
         });
     });
 

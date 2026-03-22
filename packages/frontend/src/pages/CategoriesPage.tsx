@@ -7,12 +7,18 @@ import {
     useCategoriesControllerRemove,
     getCategoriesControllerFindAllQueryKey
 } from '@/api/categories/categories.js';
+import {
+    useCategoryRulesControllerFindAll,
+    useCategoryRulesControllerRemove,
+    getCategoryRulesControllerFindAllQueryKey
+} from '@/api/category-rules/category-rules.js';
 import {useQueryClient} from '@tanstack/react-query';
 import {CategoryList} from '@features/categories/components/CategoryList.js';
 import {CategoryModal} from '@features/categories/components/CategoryModal.js';
 import {useCategoryForm} from '@features/categories/hooks/useCategoryForm.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {CategoryModalMode} from '@features/categories/types/category.types.js';
+import type {CategoryRuleResponseDto} from '@/api/model/categoryRuleResponseDto.js';
 import styles from '@pages/CategoriesPage.module.css';
 
 const CategoriesPage = (): React.JSX.Element => {
@@ -21,6 +27,17 @@ const CategoriesPage = (): React.JSX.Element => {
     const [showInactive, setShowInactive] = useState(false);
 
     const {data, isLoading, isError} = useCategoriesControllerFindAll();
+    const {data: rulesData} = useCategoryRulesControllerFindAll();
+    const rules: CategoryRuleResponseDto[] = rulesData ?? [];
+    const {mutate: deleteRule} = useCategoryRulesControllerRemove();
+
+    const invalidateRules = useCallback((): void => {
+        void queryClient.invalidateQueries({queryKey: getCategoryRulesControllerFindAllQueryKey()});
+    }, [queryClient]);
+
+    const handleDeleteRule = useCallback((id: string): void => {
+        deleteRule({id}, {onSuccess: invalidateRules});
+    }, [deleteRule, invalidateRules]);
     const categories: CategoryResponseDto[] = data ?? [];
 
     const {mutate: updateCategory} = useCategoriesControllerUpdate();
@@ -126,8 +143,54 @@ const CategoriesPage = (): React.JSX.Element => {
                     onDelete={handleDelete}
                     onToggleActive={handleToggleActive}
                 />
-            </div>
 
+                {/* Category Rules */}
+                <section className={styles.rulesSection} aria-label="Category rules">
+                    <h2 className={styles.rulesTitle}>Category Rules</h2>
+                    <p className={styles.rulesHint}>
+                        Rules match transaction descriptions by substring (case-insensitive)
+                        and assign a category — checked before AI suggestions.
+                    </p>
+                    {rules.length === 0 ? (
+                        <p className={styles.rulesEmpty}>
+                            No rules yet. Open a transaction in edit mode and click
+                            &ldquo;Save as rule&rdquo; to create one.
+                        </p>
+                    ) : (
+                        <table className={styles.rulesTable}>
+                            <thead>
+                                <tr>
+                                    <th className={styles.rulesTh}>Pattern</th>
+                                    <th className={styles.rulesTh}>Category</th>
+                                    <th className={styles.rulesTh}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rules.map((rule) => (
+                                    <tr key={rule.id} className={styles.rulesTr}>
+                                        <td className={styles.rulesTd}>
+                                            <code className={styles.rulesPattern}>
+                                                {rule.pattern}
+                                            </code>
+                                        </td>
+                                        <td className={styles.rulesTd}>{rule.categoryName}</td>
+                                        <td className={styles.rulesTdActions}>
+                                            <button
+                                                type="button"
+                                                className={styles.rulesDeleteBtn}
+                                                onClick={(): void => { handleDeleteRule(rule.id); }}
+                                                aria-label={`Delete rule for "${rule.pattern}"`}
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </section>
+            </div>
             {/* Create / Edit Modal */}
             <CategoryModal
                 mode={modalMode}

@@ -23,7 +23,9 @@
     "#integrations/*": "./dist/integrations/*",
     "#push/*": "./dist/push/*",
     "#generated/*": "./dist/generated/*",
-    "#dashboard/*": "./dist/dashboard/*"
+    "#dashboard/*": "./dist/dashboard/*",
+    "#ai-categorization/*": "./dist/ai-categorization/*",
+    "#category-rules/*": "./dist/category-rules/*"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -55,10 +57,10 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.80.0",
     "@finance-tracker/plugin-sdk": "*",
     "@finance-tracker/scraper-cibc": "*",
     "@finance-tracker/scraper-stub": "*",
-    "adm-zip": "0.5.16",
     "@nestjs/common": "11.0.1",
     "@nestjs/config": "4.0.3",
     "@nestjs/core": "11.0.1",
@@ -70,11 +72,14 @@
     "@prisma/adapter-pg": "7.4.0",
     "@prisma/client": "7.4.0",
     "@types/papaparse": "5.5.2",
+    "adm-zip": "0.5.16",
     "bcrypt": "6.0.0",
     "cron-validator": "1.4.0",
     "dotenv": "16.6.1",
     "googleapis": "168.0.0",
+    "joi": "18.0.2",
     "nodemailer": "8.0.1",
+    "openai": "6.32.0",
     "papaparse": "5.5.3",
     "passport": "0.7.0",
     "passport-jwt": "4.0.1",
@@ -84,7 +89,6 @@
     "web-push": "3.6.7"
   },
   "devDependencies": {
-    "@types/adm-zip": "0.5.7",
     "@eslint/eslintrc": "3.2.0",
     "@eslint/js": "9.18.0",
     "@nestjs/cli": "11.0.0",
@@ -93,6 +97,7 @@
     "@stylistic/eslint-plugin": "4.2.0",
     "@swc/cli": "0.6.0",
     "@swc/core": "1.10.7",
+    "@types/adm-zip": "0.5.7",
     "@types/bcrypt": "6.0.0",
     "@types/express": "5.0.0",
     "@types/multer": "2.0.0",

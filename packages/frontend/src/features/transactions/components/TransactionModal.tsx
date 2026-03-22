@@ -1,7 +1,11 @@
 import React, {
-    useEffect, useRef
+    useEffect, useRef, useCallback
 } from 'react';
 import {TransactionForm} from '@features/transactions/components/TransactionForm.js';
+import {useAiStatus} from '@features/transactions/hooks/useAiStatus.js';
+import {useCategoryRulesControllerCreate} from '@/api/category-rules/category-rules.js';
+import {useQueryClient} from '@tanstack/react-query';
+import {getCategoryRulesControllerFindAllQueryKey} from '@/api/category-rules/category-rules.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import type {TransactionFormValues} from '@features/transactions/types/transaction.types.js';
@@ -25,6 +29,8 @@ interface TransactionModalProps {
     onFieldChange: (field: keyof TransactionFormValues, value: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     onClose: () => void;
+    onSuggestCategory?: () => void | Promise<void>;
+    isSuggestingCategory?: boolean;
 }
 
 export const TransactionModal = ({
@@ -37,10 +43,27 @@ export const TransactionModal = ({
     accounts = [],
     onFieldChange,
     onSubmit,
-    onClose
+    onClose,
+    onSuggestCategory,
+    isSuggestingCategory = false
 }: TransactionModalProps): React.JSX.Element | null => {
+    const {available: aiAvailable} = useAiStatus();
     const dialogRef = useRef<HTMLDialogElement>(null);
     const amountInputRef = useRef<HTMLInputElement>(null);
+    const queryClient = useQueryClient();
+    const createRuleMutation = useCategoryRulesControllerCreate();
+
+    const handleSaveAsRule = useCallback(async (
+        pattern: string,
+        applyToExisting: boolean
+    ): Promise<void> => {
+        if (!formValues.categoryId) return;
+        await createRuleMutation.mutateAsync({
+            data: {pattern, categoryId: formValues.categoryId, applyToExisting}
+        });
+        const rulesKey = getCategoryRulesControllerFindAllQueryKey();
+        await queryClient.invalidateQueries({queryKey: rulesKey});
+    }, [createRuleMutation, formValues.categoryId, queryClient]);
 
     // BUG-07: safe showModal() — try/catch prevents InvalidStateError under StrictMode
     // double-invoke when the dialog is already in the top layer.
@@ -134,6 +157,11 @@ export const TransactionModal = ({
                     onFieldChange={onFieldChange}
                     onSubmit={onSubmit}
                     onCancel={onClose}
+                    onSuggestCategory={onSuggestCategory}
+                    isSuggestingCategory={isSuggestingCategory}
+                    aiAvailable={aiAvailable}
+                    onSaveAsRule={handleSaveAsRule}
+                    isSavingRule={createRuleMutation.isPending}
                 />
             </div>
         </dialog>

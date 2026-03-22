@@ -1,6 +1,7 @@
 import {
     describe, it, expect, vi, beforeAll, beforeEach
 } from 'vitest';
+import type * as TanstackReactQuery from '@tanstack/react-query';
 import {
     render, screen, fireEvent, act
 } from '@testing-library/react';
@@ -8,6 +9,20 @@ import userEvent from '@testing-library/user-event';
 import {TransactionModal} from '@features/transactions/components/TransactionModal.js';
 import type {TransactionFormValues} from '@features/transactions/types/transaction.types.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
+
+vi.mock('@features/transactions/hooks/useAiStatus.js', () => ({
+    useAiStatus: vi.fn(() => ({available: true, isLoading: false}))
+}));
+
+vi.mock('@/api/category-rules/category-rules.js', () => ({
+    useCategoryRulesControllerCreate: vi.fn(() => ({mutateAsync: vi.fn()})),
+    getCategoryRulesControllerFindAllQueryKey: vi.fn(() => ['category-rules'])
+}));
+
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+    const actual = await importOriginal<typeof TanstackReactQuery>();
+    return {...actual, useQueryClient: vi.fn(() => ({invalidateQueries: vi.fn()}))};
+});
 
 // jsdom does not implement showModal/close on HTMLDialogElement
 const mockShowModal = vi.fn(function(this: HTMLDialogElement) {
@@ -329,6 +344,52 @@ describe('TransactionModal', () => {
             expect(() => {
                 render(<TransactionModal {...defaultProps} isOpen />);
             }).not.toThrow();
+        });
+    });
+
+    describe('Save as rule', () => {
+        it('does not call mutateAsync when formValues.categoryId is empty', async () => {
+            const {useCategoryRulesControllerCreate} =
+                await import('@/api/category-rules/category-rules.js');
+            const mutateAsync = vi.fn().mockResolvedValue({});
+            vi.mocked(useCategoryRulesControllerCreate).mockReturnValue(
+                {mutateAsync} as never
+            );
+
+            // Render with editTarget but no categoryId — "Save as rule" button is disabled
+            render(
+                <TransactionModal
+                    {...defaultProps}
+                    editTarget={mockTx}
+                    formValues={{...emptyValues, categoryId: '', description: 'Starbucks'}}
+                />
+            );
+            // Button is disabled (no category selected), so mutateAsync should not be called
+            expect(screen.getByRole('button', {name: /save as rule/i})).toBeDisabled();
+            expect(mutateAsync).not.toHaveBeenCalled();
+        });
+
+        it('calls mutateAsync when handleSaveAsRule is triggered via the form', async () => {
+            const {useCategoryRulesControllerCreate} =
+                await import('@/api/category-rules/category-rules.js');
+            const mutateAsync = vi.fn().mockResolvedValue({});
+            vi.mocked(useCategoryRulesControllerCreate).mockReturnValue(
+                {mutateAsync} as never
+            );
+
+            const user = userEvent.setup();
+            render(
+                <TransactionModal
+                    {...defaultProps}
+                    editTarget={mockTx}
+                    formValues={{...emptyValues, categoryId: 'cat-1', description: 'Starbucks'}}
+                />
+            );
+            await user.click(screen.getByRole('button', {name: /save as rule/i}));
+            await user.click(screen.getByRole('button', {name: /save rule/i}));
+            expect(mutateAsync).toHaveBeenCalledWith(
+                expect.objectContaining({data: expect.objectContaining({categoryId: 'cat-1'})})
+            );
         });
     });
 });

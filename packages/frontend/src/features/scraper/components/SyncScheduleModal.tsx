@@ -2,6 +2,7 @@ import React, {
     useRef, useEffect, useCallback, useId
 } from 'react';
 import {SyncScheduleForm} from '@features/scraper/components/SyncScheduleForm.js';
+import {useAiStatus} from '@features/transactions/hooks/useAiStatus.js';
 import type {
     SyncScheduleFormValues, SyncScheduleFormErrors, SyncScheduleModalMode
 } from '@features/scraper/types/scraper.types.js';
@@ -28,6 +29,7 @@ export const SyncScheduleModal = ({
     onInputChange,
     onSubmit
 }: SyncScheduleModalProps): React.JSX.Element | null => {
+    const {available: aiAvailable} = useAiStatus();
     const headingId = useId();
     const dialogRef = useRef<HTMLDialogElement>(null);
     const firstFieldRef = useRef<HTMLSelectElement | null>(null);
@@ -139,6 +141,7 @@ export const SyncScheduleModal = ({
                         onChange={onChange}
                         onInputChange={onInputChange}
                         onSubmit={onSubmit}
+                        aiAvailable={aiAvailable}
                     />
                 </div>
             </div>

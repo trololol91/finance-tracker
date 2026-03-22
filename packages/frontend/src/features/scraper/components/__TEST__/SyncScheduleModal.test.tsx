@@ -20,6 +20,10 @@ vi.mock('@features/scraper/components/SyncScheduleForm.js', () => ({
     )
 }));
 
+vi.mock('@features/transactions/hooks/useAiStatus.js', () => ({
+    useAiStatus: vi.fn(() => ({available: true, isLoading: false}))
+}));
+
 const mockShowModal = vi.fn(function(this: HTMLDialogElement) {
     this.setAttribute('open', '');
 });
@@ -39,7 +43,8 @@ const emptyValues: SyncScheduleFormValues = {
     inputs: {},
     cron: '0 8 * * *',
     lookbackDays: '3',
-    enabled: true
+    enabled: true,
+    autoCategorizeLlm: false
 };
 
 const defaultProps = {

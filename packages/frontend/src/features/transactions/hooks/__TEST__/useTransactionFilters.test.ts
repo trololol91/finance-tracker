@@ -169,6 +169,14 @@ describe('useTransactionFilters', () => {
             expect(result.current.filters.accountId).toBe('');
         });
 
+        it('removes the param from URL when value is empty string', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.updateFilter('search', 'coffee'); });
+            expect(result.current.filters.search).toBe('coffee');
+            act(() => { result.current.updateFilter('search', ''); });
+            expect(result.current.filters.search).toBe('');
+        });
+
         it('clearFilters does not preserve accountId alongside other filters', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
             act(() => {
