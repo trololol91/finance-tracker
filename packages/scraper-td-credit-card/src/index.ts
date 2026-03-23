@@ -51,7 +51,7 @@ const mapTransaction = async (t: TdTransaction, pending: boolean): Promise<RawTr
     const amount = t.debit ? -Math.abs(t.debit.amt) : Math.abs(t.credit?.amt ?? 0);
     const description = t.activeTransactionDescription || t.transactionDesc;
     return {
-        date: t.postedDt,
+        date: t.transactionDt,
         description,
         amount,
         pending,
