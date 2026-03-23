@@ -25,6 +25,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate API client (frontend only)
+        if: matrix.package == 'frontend'
+        run: npm run generate:api -w packages/frontend
+
       - name: Typecheck
         run: npm run typecheck -w packages/${{ matrix.package }}
 
