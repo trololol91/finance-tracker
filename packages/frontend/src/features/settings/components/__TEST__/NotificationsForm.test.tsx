@@ -18,6 +18,8 @@ import type {User} from '@features/auth/types/auth.types.js';
 
 const mockUpdateUser = vi.fn();
 const mockMutate = vi.fn();
+const mockMutateSubscribe = vi.fn();
+const mockMutateUnsubscribe = vi.fn();
 
 const mockUser: User = {
     id: 'user-1',
@@ -41,20 +43,64 @@ vi.mock('@/api/users/users.js', () => ({
     useUsersControllerUpdate: vi.fn()
 }));
 
+vi.mock('@/api/push/push.js', () => ({
+    usePushControllerSubscribe: vi.fn(),
+    usePushControllerUnsubscribe: vi.fn()
+}));
+
+vi.mock('@services/push/pushSubscription.js', () => ({
+    subscribeBrowser: vi.fn(),
+    unsubscribeBrowser: vi.fn(),
+    getCurrentSubscription: vi.fn()
+}));
+
+vi.mock('@config/env.js', () => ({
+    env: {
+        API_BASE_URL: 'http://localhost:3001',
+        API_TIMEOUT: 30000,
+        VAPID_PUBLIC_KEY: 'test-vapid-public-key',
+        isDevelopment: false,
+        isProduction: false
+    }
+}));
+
 import {useAuth} from '@features/auth/hooks/useAuth.js';
 import {useUsersControllerUpdate} from '@/api/users/users.js';
+import {
+    usePushControllerSubscribe,
+    usePushControllerUnsubscribe
+} from '@/api/push/push.js';
+import {
+    subscribeBrowser,
+    unsubscribeBrowser,
+    getCurrentSubscription
+} from '@services/push/pushSubscription.js';
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockUseUpdate = vi.mocked(useUsersControllerUpdate);
+const mockUsePushSubscribe = vi.mocked(usePushControllerSubscribe);
+const mockUsePushUnsubscribe = vi.mocked(usePushControllerUnsubscribe);
+const mockSubscribeBrowser = vi.mocked(subscribeBrowser);
+const mockUnsubscribeBrowser = vi.mocked(unsubscribeBrowser);
+const mockGetCurrentSubscription = vi.mocked(getCurrentSubscription);
 
 type UpdateReturn = ReturnType<typeof useUsersControllerUpdate>;
 type AuthReturn = ReturnType<typeof useAuth>;
+type PushSubscribeReturn = ReturnType<typeof usePushControllerSubscribe>;
+type PushUnsubscribeReturn = ReturnType<typeof usePushControllerUnsubscribe>;
 
 const makeUpdate = (isPending = false): UpdateReturn =>
     ({mutate: mockMutate, isPending}) as unknown as UpdateReturn;
 
 const makeAuth = (user: User | null = mockUser): AuthReturn =>
     ({user, updateUser: mockUpdateUser}) as unknown as AuthReturn;
+
+const makePushSub = (endpoint = 'https://push.example.com/sub'): PushSubscription =>
+    ({
+        endpoint,
+        getKey: (k: string): ArrayBuffer =>
+            k === 'p256dh' ? new ArrayBuffer(65) : new ArrayBuffer(16)
+    }) as unknown as PushSubscription;
 
 const renderForm = (): void => {
     render(<NotificationsForm />);
@@ -67,6 +113,15 @@ describe('NotificationsForm', () => {
         vi.clearAllMocks();
         mockUseAuth.mockReturnValue(makeAuth());
         mockUseUpdate.mockReturnValue(makeUpdate());
+        mockUsePushSubscribe.mockReturnValue(
+            {mutate: mockMutateSubscribe, isPending: false} as unknown as PushSubscribeReturn
+        );
+        mockUsePushUnsubscribe.mockReturnValue(
+            {mutate: mockMutateUnsubscribe, isPending: false} as unknown as PushUnsubscribeReturn
+        );
+        mockSubscribeBrowser.mockResolvedValue(null);
+        mockUnsubscribeBrowser.mockResolvedValue(null);
+        mockGetCurrentSubscription.mockResolvedValue(null);
     });
 
     describe('rendering', () => {
@@ -237,6 +292,178 @@ describe('NotificationsForm', () => {
             renderForm();
             fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
             expect(mockMutate).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('push subscription — enabling push', () => {
+        const userWithPushOn = {...mockUser, notifyPush: true};
+
+        it('calls subscribeBrowser after save when notifyPush becomes true', async () => {
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onSuccess}: {onSuccess: (u: typeof userWithPushOn) => void}) => {
+                    onSuccess(userWithPushOn);
+                }
+            );
+            renderForm();
+            fireEvent.click(screen.getByLabelText(/push notifications/i));
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockSubscribeBrowser).toHaveBeenCalledWith('test-vapid-public-key');
+        });
+
+        it('calls mutateSubscribe with encoded keys when subscribeBrowser succeeds', async () => {
+            const mockSub = makePushSub();
+            mockSubscribeBrowser.mockResolvedValue(mockSub);
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onSuccess}: {onSuccess: (u: typeof userWithPushOn) => void}) => {
+                    onSuccess(userWithPushOn);
+                }
+            );
+            renderForm();
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockMutateSubscribe).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        endpoint: 'https://push.example.com/sub',
+                        keys: expect.objectContaining({
+                            p256dh: expect.any(String),
+                            auth: expect.any(String)
+                        })
+                    })
+                })
+            );
+        });
+
+        it('shows pushWarning when subscribeBrowser returns null', async () => {
+            mockSubscribeBrowser.mockResolvedValue(null);
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onSuccess}: {onSuccess: (u: typeof userWithPushOn) => void}) => {
+                    onSuccess(userWithPushOn);
+                }
+            );
+            renderForm();
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(screen.getByRole('alert')).toHaveTextContent(/push notifications could not be enabled/i);
+        });
+
+        it('does not call mutateSubscribe when subscribeBrowser returns null', async () => {
+            mockSubscribeBrowser.mockResolvedValue(null);
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onSuccess}: {onSuccess: (u: typeof userWithPushOn) => void}) => {
+                    onSuccess(userWithPushOn);
+                }
+            );
+            renderForm();
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockMutateSubscribe).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('push subscription — disabling push', () => {
+        const userWithPushOff = {...mockUser, notifyPush: false};
+
+        it('calls unsubscribeBrowser after save when notifyPush is false', async () => {
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onSuccess}: {onSuccess: (u: typeof userWithPushOff) => void}) => {
+                    onSuccess(userWithPushOff);
+                }
+            );
+            renderForm();
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockUnsubscribeBrowser).toHaveBeenCalledOnce();
+        });
+
+        it('calls mutateUnsubscribe with endpoint when browser had a subscription', async () => {
+            mockUnsubscribeBrowser.mockResolvedValue('https://push.example.com/sub');
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onSuccess}: {onSuccess: (u: typeof userWithPushOff) => void}) => {
+                    onSuccess(userWithPushOff);
+                }
+            );
+            renderForm();
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockMutateUnsubscribe).toHaveBeenCalledWith(
+                {data: {endpoint: 'https://push.example.com/sub'}}
+            );
+        });
+
+        it('does not call mutateUnsubscribe when unsubscribeBrowser returns null', async () => {
+            mockUnsubscribeBrowser.mockResolvedValue(null);
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onSuccess}: {onSuccess: (u: typeof userWithPushOff) => void}) => {
+                    onSuccess(userWithPushOff);
+                }
+            );
+            renderForm();
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockMutateUnsubscribe).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('re-registration on mount', () => {
+        it('calls getCurrentSubscription on mount when notifyPush is true', async () => {
+            mockUseAuth.mockReturnValue(makeAuth({...mockUser, notifyPush: true}));
+            await act(async () => {
+                renderForm();
+                await Promise.resolve();
+            });
+            expect(mockGetCurrentSubscription).toHaveBeenCalledOnce();
+        });
+
+        it('calls mutateSubscribe with existing subscription data on mount', async () => {
+            const mockSub = makePushSub();
+            mockGetCurrentSubscription.mockResolvedValue(mockSub);
+            mockUseAuth.mockReturnValue(makeAuth({...mockUser, notifyPush: true}));
+            await act(async () => {
+                renderForm();
+                await Promise.resolve();
+            });
+            expect(mockMutateSubscribe).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        endpoint: 'https://push.example.com/sub'
+                    })
+                })
+            );
+        });
+
+        it('does not call mutateSubscribe on mount when getCurrentSubscription returns null', async () => {
+            mockGetCurrentSubscription.mockResolvedValue(null);
+            mockUseAuth.mockReturnValue(makeAuth({...mockUser, notifyPush: true}));
+            await act(async () => {
+                renderForm();
+                await Promise.resolve();
+            });
+            expect(mockMutateSubscribe).not.toHaveBeenCalled();
+        });
+
+        it('does not call getCurrentSubscription on mount when notifyPush is false', async () => {
+            mockUseAuth.mockReturnValue(makeAuth({...mockUser, notifyPush: false}));
+            await act(async () => {
+                renderForm();
+                await Promise.resolve();
+            });
+            expect(mockGetCurrentSubscription).not.toHaveBeenCalled();
         });
     });
 });

@@ -8,7 +8,7 @@ import stylistic from '@stylistic/eslint-plugin';
 
 export default [
     {
-        ignores: ['dist', 'coverage', 'eslint.config.js', 'vitest.config.ts', 'src/api/**']
+        ignores: ['dist', 'coverage', 'eslint.config.js', 'vitest.config.ts', 'src/api/**', 'public/**']
     },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
@@ -164,7 +164,8 @@ export default [
             '@typescript-eslint/no-unsafe-call': 'off',
             '@typescript-eslint/no-unsafe-member-access': 'off',
             '@typescript-eslint/no-unsafe-argument': 'off',
-            '@typescript-eslint/no-unsafe-return': 'off'
+            '@typescript-eslint/no-unsafe-return': 'off',
+        '@typescript-eslint/unbound-method': 'off'
         }
     },
     {
