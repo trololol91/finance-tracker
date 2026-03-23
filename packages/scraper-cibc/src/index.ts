@@ -13,6 +13,24 @@ import type {
 let page: Page | undefined;
 let browser: Browser | undefined;
 
+const MONTH_INDEX: Record<string, number> = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+};
+
+/**
+ * Parses a CIBC date string (e.g. "Mar 16, 2026") as UTC midnight.
+ * Using new Date(dateText) would parse as local midnight and then convert to UTC,
+ * causing the stored date to shift by the server's UTC offset.
+ */
+const parseCibcDate = (dateText: string): Date | undefined => {
+    const match = dateText.match(/^(\w{3})\s+(\d{1,2}),\s+(\d{4})$/);
+    if (!match) return undefined;
+    const month = MONTH_INDEX[match[1]];
+    if (month === undefined) return undefined;
+    return new Date(Date.UTC(parseInt(match[3], 10), month, parseInt(match[2], 10)));
+};
+
 const findAccountElement = async (
     accountName: string
 ): Promise<ElementHandle<SVGElement | HTMLElement>> => {
@@ -144,7 +162,7 @@ const scrapeTransactionsFromSection = async (
         // Parse date (format: Mar 16, 2026)
         let date: Date | undefined = undefined;
         if (dateText) {
-            date = new Date(dateText);
+            date = parseCibcDate(dateText);
         }
 
         // Detect pending transactions: look for span.pending-indicator inside the amount cell

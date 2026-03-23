@@ -46,7 +46,7 @@ const buildUpdateDto = (values: TransactionFormValues): UpdateTransactionDto => 
     amount: parseFloat(values.amount),
     description: values.description.trim(),
     notes: values.notes.trim() !== '' ? values.notes.trim() : null,
-    date: new Date(values.date + 'T12:00:00').toISOString(),
+    date: values.date + 'T00:00:00.000Z',
     categoryId: values.categoryId !== '' ? values.categoryId : null,
     accountId: values.accountId !== '' ? values.accountId : null
 });
@@ -56,7 +56,7 @@ const buildCreateDto = (values: TransactionFormValues): CreateTransactionDto => 
     description: values.description.trim(),
     notes: values.notes.trim() !== '' ? values.notes.trim() : null,
     transactionType: values.transactionType as CreateTransactionDtoTransactionType,
-    date: new Date(values.date + 'T12:00:00').toISOString(),
+    date: values.date + 'T00:00:00.000Z',
     categoryId: values.categoryId !== '' ? values.categoryId : null,
     accountId: values.accountId !== '' ? values.accountId : null
 });

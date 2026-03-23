@@ -16,7 +16,7 @@ interface TransactionListItemProps {
 }
 
 const formatDate = (iso: string): string =>
-    new Date(iso).toLocaleDateString('en-CA', {month: 'short', day: 'numeric', year: 'numeric'});
+    new Date(iso).toLocaleDateString('en-CA', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
 
 const formatAmount = (amount: number, type: string): string => {
     const formatted = new Intl.NumberFormat('en-CA', {
