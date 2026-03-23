@@ -237,43 +237,43 @@ describe('ScraperPage', () => {
     });
 
     describe('tab navigation', () => {
-        it('Import tab is selected by default', () => {
+        it('Sync tab is selected by default', () => {
             render(<ScraperPage />);
-            expect(screen.getByRole('tab', {name: 'Import'}))
-                .toHaveAttribute('aria-selected', 'true');
             expect(screen.getByRole('tab', {name: 'Sync'}))
+                .toHaveAttribute('aria-selected', 'true');
+            expect(screen.getByRole('tab', {name: 'Import'}))
                 .toHaveAttribute('aria-selected', 'false');
         });
 
-        it('Import panel is visible by default', () => {
+        it('Sync panel is visible by default', () => {
             render(<ScraperPage />);
-            expect(document.getElementById('panel-import')).not.toHaveAttribute('hidden');
-        });
-
-        it('Sync panel is hidden by default', () => {
-            render(<ScraperPage />);
-            expect(document.getElementById('panel-sync')).toHaveAttribute('hidden');
-        });
-
-        it('clicking Sync tab activates Sync panel', async () => {
-            const user = userEvent.setup();
-            render(<ScraperPage />);
-            await user.click(screen.getByRole('tab', {name: 'Sync'}));
-            expect(screen.getByRole('tab', {name: 'Sync'}))
-                .toHaveAttribute('aria-selected', 'true');
-            expect(document.getElementById('panel-import')).toHaveAttribute('hidden');
             expect(document.getElementById('panel-sync')).not.toHaveAttribute('hidden');
         });
 
-        it('clicking Import tab switches back from Sync', async () => {
+        it('Import panel is hidden by default', () => {
+            render(<ScraperPage />);
+            expect(document.getElementById('panel-import')).toHaveAttribute('hidden');
+        });
+
+        it('clicking Import tab activates Import panel', async () => {
             const user = userEvent.setup();
             render(<ScraperPage />);
-            await user.click(screen.getByRole('tab', {name: 'Sync'}));
             await user.click(screen.getByRole('tab', {name: 'Import'}));
             expect(screen.getByRole('tab', {name: 'Import'}))
                 .toHaveAttribute('aria-selected', 'true');
-            expect(document.getElementById('panel-import')).not.toHaveAttribute('hidden');
             expect(document.getElementById('panel-sync')).toHaveAttribute('hidden');
+            expect(document.getElementById('panel-import')).not.toHaveAttribute('hidden');
+        });
+
+        it('clicking Sync tab switches back from Import', async () => {
+            const user = userEvent.setup();
+            render(<ScraperPage />);
+            await user.click(screen.getByRole('tab', {name: 'Import'}));
+            await user.click(screen.getByRole('tab', {name: 'Sync'}));
+            expect(screen.getByRole('tab', {name: 'Sync'}))
+                .toHaveAttribute('aria-selected', 'true');
+            expect(document.getElementById('panel-sync')).not.toHaveAttribute('hidden');
+            expect(document.getElementById('panel-import')).toHaveAttribute('hidden');
         });
 
         it('Import tab has aria-controls="panel-import"', () => {
@@ -305,6 +305,7 @@ describe('ScraperPage', () => {
             const upload = vi.fn().mockRejectedValue(new Error('Network error'));
             mockImportJob.mockReturnValue(makeImportJobReturn({upload}));
             render(<ScraperPage />);
+            await user.click(screen.getByRole('tab', {name: 'Import'}));
             await user.click(screen.getByTestId('trigger-upload'));
             expect(await screen.findByRole('alert')).toHaveTextContent('Network error');
         });
@@ -314,6 +315,7 @@ describe('ScraperPage', () => {
             const upload = vi.fn().mockRejectedValue({});
             mockImportJob.mockReturnValue(makeImportJobReturn({upload}));
             render(<ScraperPage />);
+            await user.click(screen.getByRole('tab', {name: 'Import'}));
             await user.click(screen.getByTestId('trigger-upload'));
             expect(await screen.findByRole('alert')).toHaveTextContent('Upload failed');
         });
@@ -325,6 +327,7 @@ describe('ScraperPage', () => {
                 .mockResolvedValueOnce(undefined);
             mockImportJob.mockReturnValue(makeImportJobReturn({upload}));
             render(<ScraperPage />);
+            await user.click(screen.getByRole('tab', {name: 'Import'}));
             await user.click(screen.getByTestId('trigger-upload'));
             await screen.findByRole('alert');
             await user.click(screen.getByTestId('trigger-upload'));

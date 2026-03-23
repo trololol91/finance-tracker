@@ -18,4 +18,8 @@
     .shell {
         flex-direction: column;
     }
+
+    .main {
+        padding-top: var(--mobile-bar-height);
+    }
 }

@@ -4,6 +4,9 @@ import React, {
 import {
     useQueryClient, useMutation
 } from '@tanstack/react-query';
+import {
+    Plus, Wand2
+} from 'lucide-react';
 import {Button} from '@components/common/Button/Button.js';
 import {Pagination} from '@components/common/Pagination/Pagination.js';
 import {TransactionSummary} from '@features/transactions/components/TransactionSummary.js';
@@ -216,17 +219,28 @@ export const TransactionsPage = (): React.JSX.Element => {
                                 variant="secondary"
                                 onClick={handleBulkCategorize}
                                 disabled={bulkCategorizeMutation.isPending}
+                                className="tx-btn-icon"
+                                title="Auto-categorize"
                             >
-                                {bulkCategorizeMutation.isPending
-                                    ? 'Categorizing\u2026'
-                                    : 'Auto-categorize'}
+                                <Wand2 size={15} aria-hidden="true" />
+                                <span className="tx-btn-label">
+                                    {bulkCategorizeMutation.isPending
+                                        ? 'Categorizing\u2026'
+                                        : 'Auto-categorize'}
+                                </span>
                             </Button>
                         )}
                         {bulkCategorizeMessage !== null && (
                             <span className="tx-page__bulk-msg">{bulkCategorizeMessage}</span>
                         )}
-                        <Button variant="primary" onClick={handleAddClick}>
-                            + Add Transaction
+                        <Button
+                            variant="primary"
+                            onClick={handleAddClick}
+                            className="tx-btn-icon"
+                            title="Add Transaction"
+                        >
+                            <Plus size={15} aria-hidden="true" />
+                            <span className="tx-btn-label">Add Transaction</span>
                         </Button>
                     </div>
                 </div>

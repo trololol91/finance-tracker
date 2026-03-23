@@ -15,11 +15,11 @@ interface DateRangePickerProps {
     onChange: (range: DateRange) => void;
 }
 
-const PRESETS: {label: string, value: DatePreset}[] = [
+const PRESETS: {label: string, shortLabel?: string, value: DatePreset}[] = [
     {label: 'Today', value: 'today'},
-    {label: 'This Week', value: 'this-week'},
-    {label: 'This Month', value: 'this-month'},
-    {label: 'This Year', value: 'this-year'},
+    {label: 'This Week', shortLabel: 'Week', value: 'this-week'},
+    {label: 'This Month', shortLabel: 'Month', value: 'this-month'},
+    {label: 'This Year', shortLabel: 'Year', value: 'this-year'},
     {label: 'Custom', value: 'custom'}
 ];
 
@@ -124,7 +124,8 @@ export const DateRangePicker = (
                         onClick={() => { handlePreset(p.value); }}
                         aria-pressed={(showCustom ? 'custom' : activePreset) === p.value}
                     >
-                        {p.label}
+                        <span className="drp__preset-label">{p.label}</span>
+                        <span className="drp__preset-short">{p.shortLabel ?? p.label}</span>
                     </button>
                 ))}
             </div>

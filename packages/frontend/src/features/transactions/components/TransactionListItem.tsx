@@ -18,6 +18,9 @@ interface TransactionListItemProps {
 const formatDate = (iso: string): string =>
     new Date(iso).toLocaleDateString('en-CA', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
 
+const formatDateShort = (iso: string): string =>
+    new Date(iso).toLocaleDateString('en-CA', {month: 'short', day: 'numeric', timeZone: 'UTC'});
+
 const formatAmount = (amount: number, type: string): string => {
     const formatted = new Intl.NumberFormat('en-CA', {
         style: 'currency',
@@ -44,7 +47,10 @@ export const TransactionListItem = ({
             className={`tx-item ${!transaction.isActive ? 'tx-item--inactive' : ''}`}
             aria-label={`${transaction.description}, ${formatAmount(transaction.amount, transaction.transactionType)}`}
         >
-            <td className="tx-item__date">{formatDate(transaction.date)}</td>
+            <td className="tx-item__date">
+                <span className="tx-item__date-full">{formatDate(transaction.date)}</span>
+                <span className="tx-item__date-short">{formatDateShort(transaction.date)}</span>
+            </td>
             <td className="tx-item__description">
                 <span className="tx-item__desc-text">{transaction.description}</span>
                 {transaction.notes && (
@@ -100,6 +106,24 @@ export const TransactionListItem = ({
                     onDelete={onDelete}
                     isLoading={isMutating}
                 />
+            </td>
+            <td className="tx-item__mobile-meta" aria-hidden="true">
+                <span className="tx-item__meta-items">
+                    {category !== null && (
+                        <span className="tx-item__meta-item tx-item__meta-category">
+                            {category.icon ? `${category.icon} ` : ''}{category.name}
+                        </span>
+                    )}
+                    {account !== null && (
+                        <span className="tx-item__meta-item tx-item__meta-account">{account.name}</span>
+                    )}
+                    {transaction.isPending && (
+                        <span className="tx-item__meta-item tx-item__pending-badge">Pending</span>
+                    )}
+                    {!transaction.isActive && (
+                        <span className="tx-item__meta-item tx-item__inactive-badge">Inactive</span>
+                    )}
+                </span>
             </td>
         </tr>
     );

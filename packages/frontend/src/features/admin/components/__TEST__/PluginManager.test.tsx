@@ -56,6 +56,16 @@ describe('PluginManager', () => {
             render(<PluginManager />);
             expect(screen.getByLabelText(/select a .zip plugin file/i)).toBeInTheDocument();
         });
+
+        it('renders the Choose file trigger', () => {
+            render(<PluginManager />);
+            expect(screen.getByText(/choose file/i)).toBeInTheDocument();
+        });
+
+        it('shows No file selected when no file is chosen', () => {
+            render(<PluginManager />);
+            expect(screen.getByText(/no file selected/i)).toBeInTheDocument();
+        });
     });
 
     describe('reload plugins', () => {
@@ -80,11 +90,9 @@ describe('PluginManager', () => {
     });
 
     describe('install plugin', () => {
-        it('shows error feedback when no file is selected and Install is clicked', async () => {
-            const user = userEvent.setup();
+        it('disables Install Plugin button when no file is selected', () => {
             render(<PluginManager />);
-            await user.click(screen.getByRole('button', {name: /install plugin/i}));
-            expect(screen.getByText(/please select a .zip plugin file/i)).toBeInTheDocument();
+            expect(screen.getByRole('button', {name: /install plugin/i})).toBeDisabled();
         });
 
         it('does not call install mutate when no file is selected', async () => {
@@ -92,6 +100,75 @@ describe('PluginManager', () => {
             render(<PluginManager />);
             await user.click(screen.getByRole('button', {name: /install plugin/i}));
             expect(mockInstallMutate).not.toHaveBeenCalled();
+        });
+
+        it('enables Install Plugin button after a file is selected', async () => {
+            const user = userEvent.setup();
+            render(<PluginManager />);
+            const input = screen.getByLabelText(/select a .zip plugin file/i);
+            const file = new File(['content'], 'test-plugin.zip', {type: 'application/zip'});
+            await user.upload(input, file);
+            expect(screen.getByRole('button', {name: /install plugin/i})).not.toBeDisabled();
+        });
+
+        it('shows the filename after a file is selected', async () => {
+            const user = userEvent.setup();
+            render(<PluginManager />);
+            const input = screen.getByLabelText(/select a .zip plugin file/i);
+            const file = new File(['content'], 'my-bank.zip', {type: 'application/zip'});
+            await user.upload(input, file);
+            expect(screen.getByText('my-bank.zip')).toBeInTheDocument();
+        });
+
+        it('shows a clear button after a file is selected', async () => {
+            const user = userEvent.setup();
+            render(<PluginManager />);
+            const input = screen.getByLabelText(/select a .zip plugin file/i);
+            const file = new File(['content'], 'test.zip', {type: 'application/zip'});
+            await user.upload(input, file);
+            expect(screen.getByRole('button', {name: /clear selected file/i})).toBeInTheDocument();
+        });
+
+        it('clears the selected file when the clear button is clicked', async () => {
+            const user = userEvent.setup();
+            render(<PluginManager />);
+            const input = screen.getByLabelText(/select a .zip plugin file/i);
+            const file = new File(['content'], 'test.zip', {type: 'application/zip'});
+            await user.upload(input, file);
+            await user.click(screen.getByRole('button', {name: /clear selected file/i}));
+            expect(screen.getByText(/no file selected/i)).toBeInTheDocument();
+            expect(screen.getByRole('button', {name: /install plugin/i})).toBeDisabled();
+        });
+
+        it('clears install feedback when the clear button is clicked', async () => {
+            let capturedOnError: (() => void) | undefined;
+            mockInstall.mockImplementation(
+                ({mutation}: {mutation: {onError: () => void}}) => {
+                    capturedOnError = mutation.onError;
+                    return {mutate: mockInstallMutate, isPending: false};
+                }
+            );
+            const user = userEvent.setup();
+            render(<PluginManager />);
+            const input = screen.getByLabelText(/select a .zip plugin file/i);
+            const file = new File(['content'], 'test.zip', {type: 'application/zip'});
+            await user.upload(input, file);
+            await user.click(screen.getByRole('button', {name: /install plugin/i}));
+            act(() => { capturedOnError?.(); });
+            expect(screen.getByText(/failed to install plugin/i)).toBeInTheDocument();
+            await user.upload(input, file);
+            await user.click(screen.getByRole('button', {name: /clear selected file/i}));
+            expect(screen.queryByText(/failed to install plugin/i)).not.toBeInTheDocument();
+        });
+
+        it('calls install mutate with the selected file', async () => {
+            const user = userEvent.setup();
+            render(<PluginManager />);
+            const input = screen.getByLabelText(/select a .zip plugin file/i);
+            const file = new File(['content'], 'plugin.zip', {type: 'application/zip'});
+            await user.upload(input, file);
+            await user.click(screen.getByRole('button', {name: /install plugin/i}));
+            expect(mockInstallMutate).toHaveBeenCalledWith({data: {file}});
         });
 
         it('disables Install Plugin button while pending', () => {

@@ -142,9 +142,9 @@ describe('Sidebar', () => {
         it('renders the app name as a link', () => {
             renderSidebar();
 
-            // Finance Tracker is APP_NAME — it renders as a Link (anchor)
-            const logoLink = screen.getByRole('link', {name: /finance tracker/i});
-            expect(logoLink).toBeInTheDocument();
+            // Two links rendered: mobile bar + sidebar (CSS shows one per breakpoint)
+            const logoLinks = screen.getAllByRole('link', {name: /finance tracker/i});
+            expect(logoLinks.length).toBeGreaterThanOrEqual(1);
         });
     });
 

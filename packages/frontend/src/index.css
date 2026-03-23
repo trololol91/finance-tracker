@@ -71,7 +71,11 @@
 
     /* Layout */
     --max-width-content: 1280px;
+    --mobile-bar-height: 56px;
     --z-sticky: 10;
+    --z-fixed: 20;
+    --z-overlay: 25;
+    --z-modal: 30;
 
     /* Spacing scale */
     --space-1: 0.25rem;

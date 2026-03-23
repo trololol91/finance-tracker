@@ -17,7 +17,7 @@ import styles from '@pages/ScraperPage.module.css';
 type Tab = 'import' | 'sync';
 
 const ScraperPageInner = (): React.JSX.Element => {
-    const [activeTab, setActiveTab] = useState<Tab>('import');
+    const [activeTab, setActiveTab] = useState<Tab>('sync');
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [mfaChallenge, setMfaChallenge] = useState<string>('');
     const [_activeScheduleId, setActiveScheduleId] = useState<string>('');
@@ -120,17 +120,6 @@ const ScraperPageInner = (): React.JSX.Element => {
                     <button
                         role="tab"
                         type="button"
-                        id="tab-import"
-                        aria-controls="panel-import"
-                        aria-selected={activeTab === 'import'}
-                        className={`${styles.tab} ${activeTab === 'import' ? styles.tabActive : ''}`}
-                        onClick={() => { setActiveTab('import'); }}
-                    >
-                        Import
-                    </button>
-                    <button
-                        role="tab"
-                        type="button"
                         id="tab-sync"
                         aria-controls="panel-sync"
                         aria-selected={activeTab === 'sync'}
@@ -139,35 +128,17 @@ const ScraperPageInner = (): React.JSX.Element => {
                     >
                         Sync
                     </button>
-                </div>
-
-                {/* Import tab */}
-                <div
-                    id="panel-import"
-                    role="tabpanel"
-                    aria-labelledby="tab-import"
-                    hidden={activeTab !== 'import'}
-                    className={styles.panel}
-                >
-                    <section className={styles.section} aria-label="Upload file">
-                        <h2 className={styles.sectionTitle}>Upload File</h2>
-                        <FileImportDropzone
-                            onFile={(file) => { void handleFile(file); }}
-                            isUploading={isUploading}
-                        />
-                        {uploadError !== null && (
-                            <p role="alert" className={styles.uploadError}>{uploadError}</p>
-                        )}
-                    </section>
-
-                    <section className={styles.section} aria-label="Import history">
-                        <h2 className={styles.sectionTitle}>Import History</h2>
-                        <ImportJobList
-                            jobs={jobs}
-                            isLoading={jobsLoading}
-                            isError={jobsError}
-                        />
-                    </section>
+                    <button
+                        role="tab"
+                        type="button"
+                        id="tab-import"
+                        aria-controls="panel-import"
+                        aria-selected={activeTab === 'import'}
+                        className={`${styles.tab} ${activeTab === 'import' ? styles.tabActive : ''}`}
+                        onClick={() => { setActiveTab('import'); }}
+                    >
+                        Import
+                    </button>
                 </div>
 
                 {/* Sync tab */}
@@ -211,6 +182,35 @@ const ScraperPageInner = (): React.JSX.Element => {
                             />
                         </section>
                     )}
+                </div>
+
+                {/* Import tab */}
+                <div
+                    id="panel-import"
+                    role="tabpanel"
+                    aria-labelledby="tab-import"
+                    hidden={activeTab !== 'import'}
+                    className={styles.panel}
+                >
+                    <section className={styles.section} aria-label="Upload file">
+                        <h2 className={styles.sectionTitle}>Upload File</h2>
+                        <FileImportDropzone
+                            onFile={(file) => { void handleFile(file); }}
+                            isUploading={isUploading}
+                        />
+                        {uploadError !== null && (
+                            <p role="alert" className={styles.uploadError}>{uploadError}</p>
+                        )}
+                    </section>
+
+                    <section className={styles.section} aria-label="Import history">
+                        <h2 className={styles.sectionTitle}>Import History</h2>
+                        <ImportJobList
+                            jobs={jobs}
+                            isLoading={jobsLoading}
+                            isError={jobsError}
+                        />
+                    </section>
                 </div>
             </div>
 

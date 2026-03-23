@@ -129,7 +129,7 @@ describe('TransactionListItem', () => {
 
         it('shows Inactive badge for inactive transactions', () => {
             renderItem(makeTx({isActive: false}));
-            expect(screen.getByText('Inactive')).toBeInTheDocument();
+            expect(screen.getAllByText('Inactive').length).toBeGreaterThan(0);
         });
 
         it('applies the inactive CSS class when isActive is false', () => {
@@ -146,7 +146,7 @@ describe('TransactionListItem', () => {
 
         it('shows Pending badge when isPending is true', () => {
             renderItem(makeTx({isPending: true}));
-            expect(screen.getByText('Pending')).toBeInTheDocument();
+            expect(screen.getAllByText('Pending').length).toBeGreaterThan(0);
         });
 
         it('does not show Pending badge when isPending is false', () => {
@@ -179,13 +179,13 @@ describe('TransactionListItem', () => {
         it('shows the category name when a matching category is provided', () => {
             const tx = makeTx({categoryId: 'cat-1'});
             renderItem(tx, {categories: [makeCategory({id: 'cat-1', name: 'Food', icon: null})]});
-            expect(screen.getByText('Food')).toBeInTheDocument();
+            expect(screen.getAllByText('Food').length).toBeGreaterThan(0);
         });
 
         it('shows icon prefix when category has an icon', () => {
             const tx = makeTx({categoryId: 'cat-1'});
             renderItem(tx, {categories: [makeCategory({id: 'cat-1', name: 'Food', icon: '🍔'})]});
-            expect(screen.getByText(/🍔/)).toBeInTheDocument();
+            expect(screen.getAllByText(/🍔/).length).toBeGreaterThan(0);
         });
 
         it('renders a colour swatch when the category has a colour', () => {
@@ -251,7 +251,7 @@ describe('TransactionListItem', () => {
         it('shows account name when a matching account is found', () => {
             const tx = makeTx({accountId: 'acc-1'});
             renderItem(tx, {accounts: [makeAccount({id: 'acc-1', name: 'Main Chequing'})]});
-            expect(screen.getByText('Main Chequing')).toBeInTheDocument();
+            expect(screen.getAllByText('Main Chequing').length).toBeGreaterThan(0);
         });
 
         it('shows "—" when accountId is set but no matching account is in the list', () => {
@@ -276,6 +276,79 @@ describe('TransactionListItem', () => {
             const tx = makeTx({accountId: 'acc-1'});
             const {container} = renderItem(tx, {accounts: [makeAccount({id: 'acc-1', name: 'Savings'})]});
             expect(container.querySelector('.tx-item__account-label')?.textContent).toBe('Savings');
+        });
+    });
+
+    describe('mobile meta cell', () => {
+        const makeAccount = (overrides: Partial<AccountResponseDto> = {}): AccountResponseDto => ({
+            id: 'acc-1',
+            userId: 'user-1',
+            name: 'Main Chequing',
+            type: 'checking' as const,
+            institution: null,
+            currency: 'CAD',
+            openingBalance: 0,
+            currentBalance: 1000,
+            transactionCount: 0,
+            color: null,
+            notes: null,
+            isActive: true,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+            ...overrides
+        });
+
+        it('renders the mobile meta cell element', () => {
+            const {container} = renderItem(makeTx());
+            expect(container.querySelector('.tx-item__mobile-meta')).toBeInTheDocument();
+        });
+
+        it('shows category name in the mobile meta cell', () => {
+            const tx = makeTx({categoryId: 'cat-1'});
+            const {container} = renderItem(tx, {categories: [makeCategory({id: 'cat-1', name: 'Groceries', icon: null})]});
+            const meta = container.querySelector('.tx-item__mobile-meta');
+            expect(meta?.textContent).toContain('Groceries');
+        });
+
+        it('shows category icon in the mobile meta cell', () => {
+            const tx = makeTx({categoryId: 'cat-1'});
+            const {container} = renderItem(tx, {categories: [makeCategory({id: 'cat-1', name: 'Food', icon: '🍔'})]});
+            const meta = container.querySelector('.tx-item__mobile-meta');
+            expect(meta?.textContent).toContain('🍔');
+        });
+
+        it('shows account name in the mobile meta cell', () => {
+            const tx = makeTx({accountId: 'acc-1'});
+            const {container} = renderItem(tx, {accounts: [makeAccount({id: 'acc-1', name: 'Savings'})]});
+            const meta = container.querySelector('.tx-item__mobile-meta');
+            expect(meta?.textContent).toContain('Savings');
+        });
+
+        it('shows Pending in the mobile meta cell when isPending is true', () => {
+            const {container} = renderItem(makeTx({isPending: true}));
+            const meta = container.querySelector('.tx-item__mobile-meta');
+            expect(meta?.textContent).toContain('Pending');
+        });
+
+        it('does not show Pending in the mobile meta cell when isPending is false', () => {
+            const {container} = renderItem(makeTx({isPending: false}));
+            const meta = container.querySelector('.tx-item__mobile-meta');
+            expect(meta?.textContent).not.toContain('Pending');
+        });
+
+        it('shows Inactive in the mobile meta cell when isActive is false', () => {
+            const {container} = renderItem(makeTx({isActive: false}));
+            const meta = container.querySelector('.tx-item__mobile-meta');
+            expect(meta?.textContent).toContain('Inactive');
+        });
+
+        it('shows empty mobile meta cell when there is no category, account, or badges', () => {
+            const {container} = renderItem(
+                makeTx({categoryId: null, accountId: null, isPending: false, isActive: true})
+            );
+            const meta = container.querySelector('.tx-item__mobile-meta');
+            const text = meta?.textContent ?? '';
+            expect(text.trim()).toBe('');
         });
     });
 });

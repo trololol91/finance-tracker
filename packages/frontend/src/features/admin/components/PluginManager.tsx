@@ -1,7 +1,9 @@
 import React, {
     useRef,
-    useState
+    useState,
+    useCallback
 } from 'react';
+import {Upload} from 'lucide-react';
 import {
     useScraperAdminControllerReload,
     useScraperAdminControllerInstall
@@ -15,6 +17,7 @@ interface Feedback {
 
 export const PluginManager = (): React.JSX.Element => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [reloadFeedback, setReloadFeedback] = useState<Feedback | null>(null);
     const [installFeedback, setInstallFeedback] = useState<Feedback | null>(null);
 
@@ -43,6 +46,7 @@ export const PluginManager = (): React.JSX.Element => {
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
+                setSelectedFile(null);
             },
             onError: () => {
                 setInstallFeedback({type: 'error', message: 'Failed to install plugin'});
@@ -56,14 +60,26 @@ export const PluginManager = (): React.JSX.Element => {
         reloadMutation.mutate();
     };
 
-    const handleInstall = (): void => {
-        const file = fileInputRef.current?.files?.[0];
-        if (!file) {
-            setInstallFeedback({type: 'error', message: 'Please select a .zip plugin file'});
-            return;
-        }
+    const handleFileChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>): void => {
+            setSelectedFile(e.target.files?.[0] ?? null);
+            setInstallFeedback(null);
+        },
+        []
+    );
+
+    const handleClearFile = useCallback((): void => {
+        setSelectedFile(null);
         setInstallFeedback(null);
-        installMutation.mutate({data: {file}});
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    }, []);
+
+    const handleInstall = (): void => {
+        if (!selectedFile) return;
+        setInstallFeedback(null);
+        installMutation.mutate({data: {file: selectedFile}});
     };
 
     return (
@@ -97,19 +113,39 @@ export const PluginManager = (): React.JSX.Element => {
 
             <section className={styles.section} aria-label="Install plugin">
                 <p className={styles.sectionTitle}>Install Plugin</p>
-                <div className={styles.row}>
+                <div className={styles.fileRow}>
+                    <label htmlFor="plugin-file-input" className={styles.fileTrigger}>
+                        <Upload size={14} aria-hidden="true" />
+                        Choose file
+                    </label>
                     <input
                         ref={fileInputRef}
                         type="file"
                         accept=".zip"
                         id="plugin-file-input"
-                        className={styles.fileInput}
+                        className={styles.fileInputHidden}
                         aria-label="Select a .zip plugin file to install"
+                        onChange={handleFileChange}
                     />
+                    <span className={`${styles.fileName} ${selectedFile !== null ? styles.fileNameActive : ''}`}>
+                        {selectedFile !== null ? selectedFile.name : 'No file selected'}
+                    </span>
+                    {selectedFile !== null && (
+                        <button
+                            type="button"
+                            className={styles.clearBtn}
+                            onClick={handleClearFile}
+                            aria-label="Clear selected file"
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+                <div className={styles.row}>
                     <button
                         type="button"
                         className={styles.btn}
-                        disabled={installMutation.isPending}
+                        disabled={installMutation.isPending || selectedFile === null}
                         onClick={handleInstall}
                         aria-busy={installMutation.isPending}
                     >

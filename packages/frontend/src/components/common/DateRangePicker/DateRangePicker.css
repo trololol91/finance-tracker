@@ -72,3 +72,17 @@
     color: var(--color-gray-500);
     padding-bottom: 0.5rem;
 }
+
+.drp__preset-short {
+    display: none;
+}
+
+@media (max-width: 480px) {
+    .drp__preset-label {
+        display: none;
+    }
+
+    .drp__preset-short {
+        display: inline;
+    }
+}

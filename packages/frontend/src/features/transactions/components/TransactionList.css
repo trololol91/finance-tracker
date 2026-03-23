@@ -40,7 +40,13 @@
 }
 
 @media (max-width: 767px) {
-    .tx-list__th--hide-mobile {
+    /* Switch from table to block so rows can become grid cards */
+    .tx-list__table,
+    .tx-list__table tbody {
+        display: block;
+    }
+
+    .tx-list__table thead {
         display: none;
     }
 }
