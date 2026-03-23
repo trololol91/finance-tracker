@@ -21,12 +21,12 @@ const escapeHtml = (s: string): string =>
 
 /**
  * Sends Web Push VAPID notifications and/or email alerts when a scraper
- * requires MFA input.  Notification channels are controlled per-user by
- * the `notifyPush` / `notifyEmail` flags on the User record.
+ * requires MFA input.  Push delivery is attempted for all registered
+ * subscriptions; email is gated by the user's `notifyEmail` preference.
  *
  * Web Push subscriptions are kept in an in-memory store and are lost on
  * process restart — callers should re-register subscriptions on startup
- * (handled by the Service Worker on the frontend).
+ * (handled by PushBootstrap on the frontend).
  */
 @Injectable()
 export class PushService {

@@ -32,6 +32,15 @@ const urlBase64ToUint8Array = (base64String: string): Uint8Array<ArrayBuffer> =>
     return output;
 };
 
+/** Encode an ArrayBuffer key to a base64 string for the backend DTO. */
+export const encodeKey = (buf: ArrayBuffer): string => {
+    let binary = '';
+    for (const byte of new Uint8Array(buf)) {
+        binary += String.fromCharCode(byte);
+    }
+    return btoa(binary);
+};
+
 /** Returns true if this browser supports Service Workers and the Push API. */
 export const isPushSupported = (): boolean => {
     const win = window as Window & {PushManager?: unknown};

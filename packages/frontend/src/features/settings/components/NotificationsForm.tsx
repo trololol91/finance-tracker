@@ -18,18 +18,10 @@ import {env} from '@config/env.js';
 import {
     subscribeBrowser,
     unsubscribeBrowser,
-    getCurrentSubscription
+    getCurrentSubscription,
+    encodeKey
 } from '@services/push/pushSubscription.js';
 import styles from '@features/settings/components/NotificationsForm.module.css';
-
-/** Encode an ArrayBuffer key to a base64 string for the backend DTO. */
-const encodeKey = (buf: ArrayBuffer): string => {
-    let binary = '';
-    for (const byte of new Uint8Array(buf)) {
-        binary += String.fromCharCode(byte);
-    }
-    return btoa(binary);
-};
 
 export const NotificationsForm = (): React.JSX.Element => {
     const {user: authUser, updateUser} = useAuth();
@@ -94,8 +86,8 @@ export const NotificationsForm = (): React.JSX.Element => {
             setIsPushLoading(false);
             if (endpoint) {
                 mutateUnsubscribe({data: {endpoint} as unknown as UnsubscribePushDto});
+                setIsSubscribed(false);
             }
-            setIsSubscribed(false);
         });
     };
 

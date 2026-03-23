@@ -1,16 +1,11 @@
 import React, {useEffect} from 'react';
 import {useAuth} from '@features/auth/hooks/useAuth.js';
 import {usePushControllerSubscribe} from '@/api/push/push.js';
-import {getCurrentSubscription} from '@services/push/pushSubscription.js';
+import {
+    getCurrentSubscription,
+    encodeKey
+} from '@services/push/pushSubscription.js';
 import type {SubscribePushDto} from '@/api/model/index.js';
-
-const encodeKey = (buf: ArrayBuffer): string => {
-    let binary = '';
-    for (const byte of new Uint8Array(buf)) {
-        binary += String.fromCharCode(byte);
-    }
-    return btoa(binary);
-};
 
 interface PushBootstrapProps {
     children: React.ReactNode;

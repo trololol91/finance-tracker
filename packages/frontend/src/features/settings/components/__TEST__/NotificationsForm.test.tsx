@@ -47,11 +47,15 @@ vi.mock('@/api/push/push.js', () => ({
     usePushControllerUnsubscribe: vi.fn()
 }));
 
-vi.mock('@services/push/pushSubscription.js', () => ({
-    subscribeBrowser: vi.fn(),
-    unsubscribeBrowser: vi.fn(),
-    getCurrentSubscription: vi.fn()
-}));
+vi.mock('@services/push/pushSubscription.js', async () => {
+    const {encodeKey} = await import('@services/push/pushSubscription.js');
+    return {
+        encodeKey,
+        subscribeBrowser: vi.fn(),
+        unsubscribeBrowser: vi.fn(),
+        getCurrentSubscription: vi.fn()
+    };
+});
 
 vi.mock('@config/env.js', () => ({
     env: {

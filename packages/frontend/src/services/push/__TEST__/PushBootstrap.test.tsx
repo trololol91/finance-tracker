@@ -19,9 +19,10 @@ vi.mock('@/api/push/push.js', () => ({
     usePushControllerSubscribe: vi.fn()
 }));
 
-vi.mock('@services/push/pushSubscription.js', () => ({
-    getCurrentSubscription: vi.fn()
-}));
+vi.mock('@services/push/pushSubscription.js', async () => {
+    const {encodeKey} = await import('@services/push/pushSubscription.js');
+    return {encodeKey, getCurrentSubscription: vi.fn()};
+});
 
 import {useAuth} from '@features/auth/hooks/useAuth.js';
 import {usePushControllerSubscribe} from '@/api/push/push.js';
