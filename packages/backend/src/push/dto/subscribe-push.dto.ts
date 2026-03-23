@@ -9,19 +9,19 @@ import {Type} from 'class-transformer';
 import {ApiProperty} from '@nestjs/swagger';
 
 export class PushSubscriptionKeysDto {
-    @ApiProperty({description: 'P-256 Diffie-Hellman public key (base64url)'})
+    @ApiProperty({description: 'P-256 Diffie-Hellman public key (base64url)', type: 'string'})
     @IsString()
     @IsNotEmpty()
     public p256dh = '';
 
-    @ApiProperty({description: 'Authentication secret (base64url)'})
+    @ApiProperty({description: 'Authentication secret (base64url)', type: 'string'})
     @IsString()
     @IsNotEmpty()
     public auth = '';
 }
 
 export class SubscribePushDto {
-    @ApiProperty({description: 'Push service endpoint URL'})
+    @ApiProperty({description: 'Push service endpoint URL', type: 'string'})
     @IsUrl()
     @IsNotEmpty()
     public endpoint = '';

@@ -5,7 +5,6 @@ import {
     getCurrentSubscription,
     encodeKey
 } from '@services/push/pushSubscription.js';
-import type {SubscribePushDto} from '@/api/model/index.js';
 
 interface PushBootstrapProps {
     children: React.ReactNode;
@@ -22,7 +21,8 @@ export const PushBootstrap = ({children}: PushBootstrapProps): React.JSX.Element
 
     useEffect((): void => {
         if (!user?.id) return;
-        void getCurrentSubscription().then((sub): void => {
+        void (async (): Promise<void> => {
+            const sub = await getCurrentSubscription();
             if (!sub) return;
             const p256dh = sub.getKey('p256dh');
             const auth = sub.getKey('auth');
@@ -31,9 +31,9 @@ export const PushBootstrap = ({children}: PushBootstrapProps): React.JSX.Element
                 data: {
                     endpoint: sub.endpoint,
                     keys: {p256dh: encodeKey(p256dh), auth: encodeKey(auth)}
-                } as unknown as SubscribePushDto
+                }
             });
-        });
+        })();
     }, [user?.id, mutateSubscribe]);
 
     return <>{children}</>;

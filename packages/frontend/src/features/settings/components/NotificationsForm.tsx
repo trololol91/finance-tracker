@@ -9,10 +9,6 @@ import {
     usePushControllerUnsubscribe
 } from '@/api/push/push.js';
 import type {UpdateUserDto} from '@/api/model/updateUserDto.js';
-import type {
-    SubscribePushDto,
-    UnsubscribePushDto
-} from '@/api/model/index.js';
 import {Button} from '@components/common/Button/Button.js';
 import {env} from '@config/env.js';
 import {
@@ -48,17 +44,19 @@ export const NotificationsForm = (): React.JSX.Element => {
 
     // Check current browser subscription status on mount
     useEffect((): void => {
-        void getCurrentSubscription().then((sub): void => {
+        void (async (): Promise<void> => {
+            const sub = await getCurrentSubscription();
             setIsSubscribed(sub !== null);
             setIsCheckingPush(false);
-        });
+        })();
     }, []);
 
     const handleEnablePush = (): void => {
         if (!env.VAPID_PUBLIC_KEY) return;
         setPushWarning('');
         setIsPushLoading(true);
-        void subscribeBrowser(env.VAPID_PUBLIC_KEY).then((sub): void => {
+        void (async (): Promise<void> => {
+            const sub = await subscribeBrowser(env.VAPID_PUBLIC_KEY);
             setIsPushLoading(false);
             if (!sub) {
                 setPushWarning(
@@ -74,21 +72,22 @@ export const NotificationsForm = (): React.JSX.Element => {
                 data: {
                     endpoint: sub.endpoint,
                     keys: {p256dh: encodeKey(p256dh), auth: encodeKey(auth)}
-                } as unknown as SubscribePushDto
+                }
             });
             setIsSubscribed(true);
-        });
+        })();
     };
 
     const handleDisablePush = (): void => {
         setIsPushLoading(true);
-        void unsubscribeBrowser().then((endpoint): void => {
+        void (async (): Promise<void> => {
+            const endpoint = await unsubscribeBrowser();
             setIsPushLoading(false);
             if (endpoint) {
-                mutateUnsubscribe({data: {endpoint} as unknown as UnsubscribePushDto});
+                mutateUnsubscribe({data: {endpoint}});
                 setIsSubscribed(false);
             }
-        });
+        })();
     };
 
     const handleSave = (e: React.FormEvent): void => {

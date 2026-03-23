@@ -4081,11 +4081,11 @@
         "type": "object",
         "properties": {
           "p256dh": {
-            "type": "object",
+            "type": "string",
             "description": "P-256 Diffie-Hellman public key (base64url)"
           },
           "auth": {
-            "type": "object",
+            "type": "string",
             "description": "Authentication secret (base64url)"
           }
         },
@@ -4098,7 +4098,7 @@
         "type": "object",
         "properties": {
           "endpoint": {
-            "type": "object",
+            "type": "string",
             "description": "Push service endpoint URL"
           },
           "keys": {
@@ -4119,7 +4119,7 @@
         "type": "object",
         "properties": {
           "endpoint": {
-            "type": "object",
+            "type": "string",
             "description": "Push service endpoint URL to remove"
           }
         },
