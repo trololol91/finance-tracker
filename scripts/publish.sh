@@ -25,6 +25,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 echo ""
+echo "==> Building playwright-server image..."
+docker build \
+  -t "$REGISTRY/finance-tracker-playwright:$VERSION" \
+  -t "$REGISTRY/finance-tracker-playwright:latest" \
+  docker/playwright-server
+
+echo ""
 echo "==> Building backend image..."
 docker build \
   -t "$REGISTRY/finance-tracker-backend:$VERSION" \
@@ -39,6 +46,11 @@ docker build \
   -f packages/frontend/Dockerfile .
 
 echo ""
+echo "==> Pushing playwright-server..."
+docker push "$REGISTRY/finance-tracker-playwright:$VERSION"
+docker push "$REGISTRY/finance-tracker-playwright:latest"
+
+echo ""
 echo "==> Pushing backend..."
 docker push "$REGISTRY/finance-tracker-backend:$VERSION"
 docker push "$REGISTRY/finance-tracker-backend:latest"
@@ -50,6 +62,9 @@ docker push "$REGISTRY/finance-tracker-frontend:latest"
 
 echo ""
 echo "==> Updating docker-compose.release.yml..."
+sed -i \
+  "s|image: .*/finance-tracker-playwright:.*|image: $REGISTRY/finance-tracker-playwright:$VERSION|" \
+  docker-compose.release.yml
 sed -i \
   "s|image: .*/finance-tracker-backend:.*|image: $REGISTRY/finance-tracker-backend:$VERSION|" \
   docker-compose.release.yml

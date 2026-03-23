@@ -10,6 +10,20 @@
 version: '3.8'
 
 services:
+    playwright-server:
+        # Updated automatically by scripts/publish.sh — do not edit by hand.
+        image: ghcr.io/trololol91/finance-tracker-playwright:latest
+        container_name: finance-tracker-playwright
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "node", "-e", "require('net').connect({port:3003,host:'localhost'}).on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        networks:
+            - nest-network
+
     postgres:
         image: postgres:17-alpine
         container_name: finance-tracker-db
@@ -46,7 +60,8 @@ services:
             - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
             - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3002}
             - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
-            - PLAYWRIGHT_BROWSERS_PATH=/data/playwright-browsers
+            - PLAYWRIGHT_SERVER_URL=${PLAYWRIGHT_SERVER_URL:-ws://playwright-server:3003/ws}
+            - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
             - AI_PROVIDER=${AI_PROVIDER:-anthropic}
             - AI_MODEL=${AI_MODEL:-claude-haiku-4-5-20251001}
             - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -54,9 +69,10 @@ services:
         volumes:
             - backend_logs:/usr/src/app/packages/backend/logs
             - scraper_plugins:/data/scraper-plugins
-            - playwright_browsers:/data/playwright-browsers
         depends_on:
             postgres:
+                condition: service_healthy
+            playwright-server:
                 condition: service_healthy
         command: sh -c "cd packages/backend && npx prisma migrate deploy && exec node /usr/src/app/packages/backend/dist/main.js"
         healthcheck:
@@ -94,8 +110,6 @@ volumes:
     backend_logs:
         driver: local
     scraper_plugins:
-        driver: local
-    playwright_browsers:
         driver: local
 
 networks:
