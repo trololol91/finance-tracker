@@ -225,6 +225,28 @@ npm run build                 # Production build
 npm run orval                 # Regenerate API client from OpenAPI spec
 ```
 
+## Build Order
+
+Some packages must be built before others. The full dependency graph and per-context instructions are in [`build-order.md`](./build-order.md). Summary:
+
+```
+plugin-sdk  →  scraper-cibc
+            →  scraper-td-credit-card
+            →  scraper-stub  →  backend
+```
+
+Before typechecking or testing locally:
+
+```bash
+# Backend
+npm run build -w packages/plugin-sdk
+npm run build -w packages/scraper-stub
+npm run prisma:generate -w packages/backend
+
+# Frontend
+npm run generate:api -w packages/frontend
+```
+
 ## Bank Scraper Plugins
 
 The scraper system supports external plugins via the `@finance-tracker/plugin-sdk` package. A plugin exports a `BankScraper` class that implements the scraper interface. Plugins are loaded at runtime from the configured plugin directory.
