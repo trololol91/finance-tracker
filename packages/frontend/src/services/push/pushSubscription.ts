@@ -7,6 +7,19 @@
  * messages without try/catch boilerplate.
  */
 
+/**
+ * Returns true if the ArrayBuffer `a` contains the same bytes as Uint8Array `b`.
+ * Used to compare a stored applicationServerKey against the current VAPID key.
+ */
+const keysMatch = (a: ArrayBuffer, b: Uint8Array<ArrayBuffer>): boolean => {
+    if (a.byteLength === 0 || a.byteLength !== b.byteLength) return false;
+    const aView = new Uint8Array(a);
+    for (let i = 0; i < aView.length; i++) {
+        if (aView[i] !== b[i]) return false;
+    }
+    return true;
+};
+
 /** Convert a URL-safe base64 string to a Uint8Array (required for applicationServerKey). */
 const urlBase64ToUint8Array = (base64String: string): Uint8Array<ArrayBuffer> => {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -61,13 +74,22 @@ export const subscribeBrowser = async (
     const registration = await registerServiceWorker();
     if (!registration) return null;
 
+    const newKeyBytes = urlBase64ToUint8Array(vapidPublicKey);
+
     try {
         const existing = await registration.pushManager.getSubscription();
-        if (existing) return existing;
+        if (existing) {
+            const storedKey = existing.options.applicationServerKey;
+            if (storedKey && keysMatch(storedKey, newKeyBytes)) {
+                return existing;
+            }
+            // Key mismatch (VAPID key rotated) — unsubscribe and re-subscribe.
+            await existing.unsubscribe();
+        }
 
         return await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+            applicationServerKey: newKeyBytes
         });
     } catch (err) {
         console.warn('[push] pushManager.subscribe failed:', err);

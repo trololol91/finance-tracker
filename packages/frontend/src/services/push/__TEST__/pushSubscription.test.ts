@@ -27,11 +27,25 @@ const makeRegistration = (
         ...overrides
     }) as unknown as ServiceWorkerRegistration;
 
-const makeSub = (endpoint = 'https://push.example.com/sub'): PushSubscription =>
+const makeSub = (
+    endpoint = 'https://push.example.com/sub',
+    applicationServerKey: ArrayBuffer | null = null
+): PushSubscription =>
     ({
         endpoint,
+        options: {applicationServerKey},
         unsubscribe: vi.fn().mockResolvedValue(true)
     }) as unknown as PushSubscription;
+
+/** Decode a URL-safe base64 string to an ArrayBuffer (mirrors urlBase64ToUint8Array). */
+const base64ToBuffer = (b64: string): ArrayBuffer => {
+    const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
+    const buf = new ArrayBuffer(raw.length);
+    const view = new Uint8Array(buf);
+    for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
+    return buf;
+};
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
@@ -103,8 +117,9 @@ describe('subscribeBrowser', () => {
         expect(await subscribeBrowser('some-key')).toBeNull();
     });
 
-    it('returns existing subscription without creating a new one', async () => {
-        const existingSub = makeSub();
+    it('returns existing subscription when the stored VAPID key matches', async () => {
+        const vapidKey = 'dGVzdC12YXBpZC1rZXk=';
+        const existingSub = makeSub('https://push.example.com/sub', base64ToBuffer(vapidKey));
         const reg = makeRegistration({
             pushManager: {
                 getSubscription: vi.fn().mockResolvedValue(existingSub),
@@ -116,9 +131,69 @@ describe('subscribeBrowser', () => {
         });
         vi.stubGlobal('PushManager', class {});
 
-        const result = await subscribeBrowser('test-key');
+        const result = await subscribeBrowser(vapidKey);
         expect(result).toBe(existingSub);
         expect(reg.pushManager.subscribe).not.toHaveBeenCalled();
+    });
+
+    it('re-subscribes when the stored VAPID key does not match the current key', async () => {
+        const oldKeyBuf = new ArrayBuffer(8); // different key
+        const existingSub = makeSub('https://push.example.com/old', oldKeyBuf);
+        const newSub = makeSub('https://push.example.com/new');
+        const reg = makeRegistration({
+            pushManager: {
+                getSubscription: vi.fn().mockResolvedValue(existingSub),
+                subscribe: vi.fn().mockResolvedValue(newSub)
+            } as unknown as PushManager
+        });
+        vi.stubGlobal('navigator', {
+            serviceWorker: {register: vi.fn().mockResolvedValue(reg)}
+        });
+        vi.stubGlobal('PushManager', class {});
+
+        const result = await subscribeBrowser('dGVzdC12YXBpZC1rZXk=');
+        expect(existingSub.unsubscribe).toHaveBeenCalled();
+        expect(reg.pushManager.subscribe).toHaveBeenCalled();
+        expect(result).toBe(newSub);
+    });
+
+    it('re-subscribes when the stored VAPID key is zero-length', async () => {
+        const emptyKeyBuf = new ArrayBuffer(0);
+        const existingSub = makeSub('https://push.example.com/sub', emptyKeyBuf);
+        const newSub = makeSub('https://push.example.com/new');
+        const reg = makeRegistration({
+            pushManager: {
+                getSubscription: vi.fn().mockResolvedValue(existingSub),
+                subscribe: vi.fn().mockResolvedValue(newSub)
+            } as unknown as PushManager
+        });
+        vi.stubGlobal('navigator', {
+            serviceWorker: {register: vi.fn().mockResolvedValue(reg)}
+        });
+        vi.stubGlobal('PushManager', class {});
+
+        const result = await subscribeBrowser('dGVzdC12YXBpZC1rZXk=');
+        expect(existingSub.unsubscribe).toHaveBeenCalled();
+        expect(result).toBe(newSub);
+    });
+
+    it('re-subscribes when the stored subscription has no applicationServerKey', async () => {
+        const existingSub = makeSub('https://push.example.com/sub', null);
+        const newSub = makeSub('https://push.example.com/new');
+        const reg = makeRegistration({
+            pushManager: {
+                getSubscription: vi.fn().mockResolvedValue(existingSub),
+                subscribe: vi.fn().mockResolvedValue(newSub)
+            } as unknown as PushManager
+        });
+        vi.stubGlobal('navigator', {
+            serviceWorker: {register: vi.fn().mockResolvedValue(reg)}
+        });
+        vi.stubGlobal('PushManager', class {});
+
+        const result = await subscribeBrowser('dGVzdC12YXBpZC1rZXk=');
+        expect(existingSub.unsubscribe).toHaveBeenCalled();
+        expect(result).toBe(newSub);
     });
 
     it('subscribes and returns new subscription when none exists', async () => {

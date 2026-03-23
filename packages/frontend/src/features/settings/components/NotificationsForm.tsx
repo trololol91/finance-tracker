@@ -23,8 +23,13 @@ import {
 import styles from '@features/settings/components/NotificationsForm.module.css';
 
 /** Encode an ArrayBuffer key to a base64 string for the backend DTO. */
-const encodeKey = (buf: ArrayBuffer): string =>
-    btoa(String.fromCharCode(...new Uint8Array(buf)));
+const encodeKey = (buf: ArrayBuffer): string => {
+    let binary = '';
+    for (const byte of new Uint8Array(buf)) {
+        binary += String.fromCharCode(byte);
+    }
+    return btoa(binary);
+};
 
 export const NotificationsForm = (): React.JSX.Element => {
     const {user: authUser, updateUser} = useAuth();
@@ -70,54 +75,69 @@ export const NotificationsForm = (): React.JSX.Element => {
         setApiError('');
         setPushWarning('');
 
-        const data: UpdateUserDto = {notifyPush, notifyEmail};
+        void (async (): Promise<void> => {
+            // Subscribe the browser BEFORE saving the preference so that a
+            // failed browser subscription (permission denied, non-HTTPS, …)
+            // never leaves the backend with notifyPush=true but no subscription.
+            let actualNotifyPush = notifyPush;
+            let pendingSub: PushSubscription | null = null;
 
-        updateProfile(
-            {id: authUser.id, data},
-            {
-                onSuccess: (updated): void => {
-                    updateUser({
-                        ...authUser,
-                        notifyPush: updated.notifyPush,
-                        notifyEmail: updated.notifyEmail
-                    });
-
-                    if (updated.notifyPush) {
-                        void subscribeBrowser(env.VAPID_PUBLIC_KEY).then((sub): void => {
-                            if (!sub) {
-                                setPushWarning(
-                                    'Push notifications could not be enabled. ' +
-                                    'Check your browser permissions and try again.'
-                                );
-                                return;
-                            }
-                            const p256dh = sub.getKey('p256dh');
-                            const auth = sub.getKey('auth');
-                            if (!p256dh || !auth) return;
-                            mutateSubscribe({
-                                data: {
-                                    endpoint: sub.endpoint,
-                                    keys: {p256dh: encodeKey(p256dh), auth: encodeKey(auth)}
-                                } as unknown as SubscribePushDto
-                            });
-                        });
-                    } else {
-                        void unsubscribeBrowser().then((endpoint): void => {
-                            if (endpoint) {
-                                mutateUnsubscribe(
-                                    {data: {endpoint} as unknown as UnsubscribePushDto}
-                                );
-                            }
-                        });
-                    }
-
-                    setSuccessMessage('Notification preferences saved.');
-                },
-                onError: (): void => {
-                    setApiError('Failed to save preferences. Please try again.');
+            if (notifyPush && env.VAPID_PUBLIC_KEY) {
+                pendingSub = await subscribeBrowser(env.VAPID_PUBLIC_KEY);
+                if (!pendingSub) {
+                    setPushWarning(
+                        'Push notifications could not be enabled. ' +
+                        'Check your browser permissions and try again.'
+                    );
+                    actualNotifyPush = false;
+                    setNotifyPush(false);
                 }
             }
-        );
+
+            const data: UpdateUserDto = {notifyPush: actualNotifyPush, notifyEmail};
+
+            updateProfile(
+                {id: authUser.id, data},
+                {
+                    onSuccess: (updated): void => {
+                        updateUser({
+                            ...authUser,
+                            notifyPush: updated.notifyPush,
+                            notifyEmail: updated.notifyEmail
+                        });
+
+                        if (pendingSub && updated.notifyPush) {
+                            const p256dh = pendingSub.getKey('p256dh');
+                            const auth = pendingSub.getKey('auth');
+                            if (p256dh && auth) {
+                                mutateSubscribe({
+                                    data: {
+                                        endpoint: pendingSub.endpoint,
+                                        keys: {p256dh: encodeKey(p256dh), auth: encodeKey(auth)}
+                                    } as unknown as SubscribePushDto
+                                });
+                            }
+                        } else if (!updated.notifyPush) {
+                            void unsubscribeBrowser().then((endpoint): void => {
+                                if (endpoint) {
+                                    mutateUnsubscribe(
+                                        {data: {endpoint} as unknown as UnsubscribePushDto}
+                                    );
+                                }
+                            });
+                        }
+
+                        setSuccessMessage('Notification preferences saved.');
+                    },
+                    onError: (): void => {
+                        setApiError('Failed to save preferences. Please try again.');
+                        if (pendingSub) {
+                            void unsubscribeBrowser();
+                        }
+                    }
+                }
+            );
+        })();
     };
 
     return (

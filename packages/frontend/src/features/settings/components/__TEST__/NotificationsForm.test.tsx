@@ -201,11 +201,16 @@ describe('NotificationsForm', () => {
             expect(mockMutate).toHaveBeenCalledOnce();
         });
 
-        it('submits with the current notifyPush and notifyEmail values', () => {
+        it('submits with the current notifyPush and notifyEmail values', async () => {
+            const mockSub = makePushSub();
+            mockSubscribeBrowser.mockResolvedValue(mockSub);
             renderForm();
-            // Toggle push on
+            // Toggle push on then submit — subscribeBrowser succeeds so notifyPush stays true
             fireEvent.click(screen.getByLabelText(/push notifications/i));
-            fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
             expect(mockMutate).toHaveBeenCalledWith(
                 {id: 'user-1', data: {notifyPush: true, notifyEmail: true}},
                 expect.any(Object)
@@ -253,6 +258,39 @@ describe('NotificationsForm', () => {
             expect(screen.getByRole('alert')).toHaveTextContent(
                 'Failed to save preferences. Please try again.'
             );
+        });
+
+        it('rolls back browser subscription when updateProfile fails after subscribeBrowser succeeded', async () => {
+            const mockSub = makePushSub();
+            mockSubscribeBrowser.mockResolvedValue(mockSub);
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onError}: {onError: () => void}) => {
+                    onError();
+                }
+            );
+            renderForm();
+            fireEvent.click(screen.getByLabelText(/push notifications/i));
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockUnsubscribeBrowser).toHaveBeenCalledOnce();
+        });
+
+        it('does not call unsubscribeBrowser on error when subscribeBrowser returned null', async () => {
+            mockSubscribeBrowser.mockResolvedValue(null);
+            mockMutate.mockImplementationOnce(
+                (_args: unknown, {onError}: {onError: () => void}) => {
+                    onError();
+                }
+            );
+            renderForm();
+            fireEvent.click(screen.getByLabelText(/push notifications/i));
+            await act(async () => {
+                fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
+                await Promise.resolve();
+            });
+            expect(mockUnsubscribeBrowser).not.toHaveBeenCalled();
         });
     });
 
@@ -322,6 +360,7 @@ describe('NotificationsForm', () => {
                 }
             );
             renderForm();
+            fireEvent.click(screen.getByLabelText(/push notifications/i));
             await act(async () => {
                 fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
                 await Promise.resolve();
@@ -347,6 +386,7 @@ describe('NotificationsForm', () => {
                 }
             );
             renderForm();
+            fireEvent.click(screen.getByLabelText(/push notifications/i));
             await act(async () => {
                 fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
                 await Promise.resolve();
@@ -362,6 +402,7 @@ describe('NotificationsForm', () => {
                 }
             );
             renderForm();
+            fireEvent.click(screen.getByLabelText(/push notifications/i));
             await act(async () => {
                 fireEvent.submit(screen.getByRole('form', {name: /notification preferences/i}));
                 await Promise.resolve();
