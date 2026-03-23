@@ -79,9 +79,7 @@ export class PushService {
             return;
         }
 
-        const pushPromise = user.notifyPush
-            ? this.sendWebPush(userId, title, body, url)
-            : Promise.resolve();
+        const pushPromise = this.sendWebPush(userId, title, body, url);
 
         const emailPromise = user.notifyEmail
             ? this.sendEmail(user.email, title, body, url)

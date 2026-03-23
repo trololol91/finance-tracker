@@ -29,7 +29,6 @@ describe('JwtStrategy', () => {
         timezone: 'UTC',
         currency: 'USD',
         role: 'USER',
-        notifyPush: true,
         notifyEmail: true,
         createdAt: new Date('2024-01-01'),
         updatedAt: new Date('2024-01-01')

@@ -121,7 +121,6 @@ export class UsersService {
                 timezone: updateUserDto.timezone,
                 currency: updateUserDto.currency,
                 isActive: updateUserDto.isActive,
-                notifyPush: updateUserDto.notifyPush,
                 notifyEmail: updateUserDto.notifyEmail
             }
         });

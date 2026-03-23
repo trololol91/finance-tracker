@@ -29,7 +29,6 @@ const mockUser: User = {
     isActive: true,
     createdAt: '2025-01-01T00:00:00.000Z',
     role: 'USER',
-    notifyPush: false,
     notifyEmail: true
 };
 
@@ -171,9 +170,9 @@ describe('ProfileForm', () => {
 
         it('shows success message after successful save', async () => {
             const user = userEvent.setup();
-            const updatedUser = {...mockUser, firstName: 'Jane', notifyPush: false, notifyEmail: true};
             mockMutate.mockImplementationOnce(
                 (_args: unknown, {onSuccess}: {onSuccess: (u: User) => void}) => {
+                    const updatedUser = {...mockUser};
                     onSuccess(updatedUser as unknown as User);
                 }
             );
@@ -190,7 +189,6 @@ describe('ProfileForm', () => {
                 lastName: 'Doe',
                 timezone: 'America/New_York',
                 currency: 'USD',
-                notifyPush: false,
                 notifyEmail: true
             };
             mockMutate.mockImplementationOnce(
@@ -235,7 +233,7 @@ describe('ProfileForm', () => {
     describe('success message auto-dismiss', () => {
         it('clears the success message after 4 seconds', async () => {
             vi.useFakeTimers();
-            const serverResponse = {...mockUser, notifyPush: false, notifyEmail: true};
+            const serverResponse = {...mockUser};
             mockMutate.mockImplementationOnce(
                 (_args: unknown, {onSuccess}: {onSuccess: (u: typeof serverResponse) => void}) => {
                     onSuccess(serverResponse);

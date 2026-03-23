@@ -35,7 +35,6 @@ const makeTransporter = () => ({sendMail: vi.fn().mockResolvedValue({})});
 const makeUser = (overrides: object = {}) => ({
     id: 'user-1',
     email: 'user@example.com',
-    notifyPush: true,
     notifyEmail: true,
     ...overrides
 });
@@ -190,10 +189,10 @@ describe('PushService', () => {
             expect(vi.mocked(webpush.sendNotification)).not.toHaveBeenCalled();
         });
 
-        it('sends a web push when notifyPush is true and subscriptions exist', async () => {
+        it('sends a web push when subscriptions exist', async () => {
             const {service} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: true, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
             service.subscribe('user-1', {
                 endpoint: 'https://fcm.example.com/sub',
@@ -210,25 +209,10 @@ describe('PushService', () => {
             );
         });
 
-        it('does not send web push when notifyPush is false', async () => {
-            const {service} = buildService(
-                {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: false, notifyEmail: false})
-            );
-            service.subscribe('user-1', {
-                endpoint: 'https://fcm.example.com/sub',
-                keys: {p256dh: 'k', auth: 'a'}
-            });
-
-            await service.sendNotification('user-1', 'MFA', 'Enter code', '/mfa');
-
-            expect(vi.mocked(webpush.sendNotification)).not.toHaveBeenCalled();
-        });
-
         it('does not send web push when no subscriptions are registered', async () => {
             const {service} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: true, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
             vi.mocked(webpush.sendNotification).mockResolvedValue({} as never);
 
@@ -240,7 +224,7 @@ describe('PushService', () => {
         it('sends an email when notifyEmail is true', async () => {
             const {service, transporter} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: false, notifyEmail: true})
+                makeUser({notifyEmail: true})
             );
 
             await service.sendNotification('user-1', 'MFA', 'Enter code', '/mfa');
@@ -253,7 +237,7 @@ describe('PushService', () => {
         it('does not send email when notifyEmail is false', async () => {
             const {service, transporter} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: false, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
 
             await service.sendNotification('user-1', 'MFA', 'Enter code', '/mfa');
@@ -264,7 +248,7 @@ describe('PushService', () => {
         it('does not send email when SMTP is not configured', async () => {
             const {service, transporter} = buildService(
                 {...VAPID_CONFIG},  // no SMTP_*
-                makeUser({notifyPush: false, notifyEmail: true})
+                makeUser({notifyEmail: true})
             );
 
             await service.sendNotification('user-1', 'MFA', 'Enter code', '/mfa');
@@ -275,7 +259,7 @@ describe('PushService', () => {
         it('does not send web push when VAPID is not configured', async () => {
             const {service} = buildService(
                 {...SMTP_CONFIG},  // no VAPID_*
-                makeUser({notifyPush: true, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
             service.subscribe('user-1', {
                 endpoint: 'https://fcm.example.com/sub',
@@ -290,7 +274,7 @@ describe('PushService', () => {
         it('purges a stale subscription on HTTP 410 response', async () => {
             const {service, store} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: true, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
             service.subscribe('user-1', {
                 endpoint: 'https://gone.example.com/sub',
@@ -308,7 +292,7 @@ describe('PushService', () => {
         it('purges a stale subscription on HTTP 404 response', async () => {
             const {service, store} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: true, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
             service.subscribe('user-1', {
                 endpoint: 'https://gone.example.com/sub',
@@ -328,7 +312,7 @@ describe('PushService', () => {
                 .mockImplementation(() => void 0);
             const {service} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: true, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
             service.subscribe('user-1', {
                 endpoint: 'https://fcm.example.com/sub',
@@ -346,7 +330,7 @@ describe('PushService', () => {
         it('delivers to all registered subscribers', async () => {
             const {service} = buildService(
                 {...VAPID_CONFIG, ...SMTP_CONFIG},
-                makeUser({notifyPush: true, notifyEmail: false})
+                makeUser({notifyEmail: false})
             );
             service.subscribe('user-1', {
                 endpoint: 'https://fcm.example.com/sub1',

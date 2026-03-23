@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import {router} from '@routes/index';
 import {AuthProvider} from '@features/auth/context/AuthContext.js';
+import {PushBootstrap} from '@services/push/PushBootstrap.js';
 import {Loading} from '@components/common/Loading/Loading.js';
 import '@/index.css';
 
@@ -18,9 +19,11 @@ createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>
             <AuthProvider>
-                <Suspense fallback={<Loading size="large" text="Loading..." />}>
-                    <RouterProvider router={router} />
-                </Suspense>
+                <PushBootstrap>
+                    <Suspense fallback={<Loading size="large" text="Loading..." />}>
+                        <RouterProvider router={router} />
+                    </Suspense>
+                </PushBootstrap>
             </AuthProvider>
         </QueryClientProvider>
     </StrictMode>

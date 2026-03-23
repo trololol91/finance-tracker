@@ -46,7 +46,6 @@ const mapToUser = (dto: UserResponseDto): User => ({
     isActive: dto.isActive,
     createdAt: dto.createdAt,
     role: dto.role,
-    notifyPush: dto.notifyPush,
     notifyEmail: dto.notifyEmail
 });
 

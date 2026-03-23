@@ -37,11 +37,16 @@ export const NotificationsForm = (): React.JSX.Element => {
     const {mutate: mutateSubscribe} = usePushControllerSubscribe();
     const {mutate: mutateUnsubscribe} = usePushControllerUnsubscribe();
 
-    const [notifyPush, setNotifyPush] = useState<boolean>(authUser?.notifyPush ?? false);
+    // Per-device push subscription state
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [isCheckingPush, setIsCheckingPush] = useState(true);
+    const [isPushLoading, setIsPushLoading] = useState(false);
+    const [pushWarning, setPushWarning] = useState<string>('');
+
+    // Email preference (saved via form)
     const [notifyEmail, setNotifyEmail] = useState<boolean>(authUser?.notifyEmail ?? false);
     const [successMessage, setSuccessMessage] = useState<string>('');
     const [apiError, setApiError] = useState<string>('');
-    const [pushWarning, setPushWarning] = useState<string>('');
 
     useEffect((): (() => void) | void => {
         if (!successMessage) return;
@@ -49,12 +54,27 @@ export const NotificationsForm = (): React.JSX.Element => {
         return (): void => { clearTimeout(timer); };
     }, [successMessage]);
 
-    // Re-register the browser push subscription with the backend on mount.
-    // The backend uses an in-memory store so subscriptions are lost on restart.
+    // Check current browser subscription status on mount
     useEffect((): void => {
-        if (!authUser?.notifyPush || !env.VAPID_PUBLIC_KEY) return;
         void getCurrentSubscription().then((sub): void => {
-            if (!sub) return;
+            setIsSubscribed(sub !== null);
+            setIsCheckingPush(false);
+        });
+    }, []);
+
+    const handleEnablePush = (): void => {
+        if (!env.VAPID_PUBLIC_KEY) return;
+        setPushWarning('');
+        setIsPushLoading(true);
+        void subscribeBrowser(env.VAPID_PUBLIC_KEY).then((sub): void => {
+            setIsPushLoading(false);
+            if (!sub) {
+                setPushWarning(
+                    'Push notifications could not be enabled. ' +
+                    'Check your browser permissions and try again.'
+                );
+                return;
+            }
             const p256dh = sub.getKey('p256dh');
             const auth = sub.getKey('auth');
             if (!p256dh || !auth) return;
@@ -64,80 +84,47 @@ export const NotificationsForm = (): React.JSX.Element => {
                     keys: {p256dh: encodeKey(p256dh), auth: encodeKey(auth)}
                 } as unknown as SubscribePushDto
             });
+            setIsSubscribed(true);
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // intentionally runs once on mount
+    };
+
+    const handleDisablePush = (): void => {
+        setIsPushLoading(true);
+        void unsubscribeBrowser().then((endpoint): void => {
+            setIsPushLoading(false);
+            if (endpoint) {
+                mutateUnsubscribe({data: {endpoint} as unknown as UnsubscribePushDto});
+            }
+            setIsSubscribed(false);
+        });
+    };
 
     const handleSave = (e: React.FormEvent): void => {
         e.preventDefault();
         if (!authUser) return;
-
         setApiError('');
-        setPushWarning('');
 
-        void (async (): Promise<void> => {
-            // Subscribe the browser BEFORE saving the preference so that a
-            // failed browser subscription (permission denied, non-HTTPS, …)
-            // never leaves the backend with notifyPush=true but no subscription.
-            let actualNotifyPush = notifyPush;
-            let pendingSub: PushSubscription | null = null;
-
-            if (notifyPush && env.VAPID_PUBLIC_KEY) {
-                pendingSub = await subscribeBrowser(env.VAPID_PUBLIC_KEY);
-                if (!pendingSub) {
-                    setPushWarning(
-                        'Push notifications could not be enabled. ' +
-                        'Check your browser permissions and try again.'
-                    );
-                    actualNotifyPush = false;
-                    setNotifyPush(false);
+        const data: UpdateUserDto = {notifyEmail};
+        updateProfile(
+            {id: authUser.id, data},
+            {
+                onSuccess: (updated): void => {
+                    updateUser({...authUser, notifyEmail: updated.notifyEmail});
+                    setSuccessMessage('Notification preferences saved.');
+                },
+                onError: (): void => {
+                    setApiError('Failed to save preferences. Please try again.');
                 }
             }
+        );
+    };
 
-            const data: UpdateUserDto = {notifyPush: actualNotifyPush, notifyEmail};
-
-            updateProfile(
-                {id: authUser.id, data},
-                {
-                    onSuccess: (updated): void => {
-                        updateUser({
-                            ...authUser,
-                            notifyPush: updated.notifyPush,
-                            notifyEmail: updated.notifyEmail
-                        });
-
-                        if (pendingSub && updated.notifyPush) {
-                            const p256dh = pendingSub.getKey('p256dh');
-                            const auth = pendingSub.getKey('auth');
-                            if (p256dh && auth) {
-                                mutateSubscribe({
-                                    data: {
-                                        endpoint: pendingSub.endpoint,
-                                        keys: {p256dh: encodeKey(p256dh), auth: encodeKey(auth)}
-                                    } as unknown as SubscribePushDto
-                                });
-                            }
-                        } else if (!updated.notifyPush) {
-                            void unsubscribeBrowser().then((endpoint): void => {
-                                if (endpoint) {
-                                    mutateUnsubscribe(
-                                        {data: {endpoint} as unknown as UnsubscribePushDto}
-                                    );
-                                }
-                            });
-                        }
-
-                        setSuccessMessage('Notification preferences saved.');
-                    },
-                    onError: (): void => {
-                        setApiError('Failed to save preferences. Please try again.');
-                        if (pendingSub) {
-                            void unsubscribeBrowser();
-                        }
-                    }
-                }
-            );
-        })();
+    const pushDescription = (): string => {
+        if (!env.VAPID_PUBLIC_KEY) return 'Push notifications are not available.';
+        if (isCheckingPush) return 'Checking this device…';
+        return isSubscribed
+            ? 'Push notifications are enabled on this device.'
+            : 'Push notifications are not enabled on this device.';
     };
 
     return (
@@ -169,21 +156,25 @@ export const NotificationsForm = (): React.JSX.Element => {
                 )}
 
                 <div className={styles.toggleRow}>
-                    <label className={styles.toggleLabel} htmlFor="notify-push">
+                    <div className={styles.toggleLabel}>
                         <span className={styles.toggleText}>
                             <span className={styles.toggleTitle}>Push notifications</span>
                             <span className={styles.toggleDescription}>
-                                Receive push notifications for MFA alerts and account activity.
+                                {pushDescription()}
                             </span>
                         </span>
-                        <input
-                            id="notify-push"
-                            type="checkbox"
-                            className={styles.checkbox}
-                            checked={notifyPush}
-                            onChange={(e): void => { setNotifyPush(e.target.checked); }}
-                        />
-                    </label>
+                        {env.VAPID_PUBLIC_KEY !== '' && (
+                            <Button
+                                type="button"
+                                variant={isSubscribed ? 'danger' : 'primary'}
+                                size="small"
+                                isLoading={isPushLoading || isCheckingPush}
+                                onClick={isSubscribed ? handleDisablePush : handleEnablePush}
+                            >
+                                {isSubscribed ? 'Disable' : 'Enable'}
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <div className={styles.toggleRow}>

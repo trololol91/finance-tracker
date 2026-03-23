@@ -30,7 +30,6 @@ const mockAuthState = {
         isActive: true,
         createdAt: '2024-01-01T00:00:00.000Z',
         role: 'ADMIN' as 'ADMIN' | 'USER',
-        notifyPush: false,
         notifyEmail: false
     },
     token: 'mock-token',

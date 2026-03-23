@@ -65,7 +65,6 @@ const mockCurrentUser: User = {
     timezone: 'UTC',
     currency: 'USD',
     role: 'USER',
-    notifyPush: true,
     notifyEmail: true,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01')

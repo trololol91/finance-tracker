@@ -30,7 +30,6 @@ const mockAuthState = {
         isActive: true,
         createdAt: '2024-01-01T00:00:00.000Z',
         role: 'USER' as const,
-        notifyPush: false,
         notifyEmail: false
     },
     token: 'mock-token',
@@ -108,7 +107,6 @@ describe('AuthGuard', () => {
             isActive: true,
             createdAt: '2024-01-01T00:00:00.000Z',
             role: 'USER',
-            notifyPush: false,
             notifyEmail: false
         };
     });

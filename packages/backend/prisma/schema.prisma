@@ -83,7 +83,6 @@ model User {
   categoryRules  CategoryRule[]
 
   // Notification preferences for scraper MFA alerts
-  notifyPush     Boolean  @default(true)  @map("notify_push")
   notifyEmail    Boolean  @default(true)  @map("notify_email")
 
   @@map("users")

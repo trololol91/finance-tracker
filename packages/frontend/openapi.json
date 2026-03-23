@@ -2615,11 +2615,6 @@
             "description": "Last update timestamp",
             "example": "2026-02-16T12:00:00.000Z"
           },
-          "notifyPush": {
-            "type": "boolean",
-            "description": "Receive push notifications for MFA alerts",
-            "example": true
-          },
           "notifyEmail": {
             "type": "boolean",
             "description": "Receive email notifications for MFA alerts",
@@ -2636,7 +2631,6 @@
           "role",
           "createdAt",
           "updatedAt",
-          "notifyPush",
           "notifyEmail"
         ]
       },
@@ -2674,11 +2668,6 @@
           "isActive": {
             "type": "boolean",
             "description": "User active status",
-            "example": true
-          },
-          "notifyPush": {
-            "type": "boolean",
-            "description": "Enable push notifications",
             "example": true
           },
           "notifyEmail": {

@@ -21,7 +21,6 @@ export interface User {
     isActive: boolean;
     createdAt: string;
     role: 'USER' | 'ADMIN';
-    notifyPush: boolean;
     notifyEmail: boolean;
 }
 
