@@ -13,9 +13,12 @@ env:
   REGISTRY: ghcr.io/${{ github.repository_owner }}
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  ci:
+    uses: ./.github/workflows/ci.yml
 
+  build-scraper-cibc:
+    needs: [ci]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,10 +27,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      - name: Extract version
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         run: npm ci
@@ -40,22 +39,61 @@ jobs:
 
       - name: Pack scraper-cibc
         working-directory: packages/scraper-cibc
-        env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           node ../../scripts/pack-plugin.mjs
           mv scraper-cibc-*.zip scraper-cibc-${VERSION}.zip
+
+      - name: Upload scraper-cibc artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-cibc
+          path: packages/scraper-cibc/scraper-cibc-*.zip
+
+  build-scraper-td-credit-card:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin-sdk
+        run: npm run build -w packages/plugin-sdk
 
       - name: Build scraper-td-credit-card
         run: npm run build -w packages/scraper-td-credit-card
 
       - name: Pack scraper-td-credit-card
         working-directory: packages/scraper-td-credit-card
-        env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
+          VERSION=${GITHUB_REF_NAME#v}
           node ../../scripts/pack-plugin.mjs
           mv scraper-td-credit-card-*.zip scraper-td-credit-card-${VERSION}.zip
+
+      - name: Upload scraper-td-credit-card artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-td-credit-card
+          path: packages/scraper-td-credit-card/scraper-td-credit-card-*.zip
+
+  build-backend:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -73,6 +111,24 @@ jobs:
             ${{ env.REGISTRY }}/finance-tracker-backend:${{ steps.version.outputs.VERSION }}
             ${{ env.REGISTRY }}/finance-tracker-backend:latest
 
+  build-frontend:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
@@ -82,6 +138,23 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/finance-tracker-frontend:${{ steps.version.outputs.VERSION }}
             ${{ env.REGISTRY }}/finance-tracker-frontend:latest
+
+  release:
+    needs: [build-scraper-cibc, build-scraper-td-credit-card, build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Download scraper artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
 
       - name: Patch docker-compose.release.yml
         env:
@@ -99,6 +172,6 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            packages/scraper-cibc/scraper-cibc-${{ steps.version.outputs.VERSION }}.zip
-            packages/scraper-td-credit-card/scraper-td-credit-card-${{ steps.version.outputs.VERSION }}.zip
+            dist/scraper-cibc-${{ steps.version.outputs.VERSION }}.zip
+            dist/scraper-td-credit-card-${{ steps.version.outputs.VERSION }}.zip
             docker-compose.release.yml
