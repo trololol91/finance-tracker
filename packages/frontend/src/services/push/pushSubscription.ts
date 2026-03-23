@@ -32,13 +32,17 @@ const urlBase64ToUint8Array = (base64String: string): Uint8Array<ArrayBuffer> =>
     return output;
 };
 
-/** Encode an ArrayBuffer key to a base64 string for the backend DTO. */
+/**
+ * Encode an ArrayBuffer key to base64url for the backend DTO.
+ * Uses base64url (RFC 4648 §5): replaces `+`→`-`, `/`→`_`, strips `=` padding.
+ * The web-push ecosystem requires base64url for p256dh and auth keys.
+ */
 export const encodeKey = (buf: ArrayBuffer): string => {
     let binary = '';
     for (const byte of new Uint8Array(buf)) {
         binary += String.fromCharCode(byte);
     }
-    return btoa(binary);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 };
 
 /** Returns true if this browser supports Service Workers and the Push API. */

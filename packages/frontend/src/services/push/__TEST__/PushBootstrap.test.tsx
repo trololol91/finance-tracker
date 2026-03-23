@@ -101,7 +101,8 @@ describe('PushBootstrap', () => {
                         auth: expect.any(String)
                     })
                 })
-            })
+            }),
+            expect.objectContaining({onError: expect.any(Function)})
         );
     });
 

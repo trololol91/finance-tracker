@@ -87,6 +87,17 @@
     background-color: color-mix(in srgb, var(--color-danger) 8%, transparent);
 }
 
+.warning {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-warning);
+    margin: 0;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in srgb, var(--color-warning) 8%, transparent);
+}
+
 /* ── Responsive ─────────────────────────── */
 
 @media (max-width: 767px) {

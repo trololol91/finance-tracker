@@ -67,7 +67,10 @@ export const NotificationsForm = (): React.JSX.Element => {
             }
             const p256dh = sub.getKey('p256dh');
             const auth = sub.getKey('auth');
-            if (!p256dh || !auth) return;
+            if (!p256dh || !auth) {
+                setPushWarning('Push notifications could not be enabled: missing encryption keys.');
+                return;
+            }
             mutateSubscribe({
                 data: {
                     endpoint: sub.endpoint,
@@ -79,14 +82,21 @@ export const NotificationsForm = (): React.JSX.Element => {
     };
 
     const handleDisablePush = (): void => {
+        setPushWarning('');
         setIsPushLoading(true);
         void (async (): Promise<void> => {
             const endpoint = await unsubscribeBrowser();
             setIsPushLoading(false);
             if (endpoint) {
                 mutateUnsubscribe({data: {endpoint}});
-                setIsSubscribed(false);
+            } else {
+                // null means either no active subscription or unsubscribe() threw internally —
+                // both are indistinguishable here; treat both as "already gone".
+                setPushWarning('Push notifications were already disabled on this device.');
             }
+            // Always flip UI to unsubscribed — if endpoint is null the subscription
+            // was already externally revoked; reflect that reality immediately.
+            setIsSubscribed(false);
         })();
     };
 
@@ -141,7 +151,7 @@ export const NotificationsForm = (): React.JSX.Element => {
                 )}
 
                 {pushWarning !== '' && (
-                    <p className={styles.apiError} role="alert">
+                    <p className={styles.warning} role="alert">
                         {pushWarning}
                     </p>
                 )}

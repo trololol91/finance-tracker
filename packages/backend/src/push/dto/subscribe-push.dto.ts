@@ -22,6 +22,7 @@ export class PushSubscriptionKeysDto {
 
 export class SubscribePushDto {
     @ApiProperty({description: 'Push service endpoint URL', type: 'string'})
+    @IsString()
     @IsUrl()
     @IsNotEmpty()
     public endpoint = '';

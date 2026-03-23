@@ -262,6 +262,17 @@ describe('NotificationsForm', () => {
             });
             expect(screen.getByRole('button', {name: /enable/i})).toBeInTheDocument();
         });
+
+        it('shows Enable button when unsubscribeBrowser returns null (externally revoked)', async () => {
+            mockGetCurrentSubscription.mockResolvedValue(makePushSub());
+            mockUnsubscribeBrowser.mockResolvedValue(null);
+            await act(async () => { renderForm(); await Promise.resolve(); });
+            await act(async () => {
+                fireEvent.click(screen.getByRole('button', {name: /disable/i}));
+                await Promise.resolve();
+            });
+            expect(screen.getByRole('button', {name: /enable/i})).toBeInTheDocument();
+        });
     });
 
     describe('initial state from auth user', () => {

@@ -27,12 +27,15 @@ export const PushBootstrap = ({children}: PushBootstrapProps): React.JSX.Element
             const p256dh = sub.getKey('p256dh');
             const auth = sub.getKey('auth');
             if (!p256dh || !auth) return;
-            mutateSubscribe({
-                data: {
-                    endpoint: sub.endpoint,
-                    keys: {p256dh: encodeKey(p256dh), auth: encodeKey(auth)}
-                }
-            });
+            mutateSubscribe(
+                {data: {endpoint: sub.endpoint, keys: {
+                    p256dh: encodeKey(p256dh),
+                    auth: encodeKey(auth)
+                }}},
+                {onError: (err): void => {
+                    console.warn('[push] Failed to re-register subscription:', err);
+                }}
+            );
         })();
     }, [user?.id, mutateSubscribe]);
 

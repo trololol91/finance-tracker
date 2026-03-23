@@ -7,6 +7,7 @@ import {
     afterEach
 } from 'vitest';
 import {
+    encodeKey,
     isPushSupported,
     registerServiceWorker,
     subscribeBrowser,
@@ -48,6 +49,27 @@ const base64ToBuffer = (b64: string): ArrayBuffer => {
 };
 
 // ── Tests ──────────────────────────────────────────────────────────────────
+
+describe('encodeKey', () => {
+    it('encodes an ArrayBuffer to base64url with no +, /, or = characters', () => {
+        // 0xFB 0xFF 0xFE → +//+ (standard base64) → -__- (base64url)
+        const buf = new Uint8Array([0xfb, 0xff, 0xfe]).buffer;
+        const result = encodeKey(buf);
+        expect(result).not.toMatch(/[+/=]/);
+        expect(result).toBe('-__-');
+    });
+
+    it('encodes known bytes to the expected base64url string', () => {
+        // "hello" in bytes → standard base64 "aGVsbG8=" → base64url "aGVsbG8"
+        const buf = new TextEncoder().encode('hello').buffer;
+        const result = encodeKey(buf);
+        expect(result).toBe('aGVsbG8');
+    });
+
+    it('returns an empty string for an empty buffer', () => {
+        expect(encodeKey(new ArrayBuffer(0))).toBe('');
+    });
+});
 
 describe('isPushSupported', () => {
     afterEach(() => {
