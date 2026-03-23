@@ -46,7 +46,7 @@ RUN npm run build -w packages/backend
 # ---- Stage 2: Production -----------------------------------------------------
 FROM node:24.13.0-alpine AS production
 
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init su-exec
 
 # Non-root user for security
 RUN addgroup -g 1001 nodejs && \
@@ -86,12 +86,15 @@ COPY --chown=nestjs:nodejs --from=builder /usr/src/app/packages/plugin-sdk/dist 
 RUN mkdir -p packages/backend/logs /data/scraper-plugins && \
     chown -R nestjs:nodejs packages/backend/logs /data/scraper-plugins
 
-USER nestjs
+COPY packages/backend/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Container starts as root so the entrypoint can fix bind-mount ownership,
+# then drops to nestjs via su-exec.
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3001/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 
-ENTRYPOINT ["dumb-init", "--"]
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "packages/backend/dist/main.js"]
