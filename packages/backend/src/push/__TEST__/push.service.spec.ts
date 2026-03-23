@@ -7,7 +7,7 @@ import {
 } from 'vitest';
 import {Logger} from '@nestjs/common';
 import type {ConfigService} from '@nestjs/config';
-import * as webpush from 'web-push';
+import webpush from 'web-push';
 import * as nodemailer from 'nodemailer';
 import {PushService} from '#push/push.service.js';
 import {PushSubscriptionStore} from '#push/push-subscription.store.js';

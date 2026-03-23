@@ -3,7 +3,7 @@ import {
     Logger
 } from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import * as webpush from 'web-push';
+import webpush from 'web-push';
 import * as nodemailer from 'nodemailer';
 import type {Transporter} from 'nodemailer';
 import type {SentMessageInfo} from 'nodemailer/lib/smtp-transport/index.js';
