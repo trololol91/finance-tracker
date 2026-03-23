@@ -25,6 +25,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma client (backend only)
+        if: matrix.package == 'backend'
+        run: npm run prisma:generate -w packages/backend
+
       - name: Generate API client (frontend only)
         if: matrix.package == 'frontend'
         run: npm run generate:api -w packages/frontend
