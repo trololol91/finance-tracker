@@ -9,7 +9,6 @@ import type {AiProvider} from '#config/env.validation.js';
 interface BatchTransaction {
     id: string;
     description: string;
-    amount: number;
     transactionType: string;
 }
 
@@ -64,7 +63,6 @@ export class AiCategorizationService {
 
     public async suggestCategory(
         description: string,
-        amount: number,
         transactionType: string,
         categoryNames: string[]
     ): Promise<string | null> {
@@ -85,7 +83,6 @@ export class AiCategorizationService {
 
         const userMessage = `Transaction:
 - Description: ${safeDescription}
-- Amount: ${amount}
 - Type: ${transactionType}
 
 Categories: ${categoryNames.join(', ')}`;
@@ -158,10 +155,7 @@ Categories: ${categoryNames.join(', ')}`;
 
         const lines = chunk.map((tx, i) => {
             const safeDesc = tx.description.slice(0, 200);
-            return (
-                `[${i}] Description: "${safeDesc}",` +
-                ` Amount: ${tx.amount}, Type: ${tx.transactionType}`
-            );
+            return `[${i}] Description: "${safeDesc}", Type: ${tx.transactionType}`;
         });
 
         const userMessage =
@@ -186,7 +180,6 @@ Categories: ${categoryNames.join(', ')}`;
             for (const tx of chunk) {
                 const suggested = await this.suggestCategory(
                     tx.description,
-                    tx.amount,
                     tx.transactionType,
                     categoryNames
                 );

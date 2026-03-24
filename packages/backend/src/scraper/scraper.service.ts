@@ -381,7 +381,6 @@ export class ScraperService {
             needsAi.map(tx => ({
                 id: tx.id,
                 description: tx.description,
-                amount: Number(tx.amount),
                 transactionType: tx.transactionType
             })),
             categoryNames

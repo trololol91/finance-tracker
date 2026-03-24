@@ -280,7 +280,6 @@ export class TransactionsService {
 
         const suggestedName = await this.aiCategorizationService.suggestCategory(
             dto.description,
-            dto.amount,
             dto.transactionType,
             categoryNames
         );
@@ -357,7 +356,6 @@ export class TransactionsService {
             needsAi.map(tx => ({
                 id: tx.id,
                 description: tx.description,
-                amount: Number(tx.amount),
                 transactionType: tx.transactionType
             })),
             categoryNames

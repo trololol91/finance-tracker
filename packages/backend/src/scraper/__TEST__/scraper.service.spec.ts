@@ -460,7 +460,6 @@ describe('ScraperService', () => {
                 [{
                     id: 'tx-1',
                     description: 'GROCERY STORE',
-                    amount: 50,
                     transactionType: 'expense'
                 }],
                 ['Food & Dining']

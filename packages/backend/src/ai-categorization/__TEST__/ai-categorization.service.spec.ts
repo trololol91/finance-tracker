@@ -92,7 +92,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             );
 
             const result = await svc.suggestCategory(
-                'Sobeys grocery', 45, 'expense', CATEGORIES
+                'Sobeys grocery', 'expense', CATEGORIES
             );
 
             expect(result).toBe('Food & Dining');
@@ -102,7 +102,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockResolvedValue(openAiResponse('not json at all'));
 
             const result = await svc.suggestCategory(
-                'Mystery', 10, 'expense', CATEGORIES
+                'Mystery', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -114,7 +114,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             );
 
             const result = await svc.suggestCategory(
-                'Rent payment', 1500, 'expense', CATEGORIES
+                'Rent payment', 'expense', CATEGORIES
             );
 
             expect(result).toBe('Housing');
@@ -126,7 +126,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             );
 
             const result = await svc.suggestCategory(
-                'Payroll', 3000, 'income', CATEGORIES
+                'Payroll', 'income', CATEGORIES
             );
 
             expect(result).toBe('Income');
@@ -136,7 +136,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockResolvedValue(openAiResponse('{"name": "Food & Dining"}'));
 
             const result = await svc.suggestCategory(
-                'Sobeys', 10, 'expense', CATEGORIES
+                'Sobeys', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -146,7 +146,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockResolvedValue(openAiResponse('{"category": 42}'));
 
             const result = await svc.suggestCategory(
-                'Sobeys', 10, 'expense', CATEGORIES
+                'Sobeys', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -156,7 +156,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockResolvedValue({choices: []});
 
             const result = await svc.suggestCategory(
-                'Sobeys', 10, 'expense', CATEGORIES
+                'Sobeys', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -166,7 +166,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockResolvedValue(openAiResponse(''));
 
             const result = await svc.suggestCategory(
-                'Sobeys', 10, 'expense', CATEGORIES
+                'Sobeys', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -176,7 +176,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockRejectedValue(new Error('network error'));
 
             const result = await svc.suggestCategory(
-                'Test', 5, 'expense', CATEGORIES
+                'Test', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -198,7 +198,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             );
 
             const result = await svc.suggestCategory(
-                'Payroll deposit', 3000, 'income', CATEGORIES
+                'Payroll deposit', 'income', CATEGORIES
             );
 
             expect(result).toBe('Income');
@@ -208,7 +208,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockResolvedValue(anthropicNonTextResponse());
 
             const result = await svc.suggestCategory(
-                'Test', 1, 'expense', CATEGORIES
+                'Test', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -218,7 +218,7 @@ describe('AiCategorizationService.suggestCategory', () => {
             mockCreate.mockResolvedValue(anthropicResponse('bad json'));
 
             const result = await svc.suggestCategory(
-                'Test', 1, 'expense', CATEGORIES
+                'Test', 'expense', CATEGORIES
             );
 
             expect(result).toBeNull();
@@ -238,7 +238,7 @@ describe('AiCategorizationService.suggestCategory', () => {
 
             // Returns synchronously (no await needed) but declared async — still resolves null
             return expect(
-                svc.suggestCategory('test', 1, 'expense', CATEGORIES)
+                svc.suggestCategory('test', 'expense', CATEGORIES)
             ).resolves.toBeNull();
         });
     });
@@ -266,8 +266,8 @@ describe('AiCategorizationService.suggestCategories', () => {
             mockCreate.mockResolvedValue(openAiResponse(batchJson));
 
             const txs = [
-                {id: 'tx-1', description: 'Sobeys', amount: 45, transactionType: 'expense'},
-                {id: 'tx-2', description: 'Payroll', amount: 3000, transactionType: 'income'}
+                {id: 'tx-1', description: 'Sobeys', transactionType: 'expense'},
+                {id: 'tx-2', description: 'Payroll', transactionType: 'income'}
             ];
 
             const result = await svc.suggestCategories(txs, CATEGORIES);
@@ -282,8 +282,8 @@ describe('AiCategorizationService.suggestCategories', () => {
             mockCreate.mockResolvedValue(openAiResponse(batchJson));
 
             const txs = [
-                {id: 'tx-a', description: 'Rent', amount: 1500, transactionType: 'expense'},
-                {id: 'tx-b', description: 'Unknown', amount: 9, transactionType: 'expense'}
+                {id: 'tx-a', description: 'Rent', transactionType: 'expense'},
+                {id: 'tx-b', description: 'Unknown', transactionType: 'expense'}
             ];
 
             const result = await svc.suggestCategories(txs, CATEGORIES);
@@ -297,7 +297,6 @@ describe('AiCategorizationService.suggestCategories', () => {
             const txs = Array.from({length: 25}, (_, i) => ({
                 id: `tx-${i}`,
                 description: `Desc ${i}`,
-                amount: i + 1,
                 transactionType: 'expense'
             }));
 
@@ -336,8 +335,8 @@ describe('AiCategorizationService.suggestCategories', () => {
                 .mockResolvedValue(openAiResponse('{"category": "Other"}'));
 
             const txs = [
-                {id: 'tx-1', description: 'A', amount: 1, transactionType: 'expense'},
-                {id: 'tx-2', description: 'B', amount: 2, transactionType: 'expense'}
+                {id: 'tx-1', description: 'A', transactionType: 'expense'},
+                {id: 'tx-2', description: 'B', transactionType: 'expense'}
             ];
 
             const result = await svc.suggestCategories(txs, CATEGORIES);
@@ -354,7 +353,7 @@ describe('AiCategorizationService.suggestCategories', () => {
                 .mockResolvedValue(openAiResponse('{"category": "Income"}'));
 
             const txs = [
-                {id: 'tx-1', description: 'A', amount: 1, transactionType: 'income'}
+                {id: 'tx-1', description: 'A', transactionType: 'income'}
             ];
 
             const result = await svc.suggestCategories(txs, CATEGORIES);
@@ -368,7 +367,6 @@ describe('AiCategorizationService.suggestCategories', () => {
             const txs = Array.from({length: 20}, (_, i) => ({
                 id: `tx-${i}`,
                 description: `Desc ${i}`,
-                amount: i + 1,
                 transactionType: 'expense'
             }));
 
@@ -395,7 +393,6 @@ describe('AiCategorizationService.suggestCategories', () => {
             const txs = Array.from({length: 21}, (_, i) => ({
                 id: `tx-${i}`,
                 description: `Desc ${i}`,
-                amount: i + 1,
                 transactionType: 'expense'
             }));
 
@@ -422,7 +419,6 @@ describe('AiCategorizationService.suggestCategories', () => {
             const txs = Array.from({length: 40}, (_, i) => ({
                 id: `tx-${i}`,
                 description: `Desc ${i}`,
-                amount: i + 1,
                 transactionType: 'expense'
             }));
 
@@ -453,7 +449,7 @@ describe('AiCategorizationService.suggestCategories', () => {
                 .mockResolvedValue(openAiResponse('{"category": "Housing"}'));
 
             const txs = [
-                {id: 'tx-1', description: 'Rent', amount: 1500, transactionType: 'expense'}
+                {id: 'tx-1', description: 'Rent', transactionType: 'expense'}
             ];
 
             const result = await svc.suggestCategories(txs, CATEGORIES);
@@ -470,7 +466,7 @@ describe('AiCategorizationService.suggestCategories', () => {
                 ANTHROPIC_API_KEY: undefined
             });
             const svc = new AiCategorizationService(config);
-            const txs = [{id: 'tx-1', description: 'A', amount: 1, transactionType: 'expense'}];
+            const txs = [{id: 'tx-1', description: 'A', transactionType: 'expense'}];
             const result = await svc.suggestCategories(txs, CATEGORIES);
             expect(result.get('tx-1')).toBeNull();
         });
@@ -484,8 +480,8 @@ describe('AiCategorizationService.suggestCategories', () => {
             const svc = new AiCategorizationService(config);
 
             const txs = [
-                {id: 'tx-1', description: 'A', amount: 1, transactionType: 'expense'},
-                {id: 'tx-2', description: 'B', amount: 2, transactionType: 'expense'}
+                {id: 'tx-1', description: 'A', transactionType: 'expense'},
+                {id: 'tx-2', description: 'B', transactionType: 'expense'}
             ];
 
             const result = await svc.suggestCategories(txs, CATEGORIES);
