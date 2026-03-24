@@ -54,6 +54,7 @@ services:
             - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3002}
             - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
             - PLAYWRIGHT_SERVER_URL=${PLAYWRIGHT_SERVER_URL:-ws://playwright-server:3003/ws}
+            - PLAYWRIGHT_CDP_URL=${PLAYWRIGHT_CDP_URL:-}
             - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
             - AI_PROVIDER=${AI_PROVIDER:-anthropic}
             - AI_MODEL=${AI_MODEL:-claude-haiku-4-5-20251001}
