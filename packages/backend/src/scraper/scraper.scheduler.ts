@@ -30,7 +30,7 @@ export class ScraperScheduler implements OnModuleInit {
     public async onModuleInit(): Promise<void> {
         const schedules = await this.prisma.syncSchedule.findMany({
             where: {enabled: true},
-            select: {id: true, cron: true}
+            select: {id: true, userId: true, cron: true}
         });
 
         if (schedules.length === 0) {
@@ -39,7 +39,7 @@ export class ScraperScheduler implements OnModuleInit {
         }
 
         for (const schedule of schedules) {
-            this.syncScheduleService.reRegisterCronJob(schedule.id, schedule.cron);
+            this.syncScheduleService.reRegisterCronJob(schedule.id, schedule.userId, schedule.cron);
             this.logger.log(
                 `Registered cron job 'sync-${schedule.id}' with expression '${schedule.cron}'`
             );

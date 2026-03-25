@@ -16,11 +16,13 @@ import type {SyncScheduleService} from '#scraper/sync/sync-schedule.service.js';
 
 interface ScheduleStub {
     id: string;
+    userId: string;
     cron: string;
 }
 
 const makeSchedule = (overrides?: Partial<ScheduleStub>): ScheduleStub => ({
     id: 'sched-uuid-1',
+    userId: 'user-uuid-1',
     cron: '0 8 * * *',
     ...overrides
 });
@@ -52,7 +54,7 @@ describe('ScraperScheduler', () => {
 
             expect(mockPrisma.syncSchedule.findMany).toHaveBeenCalledWith({
                 where: {enabled: true},
-                select: {id: true, cron: true}
+                select: {id: true, userId: true, cron: true}
             });
         });
 
@@ -74,10 +76,10 @@ describe('ScraperScheduler', () => {
 
             expect(mockSyncScheduleService.reRegisterCronJob).toHaveBeenCalledTimes(2);
             expect(mockSyncScheduleService.reRegisterCronJob).toHaveBeenCalledWith(
-                'sched-1', '0 8 * * *'
+                'sched-1', 'user-uuid-1', '0 8 * * *'
             );
             expect(mockSyncScheduleService.reRegisterCronJob).toHaveBeenCalledWith(
-                'sched-2', '0 20 * * *'
+                'sched-2', 'user-uuid-1', '0 20 * * *'
             );
         });
 

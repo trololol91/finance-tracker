@@ -11,6 +11,7 @@ import type {CryptoService} from '#scraper/crypto/crypto.service.js';
 import type {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {SchedulerRegistry} from '@nestjs/schedule';
 import type {BankScraper} from '#scraper/interfaces/bank-scraper.interface.js';
+import type {ScraperService} from '#scraper/scraper.service.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -54,6 +55,7 @@ describe('SyncScheduleService', () => {
     let scraperRegistry: ScraperRegistry;
     let cryptoService: CryptoService;
     let schedulerRegistry: SchedulerRegistry;
+    let scraperService: ScraperService;
 
     const userId = 'user-uuid-1';
 
@@ -91,8 +93,12 @@ describe('SyncScheduleService', () => {
             hasCronJob: vi.fn()
         } as unknown as SchedulerRegistry;
 
+        scraperService = {
+            sync: vi.fn().mockResolvedValue({sessionId: 'sess-uuid-1'})
+        } as unknown as ScraperService;
+
         service = new SyncScheduleService(
-            prisma, scraperRegistry, cryptoService, schedulerRegistry
+            prisma, scraperRegistry, cryptoService, schedulerRegistry, scraperService
         );
         vi.clearAllMocks();
 
@@ -459,11 +465,12 @@ describe('SyncScheduleService', () => {
 
     describe('reRegisterCronJob', () => {
         const scheduleId = 'sched-uuid-1';
+        const testUserId = 'user-uuid-1';
         const cron = '0 8 * * *';
         const name = `sync-${scheduleId}`;
 
         it('should attempt to delete the stale job before adding the new one', () => {
-            service.reRegisterCronJob(scheduleId, cron);
+            service.reRegisterCronJob(scheduleId, testUserId, cron);
 
             const deleteOrder =
                 vi.mocked(schedulerRegistry.deleteCronJob).mock.invocationCallOrder[0];
@@ -473,7 +480,7 @@ describe('SyncScheduleService', () => {
         });
 
         it('should delete the stale job using the sync-{id} naming convention', () => {
-            service.reRegisterCronJob(scheduleId, cron);
+            service.reRegisterCronJob(scheduleId, testUserId, cron);
 
             expect(schedulerRegistry.deleteCronJob).toHaveBeenCalledWith(name);
         });
@@ -484,21 +491,22 @@ describe('SyncScheduleService', () => {
             });
 
             // Must not throw
-            expect(() => { service.reRegisterCronJob(scheduleId, cron); }).not.toThrow();
+            expect(
+                () => { service.reRegisterCronJob(scheduleId, testUserId, cron); }
+            ).not.toThrow();
 
             // New job must still be registered despite the deletion failure
             expect(schedulerRegistry.addCronJob).toHaveBeenCalledWith(name, expect.anything());
         });
 
         it('should register the new cron job under the sync-{id} key', () => {
-            service.reRegisterCronJob(scheduleId, cron);
+            service.reRegisterCronJob(scheduleId, testUserId, cron);
 
             expect(schedulerRegistry.addCronJob).toHaveBeenCalledWith(name, expect.anything());
         });
 
-        // job.start() is called on the real CronJob instance returned by `new CronJob(...)`.
-        // The constructor callback body is excluded from coverage via `/* v8 ignore next 6 */`
-        // in sync-schedule.service.ts, so no CronJob mock is needed here to reach 100% coverage.
+        // The CronJob callback body is excluded from coverage via `/* v8 ignore next 10 */`
+        // in sync-schedule.service.ts — the async CronJob callback is not exercised in unit tests.
     });
 
     // -------------------------------------------------------------------------

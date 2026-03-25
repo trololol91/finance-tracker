@@ -13,6 +13,7 @@ import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNa
 import {PrismaService} from '#database/prisma.service.js';
 import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
+import {ScraperService} from '#scraper/scraper.service.js';
 import {CreateSyncScheduleDto} from '#scraper/sync/dto/create-sync-schedule.dto.js';
 import {UpdateSyncScheduleDto} from '#scraper/sync/dto/update-sync-schedule.dto.js';
 import {SyncScheduleResponseDto} from '#scraper/sync/dto/sync-schedule-response.dto.js';
@@ -25,7 +26,8 @@ export class SyncScheduleService {
         private readonly prisma: PrismaService,
         private readonly scraperRegistry: ScraperRegistry,
         private readonly cryptoService: CryptoService,
-        private readonly schedulerRegistry: SchedulerRegistry
+        private readonly schedulerRegistry: SchedulerRegistry,
+        private readonly scraperService: ScraperService
     ) {}
 
     /** List all sync schedules for the authenticated user. */
@@ -104,7 +106,7 @@ export class SyncScheduleService {
             });
 
             // Register the cron job in NestJS scheduler
-            this.reRegisterCronJob(schedule.id, dto.cron);
+            this.reRegisterCronJob(schedule.id, userId, dto.cron);
 
             return SyncScheduleResponseDto.fromEntity(schedule, scraper);
         } catch (err) {
@@ -166,7 +168,7 @@ export class SyncScheduleService {
             if (dto.cron !== undefined) {
                 this.removeCronJob(id);
                 if (updated.enabled) {
-                    this.reRegisterCronJob(id, dto.cron);
+                    this.reRegisterCronJob(id, userId, dto.cron);
                 }
             }
 
@@ -237,7 +239,7 @@ export class SyncScheduleService {
      * Public so that ScraperScheduler can re-register jobs on startup without
      * duplicating CronJob construction logic.
      */
-    public reRegisterCronJob(scheduleId: string, cron: string): void {
+    public reRegisterCronJob(scheduleId: string, userId: string, cron: string): void {
         const name = `sync-${scheduleId}`;
         // Remove any stale registration from a previous process run or hot reload.
         // SchedulerRegistry throws when the name is absent — expected on first boot.
@@ -246,10 +248,16 @@ export class SyncScheduleService {
         } catch {
             // No stale job present — first registration for this schedule
         }
-        /* v8 ignore next 6 */
-        const job = new CronJob(cron, () => {
+        /* v8 ignore next 10 */
+        const job = new CronJob(cron, async () => {
             this.logger.log(`[cron] sync schedule ${scheduleId} triggered`);
-            // ScraperService.sync() will be called here in Step 5
+            try {
+                await this.scraperService.sync(userId, scheduleId, 'cron');
+            } catch (err: unknown) {
+                this.logger.error(
+                    `[cron] sync schedule ${scheduleId} failed to start: ${(err as Error).message}`
+                );
+            }
         });
         this.schedulerRegistry.addCronJob(name, job);
         job.start();
