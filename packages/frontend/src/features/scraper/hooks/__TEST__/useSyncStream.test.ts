@@ -284,25 +284,47 @@ describe('useSyncStream', () => {
         });
 
         it('sets error when fetch rejects with a generic error', async () => {
+            vi.useFakeTimers();
             mockFetch.mockRejectedValue(new Error('Network failure'));
 
             const {result} = renderHook(() => useSyncStream('sess-throw'), {wrapper: createWrapper()});
 
-            await waitFor(() => {
-                expect(result.current.error).not.toBeNull();
-            }, {timeout: 3000});
+            // Exhaust all retries (MAX_RETRIES=5, RETRY_DELAY_MS=2000ms each)
+            await act(() => vi.runAllTimersAsync());
+
             expect(result.current.error).toContain('Network failure');
+            vi.useRealTimers();
         });
 
         it('sets generic error message when fetch rejects with non-Error', async () => {
+            vi.useFakeTimers();
             mockFetch.mockRejectedValue({name: 'SomeError'});
 
             const {result} = renderHook(() => useSyncStream('sess-nomsg'), {wrapper: createWrapper()});
 
-            await waitFor(() => {
-                expect(result.current.error).not.toBeNull();
-            }, {timeout: 3000});
+            await act(() => vi.runAllTimersAsync());
+
             expect(result.current.error).toBe('Stream error');
+            vi.useRealTimers();
+        });
+
+        it('retries on network error and succeeds on a later attempt', async () => {
+            vi.useFakeTimers();
+            const block = 'id:1\ndata:{"status":"complete","importedCount":3,"skippedCount":0}\n\n';
+            const reader = makeMockReader([block]);
+            mockFetch
+                .mockRejectedValueOnce(new Error('Load failed'))
+                .mockRejectedValueOnce(new Error('Load failed'))
+                .mockResolvedValue({ok: true, body: {getReader: () => reader}});
+
+            const {result} = renderHook(() => useSyncStream('sess-retry'), {wrapper: createWrapper()});
+
+            await act(() => vi.runAllTimersAsync());
+
+            expect(result.current.error).toBeNull();
+            expect(result.current.event.status).toBe('completed');
+            expect(result.current.event.importedCount).toBe(3);
+            vi.useRealTimers();
         });
 
         it('does not set error when fetch is aborted (AbortError)', async () => {

@@ -21,12 +21,12 @@ const formatDate = (iso: string): string =>
 const formatDateShort = (iso: string): string =>
     new Date(iso).toLocaleDateString('en-CA', {month: 'short', day: 'numeric', timeZone: 'UTC'});
 
-const formatAmount = (amount: number, type: string): string => {
+const formatAmount = (amount: number, currency: string): string => {
     const formatted = new Intl.NumberFormat('en-CA', {
         style: 'currency',
-        currency: 'CAD'
+        currency
     }).format(Math.abs(amount));
-    return type === 'income' ? `+${formatted}` : type === 'expense' ? `-${formatted}` : formatted;
+    return formatted;
 };
 
 export const TransactionListItem = ({
@@ -45,7 +45,7 @@ export const TransactionListItem = ({
     return (
         <tr
             className={`tx-item ${!transaction.isActive ? 'tx-item--inactive' : ''}`}
-            aria-label={`${transaction.description}, ${formatAmount(transaction.amount, transaction.transactionType)}`}
+            aria-label={`${transaction.description}, ${formatAmount(transaction.amount, account?.currency ?? 'CAD')}`}
         >
             <td className="tx-item__date">
                 <span className="tx-item__date-full">{formatDate(transaction.date)}</span>
@@ -60,7 +60,7 @@ export const TransactionListItem = ({
                 )}
             </td>
             <td className={amountClass}>
-                {formatAmount(transaction.amount, transaction.transactionType)}
+                {formatAmount(transaction.amount, account?.currency ?? 'CAD')}
             </td>
             <td className="tx-item__type tx-item__hide-mobile">
                 <span className={`tx-item__badge tx-item__badge--${transaction.transactionType}`}>

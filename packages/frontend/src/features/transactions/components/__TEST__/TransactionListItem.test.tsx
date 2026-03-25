@@ -92,17 +92,19 @@ describe('TransactionListItem', () => {
     });
 
     describe('amount column', () => {
-        it('prefixes expense amounts with −', () => {
+        it('shows formatted expense amount without sign prefix', () => {
             renderItem(makeTx({amount: 42.5, transactionType: 'expense'}));
-            expect(screen.getByText(/^-/)).toBeInTheDocument();
+            const amountCell = screen.getByText(/42/);
+            expect(amountCell.textContent).not.toMatch(/^[+-]/);
         });
 
-        it('prefixes income amounts with +', () => {
+        it('shows formatted income amount without sign prefix', () => {
             renderItem(makeTx({amount: 1000, transactionType: 'income'}));
-            expect(screen.getByText(/^\+/)).toBeInTheDocument();
+            const amountCell = screen.getByText(/1,000/);
+            expect(amountCell.textContent).not.toMatch(/^[+-]/);
         });
 
-        it('does not prefix transfer amounts', () => {
+        it('shows formatted transfer amount without sign prefix', () => {
             renderItem(makeTx({amount: 200, transactionType: 'transfer'}));
             const amountCell = screen.getByText(/200/);
             expect(amountCell.textContent).not.toMatch(/^[+-]/);

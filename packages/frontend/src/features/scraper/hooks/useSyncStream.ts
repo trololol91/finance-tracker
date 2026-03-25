@@ -19,6 +19,8 @@ import type {
 } from '@features/scraper/types/scraper.types.js';
 
 const IDLE_EVENT: SyncStreamEvent = {status: 'idle'};
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 2_000;
 
 /**
  * Parse one raw SSE block (event type + data) into a SyncStreamEvent.
@@ -106,7 +108,7 @@ export const useSyncStream = (sessionId: string | null): UseSyncStreamResult => 
         setIsConnected(false);
         setError(null);
 
-        const run = async (): Promise<void> => {
+        const run = async (retriesLeft: number): Promise<void> => {
             try {
                 const res = await fetch(url, {
                     headers: {
@@ -147,13 +149,17 @@ export const useSyncStream = (sessionId: string | null): UseSyncStreamResult => 
                 setIsConnected(false);
             } catch (err: unknown) {
                 if ((err as {name?: string}).name === 'AbortError') return;
+                setIsConnected(false);
+                if (retriesLeft > 0 && !controller.signal.aborted) {
+                    await new Promise<void>(r => { setTimeout(r, RETRY_DELAY_MS); });
+                    return run(retriesLeft - 1);
+                }
                 console.error('[useSyncStream]', err);
                 setError((err as {message?: string}).message ?? 'Stream error');
-                setIsConnected(false);
             }
         };
 
-        void run();
+        void run(MAX_RETRIES);
         return (): void => { controller.abort(); setIsConnected(false); };
     }, [sessionId]);
 
