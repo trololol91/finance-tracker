@@ -119,6 +119,24 @@ describe('TransactionActions', () => {
         expect(container.querySelector('.tx-actions__menu')).not.toBeInTheDocument();
     });
 
+    it('opens menu upward when trigger is near the bottom of the viewport', async () => {
+        const user = userEvent.setup();
+        render(<TransactionActions {...defaultProps} />);
+        const trigger = screen.getByRole('button', {name: /actions for/i});
+        // Simulate trigger near the bottom: little space below, lots above
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+            top: 700, bottom: 720, left: 0, right: 100,
+            width: 100, height: 20, x: 0, y: 700, toJSON: () => ({})
+        } as DOMRect);
+        Object.defineProperty(window, 'innerHeight', {value: 750, configurable: true});
+        Object.defineProperty(window, 'innerWidth', {value: 1024, configurable: true});
+        await user.click(trigger);
+        const menu = screen.getByRole('menu');
+        // Menu should be positioned with `bottom` (opens upward), not `top`
+        expect(menu.style.bottom).not.toBe('');
+        expect(menu.style.top).toBe('');
+    });
+
     it('cancels the delete confirmation when Cancel is clicked', async () => {
         const onDelete = vi.fn();
         const user = userEvent.setup();

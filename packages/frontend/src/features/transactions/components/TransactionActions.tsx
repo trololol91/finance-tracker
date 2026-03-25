@@ -23,7 +23,9 @@ export const TransactionActions = ({
     const [showConfirm, setShowConfirm] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
-    const [menuPos, setMenuPos] = useState<{top: number, right: number} | null>(null);
+    const [menuPos, setMenuPos] = useState<
+        {top?: number, bottom?: number, right: number} | null
+    >(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -37,13 +39,22 @@ export const TransactionActions = ({
         return (): void => { document.removeEventListener('mousedown', handleClickOutside); };
     }, [isOpen]);
 
+    const calcMenuPos = (rect: DOMRect): {top?: number, bottom?: number, right: number} => {
+        const right = window.innerWidth - rect.right;
+        const estimatedMenuHeight = 130;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow >= estimatedMenuHeight || spaceBelow >= rect.top) {
+            return {top: rect.bottom + 4, right};
+        }
+        return {bottom: window.innerHeight - rect.top + 4, right};
+    };
+
     // Keep the fixed-position menu in sync with the trigger while open
     useEffect(() => {
         if (!isOpen) return;
         const update = (): void => {
             if (!triggerRef.current) return;
-            const rect = triggerRef.current.getBoundingClientRect();
-            setMenuPos({top: rect.bottom + 4, right: window.innerWidth - rect.right});
+            setMenuPos(calcMenuPos(triggerRef.current.getBoundingClientRect()));
         };
         window.addEventListener('scroll', update, true);
         window.addEventListener('resize', update);
@@ -62,8 +73,7 @@ export const TransactionActions = ({
 
     const handleToggle = (): void => {
         if (!isOpen && triggerRef.current) {
-            const rect = triggerRef.current.getBoundingClientRect();
-            setMenuPos({top: rect.bottom + 4, right: window.innerWidth - rect.right});
+            setMenuPos(calcMenuPos(triggerRef.current.getBoundingClientRect()));
         }
         setIsOpen((prev) => !prev);
     };
@@ -87,7 +97,7 @@ export const TransactionActions = ({
                 <div
                     className="tx-actions__menu"
                     role="menu"
-                    style={{position: 'fixed', top: menuPos.top, right: menuPos.right}}
+                    style={{position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right}}
                 >
                     {!showConfirm ? (
                         <>
