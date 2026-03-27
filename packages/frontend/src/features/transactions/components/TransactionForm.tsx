@@ -120,8 +120,8 @@ export const TransactionForm = ({
                             onChange={(e) => { onFieldChange('transferDirection', e.target.value); }}
                             required
                         >
-                            <option value="out">Out (money leaving this account)</option>
-                            <option value="in">In (money arriving in this account)</option>
+                            <option value="out">Out</option>
+                            <option value="in">In</option>
                         </select>
                         {errors.transferDirection && (
                             <span className="tx-form__error">{errors.transferDirection}</span>
