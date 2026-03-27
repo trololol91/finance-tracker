@@ -23,6 +23,7 @@ const EMPTY_FORM: TransactionFormValues = {
     description: '',
     notes: '',
     transactionType: 'expense',
+    transferDirection: '',
     date: todayIso(),
     categoryId: '',
     accountId: ''
@@ -38,6 +39,9 @@ const validateForm = (
     if (isNaN(amount) || amount === 0) newErrors.amount = 'Amount must not be zero';
     if (values.description.trim() === '') newErrors.description = 'Description is required';
     if (values.date === '') newErrors.date = 'Date is required';
+    if (values.transactionType === 'transfer' && values.transferDirection === '') {
+        newErrors.transferDirection = 'Direction is required for transfers';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
 };
@@ -48,7 +52,9 @@ const buildUpdateDto = (values: TransactionFormValues): UpdateTransactionDto => 
     notes: values.notes.trim() !== '' ? values.notes.trim() : null,
     date: values.date + 'T00:00:00.000Z',
     categoryId: values.categoryId !== '' ? values.categoryId : null,
-    accountId: values.accountId !== '' ? values.accountId : null
+    accountId: values.accountId !== '' ? values.accountId : null,
+    transactionType: values.transactionType,
+    transferDirection: values.transferDirection !== '' ? values.transferDirection : null
 });
 
 const buildCreateDto = (values: TransactionFormValues): CreateTransactionDto => ({
@@ -56,6 +62,7 @@ const buildCreateDto = (values: TransactionFormValues): CreateTransactionDto => 
     description: values.description.trim(),
     notes: values.notes.trim() !== '' ? values.notes.trim() : null,
     transactionType: values.transactionType as CreateTransactionDtoTransactionType,
+    transferDirection: values.transferDirection !== '' ? values.transferDirection : null,
     date: values.date + 'T00:00:00.000Z',
     categoryId: values.categoryId !== '' ? values.categoryId : null,
     accountId: values.accountId !== '' ? values.accountId : null
@@ -108,6 +115,7 @@ export const useTransactionForm = ({
             description: transaction.description,
             notes: transaction.notes ?? '',
             transactionType: transaction.transactionType as TransactionFormValues['transactionType'],
+            transferDirection: (transaction.transferDirection as 'in' | 'out' | null | undefined) ?? '',
             date: transaction.date.substring(0, 10),
             categoryId: transaction.categoryId ?? '',
             accountId: transaction.accountId ?? ''
@@ -117,7 +125,13 @@ export const useTransactionForm = ({
 
     const handleFieldChange = useCallback(
         (field: keyof TransactionFormValues, value: string): void => {
-            setFormValues((prev) => ({...prev, [field]: value}));
+            setFormValues((prev) => {
+                const updated = {...prev, [field]: value};
+                if (field === 'transactionType') {
+                    updated.transferDirection = value === 'transfer' ? 'out' : '';
+                }
+                return updated;
+            });
             setErrors((prev) => ({...prev, [field]: undefined}));
         },
         []

@@ -24,6 +24,11 @@ enum TransactionType {
   transfer
 }
 
+enum TransferDirection {
+  in
+  out
+}
+
 enum AccountType {
   checking
   savings
@@ -102,7 +107,8 @@ model Transaction {
   accountId       String?         @map("account_id") @db.Uuid
 
   // Classification
-  transactionType TransactionType @map("transaction_type")
+  transactionType   TransactionType    @map("transaction_type")
+  transferDirection TransferDirection? @map("transfer_direction")
 
   // Dates
   date            DateTime        @db.Timestamptz

@@ -34,6 +34,8 @@ export interface TransactionFormValues {
     description: string;
     notes: string;
     transactionType: TransactionType;
+    /** 'in' | 'out' when type is transfer; empty string otherwise */
+    transferDirection: 'in' | 'out' | '';
     date: string;
     categoryId: string;
     accountId: string;

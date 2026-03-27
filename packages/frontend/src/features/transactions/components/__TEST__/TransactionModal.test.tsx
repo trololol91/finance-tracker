@@ -43,6 +43,7 @@ const emptyValues: TransactionFormValues = {
     description: '',
     notes: '',
     transactionType: 'expense',
+    transferDirection: '',
     date: '2026-02-15',
     categoryId: '',
     accountId: ''

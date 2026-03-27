@@ -48,9 +48,11 @@ describe('DashboardService', () => {
         id?: string;
         name?: string;
         currency?: string;
-        /** Per-account income/expense used to set up groupBy mocks */
+        /** Per-account income/expense/transfer used to set up groupBy mocks */
         incomeAmount?: number;
         expenseAmount?: number;
+        transferInAmount?: number;
+        transferOutAmount?: number;
     }
 
     interface SummaryMockOpts {
@@ -69,7 +71,7 @@ describe('DashboardService', () => {
          *   1. Promise.all([aggregate(income), aggregate(expense)])  — two aggregate calls
          *   2. transaction.count
          *   3. account.findMany
-         *   4. Promise.all([groupBy(income-by-acct), groupBy(expense-by-acct)])
+         *   4. Promise.all([groupBy(income-by-acct), groupBy(expense-by-acct), groupBy(transfer)])
          *   5. transaction.findMany (recent)
          */
         const setupSummaryMocks = (opts: SummaryMockOpts): void => {
@@ -92,17 +94,34 @@ describe('DashboardService', () => {
 
             prisma.transaction.count.mockResolvedValue(opts.count ?? 0);
 
-            // transaction.groupBy: first call = income-by-account, second = expense-by-account
+            // groupBy: income-by-account, expense-by-account, transfer-by-account (with direction)
             const incomeByAcct = accounts
                 .filter(a => (a.incomeAmount ?? 0) > 0)
                 .map(a => ({accountId: a.id ?? 'acct-1', _sum: {amount: a.incomeAmount ?? 0}}));
             const expenseByAcct = accounts
                 .filter(a => (a.expenseAmount ?? 0) > 0)
                 .map(a => ({accountId: a.id ?? 'acct-1', _sum: {amount: a.expenseAmount ?? 0}}));
+            const transferByAcct = [
+                ...accounts
+                    .filter(a => (a.transferInAmount ?? 0) > 0)
+                    .map(a => ({
+                        accountId: a.id ?? 'acct-1',
+                        transferDirection: 'in',
+                        _sum: {amount: a.transferInAmount ?? 0}
+                    })),
+                ...accounts
+                    .filter(a => (a.transferOutAmount ?? 0) > 0)
+                    .map(a => ({
+                        accountId: a.id ?? 'acct-1',
+                        transferDirection: 'out',
+                        _sum: {amount: a.transferOutAmount ?? 0}
+                    }))
+            ];
 
             prisma.transaction.groupBy
                 .mockResolvedValueOnce(incomeByAcct)
-                .mockResolvedValueOnce(expenseByAcct);
+                .mockResolvedValueOnce(expenseByAcct)
+                .mockResolvedValueOnce(transferByAcct);
 
             prisma.transaction.findMany.mockResolvedValue(opts.recent ?? []);
         };
@@ -251,6 +270,30 @@ describe('DashboardService', () => {
             expect(result.accounts[0].name).toBe('Savings');
             expect(result.accounts[0].currency).toBe('GBP');
             // balance = 500 + 1000 - 200 = 1300
+            expect(result.accounts[0].balance).toBe(1300);
+        });
+
+        /**
+         * DSV-09b: account balance includes transfer_in and transfer_out amounts
+         */
+        it('DSV-09b: account balance includes transfer_in and transfer_out amounts', async () => {
+            setupSummaryMocks({
+                accounts: [{
+                    id: 'acct-1',
+                    name: 'Chequing',
+                    currency: 'CAD',
+                    openingBalance: 1000,
+                    transferInAmount: 500,
+                    transferOutAmount: 200
+                }],
+                income: null,
+                expense: null,
+                count: 2
+            });
+
+            const result = await service.getSummary(userId, '2026-03');
+
+            // balance = 1000 + 0 + 500 - 0 - 200 = 1300
             expect(result.accounts[0].balance).toBe(1300);
         });
 

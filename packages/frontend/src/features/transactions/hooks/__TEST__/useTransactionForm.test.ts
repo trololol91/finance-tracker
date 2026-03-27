@@ -195,6 +195,47 @@ describe('useTransactionForm', () => {
         });
     });
 
+    describe('openEdit – transferDirection', () => {
+        it('populates transferDirection from a transfer transaction', () => {
+            const {result} = setupHook();
+            act(() => {
+                result.current.openEdit({
+                    ...mockTx,
+                    transactionType: 'transfer',
+                    transferDirection: 'in' as never
+                });
+            });
+            expect(result.current.formValues.transferDirection).toBe('in');
+        });
+
+        it('sets transferDirection to empty string when transaction.transferDirection is null', () => {
+            const {result} = setupHook();
+            act(() => {
+                result.current.openEdit({
+                    ...mockTx,
+                    transactionType: 'transfer',
+                    transferDirection: null as never
+                });
+            });
+            expect(result.current.formValues.transferDirection).toBe('');
+        });
+    });
+
+    describe('handleFieldChange – transactionType auto-sets transferDirection', () => {
+        it('sets transferDirection to out when transactionType changes to transfer', () => {
+            const {result} = setupHook();
+            act(() => { result.current.handleFieldChange('transactionType', 'transfer'); });
+            expect(result.current.formValues.transferDirection).toBe('out');
+        });
+
+        it('clears transferDirection when transactionType changes away from transfer', () => {
+            const {result} = setupHook();
+            act(() => { result.current.handleFieldChange('transactionType', 'transfer'); });
+            act(() => { result.current.handleFieldChange('transactionType', 'expense'); });
+            expect(result.current.formValues.transferDirection).toBe('');
+        });
+    });
+
     describe('handleSubmit – validation', () => {
         it('sets an error when amount is empty', () => {
             const {result} = setupHook();
@@ -239,6 +280,19 @@ describe('useTransactionForm', () => {
             act(() => { result.current.handleFieldChange('amount', 'abc'); });
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.errors.amount).toMatch(/zero/i);
+        });
+
+        it('sets transferDirection error when type is transfer and direction is empty', () => {
+            const {result} = setupHook();
+            act(() => {
+                result.current.handleFieldChange('transactionType', 'transfer');
+                result.current.handleFieldChange('transferDirection', '');
+                result.current.handleFieldChange('amount', '50');
+                result.current.handleFieldChange('description', 'Wire transfer');
+                result.current.handleFieldChange('date', '2026-02-15');
+            });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.transferDirection).toMatch(/direction/i);
         });
 
         it('does not call createTransaction when validation fails', () => {

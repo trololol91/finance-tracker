@@ -61,6 +61,7 @@ export class TransactionsService {
                 categoryId: createDto.categoryId ?? null,
                 accountId: createDto.accountId ?? null,
                 transactionType: createDto.transactionType,
+                transferDirection: createDto.transferDirection ?? null,
                 date,
                 originalDate: date,
                 isActive: true
@@ -113,13 +114,21 @@ export class TransactionsService {
 
     /**
      * Update a transaction. originalDate is never modified.
-     * transactionType is not updatable.
      */
     public async update(
         userId: string,
         transactionId: string,
         updateDto: UpdateTransactionDto
     ): Promise<Transaction> {
+        if (
+            updateDto.transactionType === TransactionType.transfer
+            && (updateDto.transferDirection === undefined || updateDto.transferDirection === null)
+        ) {
+            throw new BadRequestException(
+                'transferDirection is required when updating transactionType to transfer'
+            );
+        }
+
         await this.findOne(userId, transactionId);
 
         return this.prisma.transaction.update({
@@ -131,7 +140,13 @@ export class TransactionsService {
                 ...(updateDto.categoryId !== undefined && {categoryId: updateDto.categoryId}),
                 ...(updateDto.accountId !== undefined && {accountId: updateDto.accountId}),
                 ...(updateDto.date !== undefined && {date: new Date(updateDto.date)}),
-                ...(updateDto.isActive !== undefined && {isActive: updateDto.isActive})
+                ...(updateDto.isActive !== undefined && {isActive: updateDto.isActive}),
+                ...(updateDto.transactionType !== undefined && {
+                    transactionType: updateDto.transactionType
+                }),
+                ...(updateDto.transferDirection !== undefined && {
+                    transferDirection: updateDto.transferDirection
+                })
             }
         });
     }

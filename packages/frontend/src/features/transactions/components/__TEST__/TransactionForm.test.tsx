@@ -15,6 +15,7 @@ const emptyValues: TransactionFormValues = {
     description: '',
     notes: '',
     transactionType: 'expense',
+    transferDirection: '',
     date: '2026-02-15',
     categoryId: '',
     accountId: ''
@@ -25,6 +26,7 @@ const filledValues: TransactionFormValues = {
     description: 'Starbucks Coffee',
     notes: 'Work expense',
     transactionType: 'expense',
+    transferDirection: '',
     date: '2026-02-15',
     categoryId: '',
     accountId: ''
@@ -143,15 +145,14 @@ describe('TransactionForm', () => {
             expect(screen.getByRole('button', {name: /save changes/i})).toBeInTheDocument();
         });
 
-        it('type select is disabled in edit mode', () => {
+        it('type select is enabled in edit mode', () => {
             render(<TransactionForm {...editProps} />);
-            expect(screen.getByLabelText(/type \*/i)).toBeDisabled();
+            expect(screen.getByLabelText(/type \*/i)).not.toBeDisabled();
         });
 
-        it('shows the type-locked hint in edit mode', () => {
+        it('does not show the type-locked hint in edit mode', () => {
             render(<TransactionForm {...editProps} />);
-            // Both type and account show 'cannot be changed' hints in edit mode
-            expect(screen.getAllByText(/cannot be changed/i).length).toBeGreaterThan(0);
+            expect(screen.queryByText(/cannot be changed/i)).not.toBeInTheDocument();
         });
     });
 
@@ -248,6 +249,17 @@ describe('TransactionForm', () => {
             render(<TransactionForm {...defaultProps} errors={{date: 'Date is required'}} />);
             expect(screen.getByText('Date is required')).toBeInTheDocument();
         });
+
+        it('shows transferDirection error message when type is transfer', () => {
+            render(
+                <TransactionForm
+                    {...defaultProps}
+                    formValues={{...filledValues, transactionType: 'transfer', transferDirection: 'out'}}
+                    errors={{transferDirection: 'Direction is required for transfers'}}
+                />
+            );
+            expect(screen.getByText('Direction is required for transfers')).toBeInTheDocument();
+        });
     });
 
     describe('submitting state', () => {
@@ -331,7 +343,7 @@ describe('TransactionForm', () => {
             expect(screen.getByLabelText(/account/i)).not.toBeDisabled();
         });
 
-        it('shows only the type-locked hint in edit mode', () => {
+        it('does not show any locked hints in edit mode', () => {
             render(
                 <TransactionForm
                     {...defaultProps}
@@ -339,9 +351,7 @@ describe('TransactionForm', () => {
                     editTarget={mockTx}
                 />
             );
-            // Only transaction type shows a cannot-change hint; account no longer does
-            const hints = screen.getAllByText(/cannot be changed/i);
-            expect(hints).toHaveLength(1);
+            expect(screen.queryByText(/cannot be changed/i)).not.toBeInTheDocument();
         });
 
         it('does not show account-locked hint in create mode', () => {

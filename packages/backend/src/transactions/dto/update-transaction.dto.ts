@@ -5,10 +5,15 @@ import {
     IsOptional,
     IsUUID,
     IsDateString,
-    IsBoolean
+    IsBoolean,
+    IsEnum,
+    ValidateIf
 } from 'class-validator';
 import {Type} from 'class-transformer';
 import {ApiProperty} from '@nestjs/swagger';
+import {
+    TransactionType, TransferDirection
+} from '#generated/prisma/client.js';
 
 export class UpdateTransactionDto {
     @ApiProperty({
@@ -83,4 +88,24 @@ export class UpdateTransactionDto {
     @Type(() => Boolean)
     @IsOptional()
     isActive?: boolean;
+
+    @ApiProperty({
+        description: 'Transaction type',
+        enum: TransactionType,
+        required: false
+    })
+    @IsEnum(TransactionType)
+    @IsOptional()
+    transactionType?: TransactionType;
+
+    @ApiProperty({
+        description: 'Transfer direction (required when transactionType is transfer, send null when changing away from transfer)',
+        enum: ['in', 'out'],
+        required: false,
+        nullable: true
+    })
+    @ValidateIf(o => (o as UpdateTransactionDto).transferDirection !== undefined)
+    @IsOptional()
+    @IsEnum(TransferDirection)
+    transferDirection?: TransferDirection | null;
 }

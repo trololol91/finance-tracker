@@ -100,7 +100,6 @@ export const TransactionForm = ({
                         className={'tx-form__select'}
                         value={formValues.transactionType}
                         onChange={(e) => { onFieldChange('transactionType', e.target.value); }}
-                        disabled={isEditing}
                         required
                     >
                         {TRANSACTION_TYPES.map((t) => (
@@ -109,10 +108,26 @@ export const TransactionForm = ({
                             </option>
                         ))}
                     </select>
-                    {isEditing && (
-                        <span className="tx-form__hint">Transaction type cannot be changed after creation.</span>
-                    )}
                 </div>
+
+                {formValues.transactionType === CreateTransactionDtoTransactionType.transfer && (
+                    <div className="tx-form__field">
+                        <label htmlFor="tx-form-direction" className="tx-form__label">Direction *</label>
+                        <select
+                            id="tx-form-direction"
+                            className={`tx-form__select${errors.transferDirection ? ' tx-form__select--error' : ''}`}
+                            value={formValues.transferDirection}
+                            onChange={(e) => { onFieldChange('transferDirection', e.target.value); }}
+                            required
+                        >
+                            <option value="out">Out (money leaving this account)</option>
+                            <option value="in">In (money arriving in this account)</option>
+                        </select>
+                        {errors.transferDirection && (
+                            <span className="tx-form__error">{errors.transferDirection}</span>
+                        )}
+                    </div>
+                )}
 
                 <Input
                     label="Date *"

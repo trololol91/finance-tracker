@@ -1,4 +1,5 @@
 import {ApiProperty} from '@nestjs/swagger';
+import {TransferDirection} from '#generated/prisma/client.js';
 
 export class TransactionSummaryItemDto {
     @ApiProperty({description: 'Transaction ID'})
@@ -15,6 +16,9 @@ export class TransactionSummaryItemDto {
 
     @ApiProperty({enum: ['income', 'expense', 'transfer']})
     transactionType!: string;
+
+    @ApiProperty({enum: ['in', 'out'], nullable: true, required: false})
+    transferDirection!: TransferDirection | null;
 
     @ApiProperty({nullable: true, type: String})
     categoryName!: string | null;

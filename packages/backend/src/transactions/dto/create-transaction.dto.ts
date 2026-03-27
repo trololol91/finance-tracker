@@ -5,11 +5,14 @@ import {
     IsOptional,
     IsUUID,
     IsEnum,
-    IsDateString
+    IsDateString,
+    ValidateIf
 } from 'class-validator';
 import {Type} from 'class-transformer';
 import {ApiProperty} from '@nestjs/swagger';
-import {TransactionType} from '#generated/prisma/client.js';
+import {
+    TransactionType, TransferDirection
+} from '#generated/prisma/client.js';
 
 export class CreateTransactionDto {
     @ApiProperty({
@@ -76,4 +79,15 @@ export class CreateTransactionDto {
     })
     @IsDateString()
     date!: string;
+
+    @ApiProperty({
+        description: 'Required for transfer transactions: whether money is arriving in this account or leaving it',
+        enum: ['in', 'out'],
+        required: false,
+        nullable: true
+    })
+    @ValidateIf(o => (o as CreateTransactionDto).transactionType === TransactionType.transfer)
+    @IsEnum(TransferDirection)
+    @IsNotEmpty()
+    transferDirection?: TransferDirection | null;
 }

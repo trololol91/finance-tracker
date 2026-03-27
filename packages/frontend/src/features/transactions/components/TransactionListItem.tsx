@@ -64,7 +64,9 @@ export const TransactionListItem = ({
             </td>
             <td className="tx-item__type tx-item__hide-mobile">
                 <span className={`tx-item__badge tx-item__badge--${transaction.transactionType}`}>
-                    {transaction.transactionType}
+                    {transaction.transactionType === 'transfer' && transaction.transferDirection
+                        ? `transfer ${transaction.transferDirection}`
+                        : transaction.transactionType}
                 </span>
             </td>
             <td className="tx-item__category tx-item__hide-mobile">

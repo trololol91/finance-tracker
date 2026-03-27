@@ -121,6 +121,21 @@ describe('TransactionListItem', () => {
             renderItem(makeTx({transactionType: 'income'}));
             expect(screen.getByText('income')).toBeInTheDocument();
         });
+
+        it('shows "transfer in" badge for a transfer with direction in', () => {
+            renderItem(makeTx({transactionType: 'transfer', transferDirection: 'in'}));
+            expect(screen.getAllByText('transfer in').length).toBeGreaterThan(0);
+        });
+
+        it('shows "transfer out" badge for a transfer with direction out', () => {
+            renderItem(makeTx({transactionType: 'transfer', transferDirection: 'out'}));
+            expect(screen.getAllByText('transfer out').length).toBeGreaterThan(0);
+        });
+
+        it('shows plain "transfer" badge when transferDirection is null', () => {
+            renderItem(makeTx({transactionType: 'transfer', transferDirection: null}));
+            expect(screen.getAllByText('transfer').length).toBeGreaterThan(0);
+        });
     });
 
     describe('status column', () => {

@@ -65,6 +65,16 @@ const groupByBoth = (income: number, expense: number) => [
     {transactionType: TransactionType.expense, _sum: {amount: expense}}
 ];
 
+/** groupBy result with a single transfer_in record */
+const groupByTransferIn = (amount: number) => [
+    {transactionType: TransactionType.transfer, transferDirection: 'in', _sum: {amount}}
+];
+
+/** groupBy result with a single transfer_out record */
+const groupByTransferOut = (amount: number) => [
+    {transactionType: TransactionType.transfer, transferDirection: 'out', _sum: {amount}}
+];
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -426,6 +436,34 @@ describe('AccountsService', () => {
 
             // 200 + 300 - 100 = 400
             expect(result.currentBalance).toBe(400);
+        });
+
+        it('adds transfer_in sum to balance', async () => {
+            vi.mocked(prisma.account.findFirst).mockResolvedValue(
+                makeAccount({openingBalance: 500 as never})
+            );
+            vi.mocked(prisma.transaction.groupBy)
+                .mockResolvedValue(groupByTransferIn(200) as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(1);
+
+            const result = await service.findOne(userId, accId);
+
+            // 500 + 200 (transfer_in) = 700
+            expect(result.currentBalance).toBe(700);
+        });
+
+        it('subtracts transfer_out sum from balance', async () => {
+            vi.mocked(prisma.account.findFirst).mockResolvedValue(
+                makeAccount({openingBalance: 500 as never})
+            );
+            vi.mocked(prisma.transaction.groupBy)
+                .mockResolvedValue(groupByTransferOut(150) as never);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(1);
+
+            const result = await service.findOne(userId, accId);
+
+            // 500 - 150 (transfer_out) = 350
+            expect(result.currentBalance).toBe(350);
         });
 
         it('handles null _sum.amount (no income transactions)', async () => {

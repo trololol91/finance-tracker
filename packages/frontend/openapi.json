@@ -3031,6 +3031,15 @@
             "type": "string",
             "description": "Transaction date (ISO 8601)",
             "example": "2026-02-25T10:30:00.000Z"
+          },
+          "transferDirection": {
+            "type": "string",
+            "description": "Required for transfer transactions: whether money is arriving in this account or leaving it",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -3107,6 +3116,15 @@
             "type": "boolean",
             "description": "Whether the transaction is still pending/unsettled",
             "example": false
+          },
+          "transferDirection": {
+            "type": "string",
+            "description": "Transfer direction (in/out). Only set for transfer transactions.",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "nullable": true
           },
           "createdAt": {
             "format": "date-time",
@@ -3311,6 +3329,24 @@
             "type": "boolean",
             "description": "Whether the transaction is active",
             "example": true
+          },
+          "transactionType": {
+            "type": "string",
+            "description": "Transaction type",
+            "enum": [
+              "income",
+              "expense",
+              "transfer"
+            ]
+          },
+          "transferDirection": {
+            "type": "string",
+            "description": "Transfer direction (required when transactionType is transfer, send null when changing away from transfer)",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "nullable": true
           }
         }
       },
@@ -4180,6 +4216,14 @@
               "expense",
               "transfer"
             ]
+          },
+          "transferDirection": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "nullable": true
           },
           "categoryName": {
             "type": "string",

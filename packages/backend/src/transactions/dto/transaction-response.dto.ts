@@ -1,7 +1,8 @@
 import {ApiProperty} from '@nestjs/swagger';
 import type {
     Transaction,
-    TransactionType
+    TransactionType,
+    TransferDirection
 } from '#generated/prisma/client.js';
 
 export class TransactionResponseDto {
@@ -85,6 +86,14 @@ export class TransactionResponseDto {
     isPending!: boolean;
 
     @ApiProperty({
+        description: 'Transfer direction (in/out). Only set for transfer transactions.',
+        enum: ['in', 'out'],
+        nullable: true,
+        required: false
+    })
+    transferDirection!: TransferDirection | null;
+
+    @ApiProperty({
         description: 'Record creation timestamp',
         example: '2026-02-25T10:30:00.000Z'
     })
@@ -110,6 +119,7 @@ export class TransactionResponseDto {
         dto.originalDate = transaction.originalDate;
         dto.isActive = transaction.isActive;
         dto.isPending = transaction.isPending;
+        dto.transferDirection = transaction.transferDirection;
         dto.createdAt = transaction.createdAt;
         dto.updatedAt = transaction.updatedAt;
         return dto;

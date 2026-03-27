@@ -239,6 +239,23 @@ describe('useAccountForm', () => {
             act(() => { result.current.handleSubmit(fakeEvent()); });
             expect(result.current.errors.color).toBeTruthy();
         });
+
+        it('sets name error when name exceeds 100 characters', () => {
+            const {result} = renderHook(() => useAccountForm(), {wrapper: createWrapper()});
+            act(() => { result.current.openCreate(); });
+            act(() => { result.current.handleFieldChange('name', 'A'.repeat(101)); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.name).toMatch(/100 characters/i);
+        });
+
+        it('sets openingBalance error for value with more than 2 decimal places', () => {
+            const {result} = renderHook(() => useAccountForm(), {wrapper: createWrapper()});
+            act(() => { result.current.openCreate(); });
+            act(() => { result.current.handleFieldChange('name', 'My Account'); });
+            act(() => { result.current.handleFieldChange('openingBalance', '1.234'); });
+            act(() => { result.current.handleSubmit(fakeEvent()); });
+            expect(result.current.errors.openingBalance).toBeTruthy();
+        });
     });
 
     describe('handleSubmit — create', () => {
@@ -333,6 +350,19 @@ describe('useAccountForm', () => {
             mockRemove.mockReturnValue(makeRemove(vi.fn(), true));
             const {result} = renderHook(() => useAccountForm(), {wrapper: createWrapper()});
             expect(result.current.isDeleting).toBe(true);
+        });
+
+        it('does not throw when remove onError fires', () => {
+            const mutateFn = vi.fn(
+                (_args: unknown, {onError: cb}: {onError: (e: unknown) => void}) => {
+                    cb(new Error('Delete failed'));
+                }
+            );
+            mockRemove.mockReturnValue(makeRemove(mutateFn));
+            const {result} = renderHook(() => useAccountForm(), {wrapper: createWrapper()});
+            expect(() => {
+                act(() => { result.current.handleDelete('acct-1'); });
+            }).not.toThrow();
         });
     });
 });

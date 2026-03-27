@@ -7,7 +7,9 @@ import {
 import {PrismaService} from '#database/prisma.service.js';
 import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNamespace.js';
 import type {Account} from '#generated/prisma/client.js';
-import {TransactionType} from '#generated/prisma/client.js';
+import {
+    TransactionType, TransferDirection
+} from '#generated/prisma/client.js';
 import type {CreateAccountDto} from '#accounts/dto/create-account.dto.js';
 import type {UpdateAccountDto} from '#accounts/dto/update-account.dto.js';
 import {AccountResponseDto} from '#accounts/dto/account-response.dto.js';
@@ -167,19 +169,25 @@ export class AccountsService {
 
     /**
      * Compute currentBalance and transactionCount for an account and return DTO.
-     * currentBalance = openingBalance + Σ(active income) − Σ(active expense).
-     * Transfers are excluded from balance calculation.
+     * currentBalance = openingBalance + Σ(income) + Σ(transfer_in) − Σ(expense) − Σ(transfer_out).
+     * Transfers without a direction are excluded (legacy records).
      * transactionCount counts only active transactions for display purposes.
      * The hard/soft delete guard in remove() uses its own _count.transactions (all states).
      */
     private async toDto(account: Account): Promise<AccountResponseDto> {
         const [sums, transactionCount] = await Promise.all([
             this.prisma.transaction.groupBy({
-                by: ['transactionType'],
+                by: ['transactionType', 'transferDirection'],
                 where: {
                     accountId: account.id,
                     isActive: true,
-                    transactionType: {in: [TransactionType.income, TransactionType.expense]}
+                    transactionType: {
+                        in: [
+                            TransactionType.income,
+                            TransactionType.expense,
+                            TransactionType.transfer
+                        ]
+                    }
                 },
                 _sum: {amount: true}
             }),
@@ -190,10 +198,24 @@ export class AccountsService {
 
         const incomeRec = sums.find(s => s.transactionType === TransactionType.income);
         const expenseRec = sums.find(s => s.transactionType === TransactionType.expense);
-        const incomeSum = incomeRec?._sum.amount ?? 0;
-        const expenseSum = expenseRec?._sum.amount ?? 0;
+        const transferInRec = sums.find(
+            s => s.transactionType === TransactionType.transfer
+                && s.transferDirection === TransferDirection.in
+        );
+        const transferOutRec = sums.find(
+            s => s.transactionType === TransactionType.transfer
+                && s.transferDirection === TransferDirection.out
+        );
+        const incomeSum = Number(incomeRec?._sum.amount ?? 0);
+        const expenseSum = Number(expenseRec?._sum.amount ?? 0);
+        const transferInSum = Number(transferInRec?._sum.amount ?? 0);
+        const transferOutSum = Number(transferOutRec?._sum.amount ?? 0);
         const currentBalance =
-            Number(account.openingBalance) + Number(incomeSum) - Number(expenseSum);
+            Number(account.openingBalance)
+            + incomeSum
+            + transferInSum
+            - expenseSum
+            - transferOutSum;
 
         return AccountResponseDto.fromEntity(account, currentBalance, transactionCount);
     }

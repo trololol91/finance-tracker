@@ -7,13 +7,21 @@ import styles from '@features/dashboard/components/RecentTransactionsList.module
 const formatDate = (iso: string): string =>
     new Date(iso).toLocaleDateString('en-CA', {month: 'short', day: 'numeric'});
 
-const formatAmount = (amount: number, type: string): string => {
+const formatAmount = (
+    amount: number,
+    type: string,
+    transferDirection?: string | null
+): string => {
     const formatted = new Intl.NumberFormat('en-CA', {
         style: 'currency',
         currency: 'CAD'
     }).format(Math.abs(amount));
     if (type === 'income') return `+${formatted}`;
     if (type === 'expense') return `-${formatted}`;
+    if (type === 'transfer') {
+        if (transferDirection === 'in') return `+${formatted}`;
+        if (transferDirection === 'out') return `-${formatted}`;
+    }
     return formatted;
 };
 
@@ -103,9 +111,9 @@ export const RecentTransactionsList = ({
                         </div>
                         <span
                             className={`${styles.amount} ${styles[`amount--${tx.transactionType}`]}`}
-                            aria-label={`${tx.transactionType}: ${formatAmount(tx.amount, tx.transactionType)}`}
+                            aria-label={`${tx.transactionType}: ${formatAmount(tx.amount, tx.transactionType, tx.transferDirection)}`}
                         >
-                            {formatAmount(tx.amount, tx.transactionType)}
+                            {formatAmount(tx.amount, tx.transactionType, tx.transferDirection)}
                         </span>
                     </li>
                 ))}

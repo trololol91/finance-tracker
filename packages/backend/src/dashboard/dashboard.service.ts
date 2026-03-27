@@ -1,5 +1,6 @@
 import {Injectable} from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
+import {TransferDirection} from '#generated/prisma/client.js';
 import {
     DashboardSummaryDto,
     AccountBalanceSummaryItemDto,
@@ -55,14 +56,14 @@ export class DashboardService {
             }
         });
 
-        // Account balances: openingBalance + net of all-time active non-transfer transactions
-        // Uses aggregate _sum per account to avoid loading all transactions into memory (no N+1).
+        // Account balances: openingBalance + net of all-time active transactions (with transfers).
+        // Uses aggregate _sum per account to avoid N+1.
         const rawAccounts = await this.prisma.account.findMany({
             where: {userId, isActive: true},
             select: {id: true, name: true, currency: true, openingBalance: true}
         });
 
-        const [incomeByAccount, expenseByAccount] = await Promise.all([
+        const [incomeByAccount, expenseByAccount, transferByAccount] = await Promise.all([
             this.prisma.transaction.groupBy({
                 by: ['accountId'],
                 where: {userId, isActive: true, transactionType: 'income'},
@@ -71,6 +72,11 @@ export class DashboardService {
             this.prisma.transaction.groupBy({
                 by: ['accountId'],
                 where: {userId, isActive: true, transactionType: 'expense'},
+                _sum: {amount: true}
+            }),
+            this.prisma.transaction.groupBy({
+                by: ['accountId', 'transferDirection'],
+                where: {userId, isActive: true, transactionType: 'transfer', transferDirection: {not: null}},
                 _sum: {amount: true}
             })
         ]);
@@ -81,11 +87,22 @@ export class DashboardService {
         const expenseMap = new Map(
             expenseByAccount.map(r => [r.accountId, Number(r._sum.amount ?? 0)])
         );
+        const transferInMap = new Map<string | null, number>();
+        const transferOutMap = new Map<string | null, number>();
+        for (const r of transferByAccount) {
+            if (r.transferDirection === TransferDirection.in) {
+                transferInMap.set(r.accountId, Number(r._sum.amount ?? 0));
+            } else if (r.transferDirection === TransferDirection.out) {
+                transferOutMap.set(r.accountId, Number(r._sum.amount ?? 0));
+            }
+        }
 
         const accounts: AccountBalanceSummaryItemDto[] = rawAccounts.map(a => {
             const balance = Number(a.openingBalance)
                 + (incomeMap.get(a.id) ?? 0)
-                - (expenseMap.get(a.id) ?? 0);
+                + (transferInMap.get(a.id) ?? 0)
+                - (expenseMap.get(a.id) ?? 0)
+                - (transferOutMap.get(a.id) ?? 0);
             return {id: a.id, name: a.name, currency: a.currency, balance};
         });
 
@@ -106,6 +123,7 @@ export class DashboardService {
             description: t.description,
             amount: Number(t.amount),
             transactionType: t.transactionType,
+            transferDirection: t.transferDirection ?? null,
             categoryName: t.category?.name ?? null,
             accountName: t.account?.name ?? null
         }));

@@ -13,7 +13,9 @@ import {
 import {TransactionsService} from '#transactions/transactions.service.js';
 import type {PrismaService} from '#database/prisma.service.js';
 import type {Transaction} from '#generated/prisma/client.js';
-import {TransactionType} from '#generated/prisma/client.js';
+import {
+    TransactionType, TransferDirection
+} from '#generated/prisma/client.js';
 import type {CreateTransactionDto} from '#transactions/dto/create-transaction.dto.js';
 import type {UpdateTransactionDto} from '#transactions/dto/update-transaction.dto.js';
 import type {TransactionFilterDto} from '#transactions/dto/transaction-filter.dto.js';
@@ -44,6 +46,7 @@ const makeTransaction = (overrides: Partial<Transaction> = {}): Transaction => (
     isActive: true,
     isPending: false,
     fitid: null,
+    transferDirection: null,
     createdAt: new Date('2026-02-15T10:00:00.000Z'),
     updatedAt: new Date('2026-02-15T10:00:00.000Z'),
     ...overrides
@@ -123,6 +126,7 @@ describe('TransactionsService', () => {
                     categoryId: null,
                     accountId: null,
                     transactionType: dto.transactionType,
+                    transferDirection: null,
                     date: new Date(dto.date),
                     originalDate: new Date(dto.date),
                     isActive: true
@@ -545,6 +549,40 @@ describe('TransactionsService', () => {
                 accountId: 'acc-uuid',
                 notes: 'updated notes'
             });
+        });
+
+        it('should throw BadRequestException when transactionType is transfer but transferDirection is undefined', async () => {
+            await expect(
+                service.update(userId, txnId, {transactionType: TransactionType.transfer})
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw BadRequestException when transactionType is transfer but transferDirection is null', async () => {
+            await expect(
+                service.update(userId, txnId, {
+                    transactionType: TransactionType.transfer,
+                    transferDirection: null
+                })
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should allow update when transactionType is transfer and transferDirection is provided', async () => {
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(makeTransaction());
+            vi.mocked(prisma.transaction.update).mockResolvedValue(makeTransaction());
+
+            await service.update(userId, txnId, {
+                transactionType: TransactionType.transfer,
+                transferDirection: TransferDirection.in
+            });
+
+            expect(prisma.transaction.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        transactionType: TransactionType.transfer,
+                        transferDirection: TransferDirection.in
+                    })
+                })
+            );
         });
     });
 

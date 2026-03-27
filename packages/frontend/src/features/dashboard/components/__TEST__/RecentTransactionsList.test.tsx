@@ -1,6 +1,7 @@
 import {
     describe, it, expect
 } from 'vitest';
+import {TransactionSummaryItemDtoTransferDirection} from '@/api/model/transactionSummaryItemDtoTransferDirection.js';
 import {
     render, screen
 } from '@testing-library/react';
@@ -93,7 +94,7 @@ describe('RecentTransactionsList', () => {
         expect(screen.getByText('Utilities')).toBeInTheDocument();
     });
 
-    it('renders transfer transactions without +/- prefix', () => {
+    it('renders transfer transactions without +/- prefix when direction is absent', () => {
         const transactions = [makeTx({
             amount: 500,
             transactionType: TransactionSummaryItemDtoTransactionType.transfer
@@ -101,6 +102,30 @@ describe('RecentTransactionsList', () => {
         renderList({transactions, isLoading: false, isError: false});
         const el = screen.getByLabelText(/transfer/i);
         expect(el.textContent).not.toMatch(/^[+-]/);
+        expect(el.textContent).toMatch(/500/);
+    });
+
+    it('renders transfer-in transactions with + prefix', () => {
+        const transactions = [makeTx({
+            amount: 500,
+            transactionType: TransactionSummaryItemDtoTransactionType.transfer,
+            transferDirection: TransactionSummaryItemDtoTransferDirection.in
+        })];
+        renderList({transactions, isLoading: false, isError: false});
+        const el = screen.getByLabelText(/transfer/i);
+        expect(el.textContent).toMatch(/^\+/);
+        expect(el.textContent).toMatch(/500/);
+    });
+
+    it('renders transfer-out transactions with - prefix', () => {
+        const transactions = [makeTx({
+            amount: 500,
+            transactionType: TransactionSummaryItemDtoTransactionType.transfer,
+            transferDirection: TransactionSummaryItemDtoTransferDirection.out
+        })];
+        renderList({transactions, isLoading: false, isError: false});
+        const el = screen.getByLabelText(/transfer/i);
+        expect(el.textContent).toMatch(/^-/);
         expect(el.textContent).toMatch(/500/);
     });
 

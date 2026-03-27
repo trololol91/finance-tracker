@@ -4,7 +4,7 @@ import {
 import {PrismaService} from '#database/prisma.service.js';
 import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNamespace.js';
 import {
-    TransactionType, FileType
+    TransactionType, TransferDirection, FileType
 } from '#generated/prisma/client.js';
 import {ImportJobResponseDto} from '#scraper/import/import-job-response.dto.js';
 import Papa from 'papaparse';
@@ -26,6 +26,7 @@ interface ParsedTransaction {
     description: string;
     amount: number;
     transactionType: TransactionType;
+    transferDirection: TransferDirection | null;
     fitid: string | null;
 }
 
@@ -167,8 +168,9 @@ export class ImportService {
                         userId,
                         accountId,
                         description: row.description,
-                        amount: row.amount,
+                        amount: Math.abs(row.amount),
                         transactionType: row.transactionType,
+                        transferDirection: row.transferDirection,
                         date: row.date,
                         originalDate: row.date,
                         fitid: row.fitid
@@ -205,13 +207,14 @@ export class ImportService {
             if (existing) return true;
         }
 
-        // Fallback: composite natural key (best-effort for CSV without FITID)
+        // Fallback: composite natural key (best-effort for CSV without FITID).
+        // Use Math.abs because the DB stores unsigned magnitudes.
         const existing = await this.prisma.transaction.findFirst({
             where: {
                 userId,
                 accountId,
                 date: row.date,
-                amount: row.amount,
+                amount: Math.abs(row.amount),
                 description: row.description
             }
         });
@@ -261,11 +264,19 @@ export class ImportService {
             const amount = parseFloat(row.amount);
             if (isNaN(amount)) continue;
 
+            const transactionType = this.parseTransactionType(row.type, amount);
             rows.push({
                 date: new Date(dateMs),
                 description: row.description.trim(),
                 amount,
-                transactionType: this.parseTransactionType(row.type, amount),
+                transactionType,
+                // The sign of the raw CSV amount is the only directionality signal available —
+                // Math.abs is applied at insert time (prisma.transaction.create in parseAndInsert),
+                // so the original sign must be read here before it is lost. CSVs that export
+                // all-positive amounts (e.g. some credit-card formats) will always infer 'in'.
+                transferDirection: transactionType === TransactionType.transfer
+                    ? (amount < 0 ? TransferDirection.out : TransferDirection.in)
+                    : null,
                 fitid: null
             });
         }

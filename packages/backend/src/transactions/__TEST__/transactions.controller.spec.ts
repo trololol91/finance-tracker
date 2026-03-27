@@ -48,6 +48,7 @@ const makeTransaction = (overrides: Partial<Transaction> = {}): Transaction => (
     isActive: true,
     isPending: false,
     fitid: null,
+    transferDirection: null,
     createdAt: new Date('2026-02-15T10:00:00.000Z'),
     updatedAt: new Date('2026-02-15T10:00:00.000Z'),
     ...overrides
