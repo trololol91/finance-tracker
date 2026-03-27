@@ -15,6 +15,7 @@ import type {ScraperRegistry} from '#scraper/scraper.registry.js';
 import type {CategoriesService} from '#categories/categories.service.js';
 import type {AiCategorizationService} from '#ai-categorization/ai-categorization.service.js';
 import type {CategoryRulesService} from '#category-rules/category-rules.service.js';
+import type {ConfigService} from '@nestjs/config';
 
 // ---------------------------------------------------------------------------
 // Worker mock — prevents real worker_threads spawning in unit tests
@@ -95,6 +96,7 @@ describe('ScraperService', () => {
     let prisma: PrismaService;
     let cryptoService: CryptoService;
     let sessionStore: SyncSessionStore;
+    let pushService: PushService;
     let mockRegistry: {getPluginPath: ReturnType<typeof vi.fn>};
 
     beforeEach(() => {
@@ -128,9 +130,14 @@ describe('ScraperService', () => {
         } as unknown as CryptoService;
 
         sessionStore = new SyncSessionStore();
-        const pushService = {
+        pushService = {
             sendNotification: vi.fn().mockResolvedValue(undefined)
         } as unknown as PushService;
+        const configService = {
+            get: vi.fn().mockImplementation((key: string) =>
+                key === 'CORS_ORIGIN' ? 'http://localhost:3002' : undefined
+            )
+        } as unknown as ConfigService;
         mockRegistry = {
             getPluginPath: vi.fn().mockReturnValue('file:///plugins/cibc.scraper.js')
         };
@@ -154,7 +161,8 @@ describe('ScraperService', () => {
             mockRegistry as unknown as ScraperRegistry,
             categoriesService,
             aiCategorizationService,
-            categoryRulesService
+            categoryRulesService,
+            configService
         );
 
         vi.mocked(prisma.syncSchedule.findFirst).mockResolvedValue(mockSchedule);
@@ -614,6 +622,7 @@ describe('ScraperService', () => {
         interface InternalService {
             handleMfaRequired: (
                 sessionId: string,
+                scheduleId: string,
                 jobId: string,
                 prompt: string,
                 worker: MockWorker,
@@ -628,7 +637,7 @@ describe('ScraperService', () => {
             sessionStore.getObservable('mfa-job').subscribe(e => received.push(e.data as string));
             const mockWorker: MockWorker = {postMessage: vi.fn()};
 
-            await svc.handleMfaRequired('mfa-job', 'mfa-job', 'Enter code', mockWorker, 'user-1');
+            await svc.handleMfaRequired('mfa-job', 'sched-1', 'mfa-job', 'Enter code', mockWorker, 'user-1');
 
             expect(prisma.syncJob.update).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -640,6 +649,12 @@ describe('ScraperService', () => {
             );
             expect(received.some(d => d.includes('mfa_required'))).toBe(true);
             expect(sessionStore.hasPendingMfa('mfa-job')).toBe(true);
+            expect(pushService.sendNotification).toHaveBeenCalledWith(
+                'user-1',
+                'MFA Required',
+                'Enter code',
+                'http://localhost:3002/mfa?scheduleId=sched-1&sessionId=mfa-job'
+            );
         });
 
         it('should post mfa_code back to worker when resolver is called', async () => {
@@ -647,7 +662,7 @@ describe('ScraperService', () => {
             sessionStore.createSession('mfa-job-2');
             const mockWorker: MockWorker = {postMessage: vi.fn()};
 
-            await svc.handleMfaRequired('mfa-job-2', 'mfa-job-2', 'code prompt', mockWorker, 'user-1');
+            await svc.handleMfaRequired('mfa-job-2', 'sched-1', 'mfa-job-2', 'code prompt', mockWorker, 'user-1');
             sessionStore.resolveMfa('mfa-job-2', '654321');
 
             expect(mockWorker.postMessage).toHaveBeenCalledWith({
@@ -671,7 +686,7 @@ describe('ScraperService', () => {
                 })
             };
 
-            await svc.handleMfaRequired('mfa-nonerror-job', 'mfa-nonerror-job', 'Enter code', brokenWorker, 'user-1');
+            await svc.handleMfaRequired('mfa-nonerror-job', 'sched-1', 'mfa-nonerror-job', 'Enter code', brokenWorker, 'user-1');
 
             // Resolver fires postMessage → non-Error thrown → catch block logs and swallows
             // The not.toThrow() wrapper confirms the catch block prevents propagation to the caller

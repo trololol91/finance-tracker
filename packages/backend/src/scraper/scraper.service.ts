@@ -3,6 +3,7 @@ import {
     NotFoundException,
     Logger
 } from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import {Worker} from 'worker_threads';
 import {join} from 'path';
 import {fileURLToPath} from 'url';
@@ -55,7 +56,8 @@ export class ScraperService {
         private readonly registry: ScraperRegistry,
         private readonly categoriesService: CategoriesService,
         private readonly aiCategorizationService: AiCategorizationService,
-        private readonly categoryRulesService: CategoryRulesService
+        private readonly categoryRulesService: CategoryRulesService,
+        private readonly config: ConfigService
     ) {}
 
     /**
@@ -199,7 +201,9 @@ export class ScraperService {
                 data: JSON.stringify({status: msg.status, message: msg.message})
             } as MessageEvent);
         } else if (msg.type === 'mfa_required') {
-            await this.handleMfaRequired(sessionId, jobId, msg.prompt, worker, schedule.userId);
+            await this.handleMfaRequired(
+                sessionId, schedule.id, jobId, msg.prompt, worker, schedule.userId
+            );
         } else {
             await this.handleResult(
                 sessionId, jobId, schedule, msg
@@ -207,8 +211,10 @@ export class ScraperService {
         }
     }
 
+    // eslint-disable-next-line max-params
     private async handleMfaRequired(
         sessionId: string,
+        scheduleId: string,
         jobId: string,
         prompt: string,
         worker: Worker,
@@ -223,12 +229,26 @@ export class ScraperService {
             data: JSON.stringify({status: SyncJobStatus.mfaRequired, mfaChallenge: prompt})
         } as MessageEvent);
 
-        void this.pushService.sendNotification(
-            userId,
-            'MFA Required',
-            prompt,
-            `/sync?jobId=${jobId}`
-        );
+        const corsOrigin = this.config.get<string>('CORS_ORIGIN') ?? '';
+        if (!corsOrigin) {
+            this.logger.warn(
+                'CORS_ORIGIN is not set — MFA notification URL will be relative and may not work in email'
+            );
+        }
+        const mfaParams = new URLSearchParams({scheduleId, sessionId});
+        try {
+            await this.pushService.sendNotification(
+                userId,
+                'MFA Required',
+                prompt,
+                `${corsOrigin}/mfa?${mfaParams.toString()}`
+            );
+        } catch (err: unknown) {
+            this.logger.error(
+                `Failed to send MFA notification for job ${jobId}: ` +
+                (err instanceof Error ? err.message : String(err))
+            );
+        }
 
         // Register resolver: when user submits code, post it back to the worker.
         // The worker is suspended on `parentPort.once('message')`.

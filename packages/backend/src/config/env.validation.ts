@@ -17,6 +17,9 @@ export const envValidationSchema = Joi.object({
     // Encryption — 64-char hex string = 32-byte AES-256 key
     CREDENTIALS_ENCRYPTION_KEY: Joi.string().hex().length(64).required(),
 
+    // Frontend origin — used to build absolute URLs in push/email notifications
+    CORS_ORIGIN: Joi.string().uri().optional(),
+
     // AI Categorization
     AI_PROVIDER: Joi.string().valid(...VALID_PROVIDERS).default('anthropic'),
     AI_MODEL: Joi.string().default('claude-haiku-4-5-20251001'),
