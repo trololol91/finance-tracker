@@ -9,10 +9,8 @@ import {
     NotFoundException,
     BadRequestException
 } from '@nestjs/common';
-import {
-    TransactionsController,
-    PaginatedTransactionsResponseDto
-} from '#transactions/transactions.controller.js';
+import {TransactionsController} from '#transactions/transactions.controller.js';
+import {PaginatedTransactionsResponseDto} from '#transactions/dto/paginated-transactions-response.dto.js';
 import type {TransactionsService} from '#transactions/transactions.service.js';
 import type {
     PaginatedTransactions,

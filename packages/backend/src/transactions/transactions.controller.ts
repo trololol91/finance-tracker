@@ -37,8 +37,6 @@ import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 
-export {PaginatedTransactionsResponseDto};
-
 @ApiTags('transactions')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard)

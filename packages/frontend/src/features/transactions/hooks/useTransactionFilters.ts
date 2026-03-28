@@ -179,17 +179,16 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
     );
 
     const clearFilters = useCallback((): void => {
-        const {startDate, endDate} = getThisMonthRange();
         setSearchParams({
-            startDate,
-            endDate,
+            startDate: defaultStart,
+            endDate: defaultEnd,
             isActive: TransactionsControllerFindAllIsActive.true,
             page: '1',
             limit: '50',
             sortField: TransactionsControllerFindAllSortField.date,
             sortDirection: TransactionsControllerFindAllSortDirection.desc
         });
-    }, [setSearchParams]);
+    }, [setSearchParams, defaultStart, defaultEnd]);
 
     const setPage = useCallback(
         (page: number): void => {

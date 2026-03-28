@@ -64,4 +64,24 @@ describe('TransactionFilterDto — date range cross-field validation', () => {
         const errors = await validateDto({});
         expect(errors).toHaveLength(0);
     });
+
+    it('should not emit the cross-field error when endDate is not a valid date string', async () => {
+        // Guard returns true (skip) when endDate is unparseable — @IsDateString() owns that error.
+        const errors = await validateDto({
+            startDate: '2026-01-01T00:00:00.000Z',
+            endDate: 'not-a-date'
+        });
+        expect(errors).not.toContain('startDate must not be after endDate');
+        expect(errors.some((e) => e.toLowerCase().includes('date'))).toBe(true);
+    });
+
+    it('should not emit the cross-field error when startDate is not a valid date string', async () => {
+        const errors = await validateDto({
+            startDate: 'not-a-date',
+            endDate: '2026-12-31T23:59:59.999Z'
+        });
+        expect(errors).not.toContain('startDate must not be after endDate');
+        const hasDateError = errors.some((e) => e.toLowerCase().includes('date'));
+        expect(hasDateError).toBe(true);
+    });
 });

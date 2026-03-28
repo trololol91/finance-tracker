@@ -331,6 +331,9 @@ describe('useTransactionFilters', () => {
         });
 
         it('falls back to default endDate when the URL value is not a valid ISO date', () => {
+            // '2026-13-99' lacks a time component so it fails ISO_DATE_REGEX and falls back.
+            // Structurally-complete but semantically-invalid strings (e.g. month=13) pass the
+            // regex and reach the backend, where @IsDateString() validates semantics.
             const {result} = renderHook(() => useTransactionFilters(), {
                 wrapper: wrapperWithUrl('/?endDate=2026-13-99')
             });

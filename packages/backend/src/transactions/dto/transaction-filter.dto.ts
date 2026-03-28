@@ -28,7 +28,13 @@ class StartDateNotAfterEndDateConstraint implements ValidatorConstraintInterface
         if (obj.startDate === undefined || obj.endDate === undefined) {
             return true;
         }
-        return new Date(obj.startDate) <= new Date(obj.endDate);
+        // Guard: if either value is not a valid date, defer to @IsDateString() for the error.
+        const start = new Date(obj.startDate);
+        const end = new Date(obj.endDate);
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return true;
+        }
+        return start <= end;
     }
 
     public defaultMessage(): string {
