@@ -402,6 +402,46 @@ Implementation plan: [`test-plan/scraper-plugins/milestone-3-implementation-plan
 
 ---
 
+## Current Focus: Transaction Table Column Sorting
+
+Implementation plan: [`test-plan/transaction-sorting/implementation-plan.md`](../test-plan/transaction-sorting/implementation-plan.md)
+
+**Goal:** Add server-side column sorting to the Transactions page. Clicking the Date, Amount, or Description column headers changes the sort field and direction. Sort state lives in URL search params. Backend `GET /transactions` gains optional `sortField` and `sortDirection` query params. No Prisma migration required.
+
+**Recommended next actions:**
+
+1. `@figma-designer` — **Design brief (Section 9 of the plan):** Design the three header-cell states (inactive sortable, active ascending, active descending) for the Date, Amount, and Description columns. Use existing design tokens (`--color-primary` for active indicator, `--color-gray-400` for inactive). Do not change column widths or existing header padding.
+
+2. `@backend-dev` — **Step A1:** Add `sortField` and `sortDirection` to `TransactionFilterDto` in `packages/backend/src/transactions/dto/transaction-filter.dto.ts`. Both optional with `@IsIn`, `@IsString`, `@IsOptional`, and `@ApiProperty`. Allowed values: `sortField = ['date', 'amount', 'description', 'createdAt']`, `sortDirection = ['asc', 'desc']`.
+
+3. `@backend-dev` — **Step A2:** In `packages/backend/src/transactions/transactions.service.ts`, replace the hard-coded `orderBy: {date: 'desc'}` in `findAll()` with a dynamic `orderBy` derived from `filters.sortField` (default `'date'`) and `filters.sortDirection` (default `'desc'`).
+
+4. `@backend-dev` — **Step A3:** Add `@ApiQuery` decorators for `sortField` and `sortDirection` to the `findAll` method in `packages/backend/src/transactions/transactions.controller.ts`.
+
+5. `@backend-dev` — **Step A4:** Update `packages/backend/src/transactions/__TEST__/transactions.service.spec.ts` with sort cases (default, amount asc, description desc, createdAt). Update `transactions.controller.spec.ts` with invalid enum rejection cases.
+
+6. Run `npm run generate:api` in `packages/frontend` (delete `src/api/` first). Confirm `transactionsControllerFindAllParams.ts` includes `sortField` and `sortDirection`.
+
+7. `@frontend-dev` — **Step C1:** Extend `TransactionSortField` and `SortDirection` union types and add them to `TransactionFilterState` in `packages/frontend/src/features/transactions/types/transaction.types.ts`.
+
+8. `@frontend-dev` — **Step C2:** Extend `useTransactionFilters` in `packages/frontend/src/features/transactions/hooks/useTransactionFilters.ts`: read/write `sortField` and `sortDirection` from URL search params, add `setSort` function, include in `apiParams`.
+
+9. `@frontend-dev` — **Step C3 (cross-feature integration):** Update `TransactionList` in `packages/frontend/src/features/transactions/components/TransactionList.tsx` to accept `sortField`, `sortDirection`, `onSort` props. Make Date, Amount, and Description headers clickable with `aria-sort` attributes and sort indicator icons from `lucide-react`.
+
+10. `@frontend-dev` — **Step C4 (cross-feature integration):** Update `TransactionsPage` in `packages/frontend/src/pages/TransactionsPage.tsx` to destructure and pass sort props to `TransactionList`.
+
+11. `@frontend-dev` — **Step C5 (cross-feature integration — check):** Inspect `packages/frontend/src/features/dashboard/components/RecentTransactionsList.tsx`. If it uses `TransactionList` directly, pass no-op sort props (`sortField='date'`, `sortDirection='desc'`, `onSort={() => {}}`).
+
+12. `@frontend-dev` — **Step C6:** Add sort button CSS to `packages/frontend/src/features/transactions/components/TransactionList.css`.
+
+13. `@test-writer` — Update `useTransactionFilters.test.ts` and `TransactionList.test.tsx` per Section 8 of the plan.
+
+14. `@backend-tester` — Run the 14-case backend API test plan (Section 11 of the plan). Save to `test-plan/transaction-sorting/backend.md` and `backend-report.md`.
+
+15. `@frontend-tester` — Run the 13-case frontend test scope (Section 10 of the plan). Save to `test-plan/transaction-sorting/frontend.md` and `frontend-report.md`.
+
+---
+
 ## Current Focus: Scraper Plugin System — Milestone 6 (Plugin Upload UI: .zip + bankId)
 
 Implementation plan: [`test-plan/scraper-plugins/milestone-6-implementation-plan.md`](../test-plan/scraper-plugins/milestone-6-implementation-plan.md)

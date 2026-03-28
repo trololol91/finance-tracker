@@ -23,6 +23,10 @@ vi.mock('@/api/transactions/transactions.js', () => ({
 const wrapper = ({children}: {children: React.ReactNode}) =>
     React.createElement(MemoryRouter, null, children);
 
+const wrapperWithUrl = (search: string) =>
+    ({children}: {children: React.ReactNode}) =>
+        React.createElement(MemoryRouter, {initialEntries: [search]}, children);
+
 describe('useTransactionFilters', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -198,6 +202,12 @@ describe('useTransactionFilters', () => {
     });
 
     describe('setMultiFilter', () => {
+        // UUID v4 test fixtures (accountId/categoryId are validated as UUIDs on read-back)
+        const ACC_1 = '123e4567-e89b-4abc-a456-426614174001';
+        const ACC_2 = '123e4567-e89b-4abc-a456-426614174002';
+        const CAT_1 = '123e4567-e89b-4abc-a456-426614174003';
+        const CAT_2 = '123e4567-e89b-4abc-a456-426614174004';
+
         it('accountId defaults to empty array', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
             expect(result.current.filters.accountId).toEqual([]);
@@ -205,19 +215,19 @@ describe('useTransactionFilters', () => {
 
         it('setMultiFilter sets accountId to multiple values', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => { result.current.setMultiFilter('accountId', ['acc-1', 'acc-2']); });
-            expect(result.current.filters.accountId).toEqual(['acc-1', 'acc-2']);
+            act(() => { result.current.setMultiFilter('accountId', [ACC_1, ACC_2]); });
+            expect(result.current.filters.accountId).toEqual([ACC_1, ACC_2]);
         });
 
         it('setMultiFilter sets accountId to a single value', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
-            expect(result.current.filters.accountId).toEqual(['acc-1']);
+            act(() => { result.current.setMultiFilter('accountId', [ACC_1]); });
+            expect(result.current.filters.accountId).toEqual([ACC_1]);
         });
 
         it('setMultiFilter clears accountId when passed empty array', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
+            act(() => { result.current.setMultiFilter('accountId', [ACC_1]); });
             act(() => { result.current.setMultiFilter('accountId', []); });
             expect(result.current.filters.accountId).toEqual([]);
         });
@@ -225,21 +235,21 @@ describe('useTransactionFilters', () => {
         it('setMultiFilter resets page to 1', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
             act(() => { result.current.setPage(3); });
-            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
+            act(() => { result.current.setMultiFilter('accountId', [ACC_1]); });
             expect(result.current.filters.page).toBe(1);
         });
 
         it('clearFilters resets accountId to empty array', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
-            expect(result.current.filters.accountId).toEqual(['acc-1']);
+            act(() => { result.current.setMultiFilter('accountId', [ACC_1]); });
+            expect(result.current.filters.accountId).toEqual([ACC_1]);
             act(() => { result.current.clearFilters(); });
             expect(result.current.filters.accountId).toEqual([]);
         });
 
         it('clearFilters resets categoryId to empty array', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => { result.current.setMultiFilter('categoryId', ['cat-1', 'cat-2']); });
+            act(() => { result.current.setMultiFilter('categoryId', [CAT_1, CAT_2]); });
             act(() => { result.current.clearFilters(); });
             expect(result.current.filters.categoryId).toEqual([]);
         });
@@ -247,9 +257,9 @@ describe('useTransactionFilters', () => {
         it('setMultiFilter preserves other filters', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
             act(() => { result.current.updateFilter('search', 'coffee'); });
-            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
+            act(() => { result.current.setMultiFilter('accountId', [ACC_1]); });
             expect(result.current.filters.search).toBe('coffee');
-            expect(result.current.filters.accountId).toEqual(['acc-1']);
+            expect(result.current.filters.accountId).toEqual([ACC_1]);
         });
 
         it('removes the param from URL when value is empty string', () => {
@@ -258,6 +268,59 @@ describe('useTransactionFilters', () => {
             expect(result.current.filters.search).toBe('coffee');
             act(() => { result.current.updateFilter('search', ''); });
             expect(result.current.filters.search).toBe('');
+        });
+    });
+
+    describe('URL param validation', () => {
+        it('drops invalid transactionType values from URL and keeps valid ones', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?transactionType=bogus&transactionType=income')
+            });
+            expect(result.current.filters.transactionType).toEqual(['income']);
+        });
+
+        it('returns empty array when all transactionType URL values are invalid', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?transactionType=bogus&transactionType=__proto__')
+            });
+            expect(result.current.filters.transactionType).toEqual([]);
+        });
+
+        it('falls back to default sortField when URL value is invalid', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?sortField=notafield')
+            });
+            expect(result.current.filters.sortField).toBe('date');
+        });
+
+        it('falls back to default isActive when URL value is invalid', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?isActive=hacked')
+            });
+            expect(result.current.filters.isActive).toBe('true');
+        });
+
+        it('falls back to default sortDirection when URL value is invalid', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?sortDirection=badvalue')
+            });
+            expect(result.current.filters.sortDirection).toBe('desc');
+        });
+
+        it('drops non-UUID categoryId values from URL and keeps valid ones', () => {
+            const validUuid = '123e4567-e89b-4234-a456-426614174000';
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl(`/?categoryId=notauuid&categoryId=${validUuid}`)
+            });
+            expect(result.current.filters.categoryId).toEqual([validUuid]);
+        });
+
+        it('drops non-UUID accountId values from URL and keeps valid ones', () => {
+            const validUuid = '123e4567-e89b-4567-a456-426614174000';
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl(`/?accountId=__proto__&accountId=${validUuid}`)
+            });
+            expect(result.current.filters.accountId).toEqual([validUuid]);
         });
     });
 });

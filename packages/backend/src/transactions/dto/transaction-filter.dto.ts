@@ -42,12 +42,12 @@ export class TransactionFilterDto {
         required: false,
         type: [String]
     })
-    @IsArray()
-    @IsUUID(4, {each: true})
+    @IsOptional()
     @Transform(({value}: {value: unknown}) =>
         (value === undefined ? undefined : Array.isArray(value) ? value : [value])
     )
-    @IsOptional()
+    @IsArray()
+    @IsUUID(4, {each: true})
     categoryId?: string[];
 
     @ApiProperty({
@@ -56,12 +56,12 @@ export class TransactionFilterDto {
         required: false,
         type: [String]
     })
-    @IsArray()
-    @IsUUID(4, {each: true})
+    @IsOptional()
     @Transform(({value}: {value: unknown}) =>
         (value === undefined ? undefined : Array.isArray(value) ? value : [value])
     )
-    @IsOptional()
+    @IsArray()
+    @IsUUID(4, {each: true})
     accountId?: string[];
 
     @ApiProperty({
@@ -71,12 +71,12 @@ export class TransactionFilterDto {
         example: TransactionType.expense,
         required: false
     })
-    @IsArray()
-    @IsEnum(TransactionType, {each: true})
+    @IsOptional()
     @Transform(({value}: {value: unknown}) =>
         (value === undefined ? undefined : Array.isArray(value) ? value : [value])
     )
-    @IsOptional()
+    @IsArray()
+    @IsEnum(TransactionType, {each: true})
     transactionType?: TransactionType[];
 
     @ApiProperty({

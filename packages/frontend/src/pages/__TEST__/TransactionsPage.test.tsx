@@ -13,6 +13,16 @@ import React from 'react';
 import {TransactionsPage} from '@pages/TransactionsPage.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
+import {
+    getTransactionsControllerFindAllQueryKey,
+    getTransactionsControllerGetTotalsQueryKey,
+    useTransactionsControllerRemove,
+    useTransactionsControllerToggleActive
+} from '@/api/transactions/transactions.js';
+import {
+    useTransactionFilters,
+    type UseTransactionFiltersReturn
+} from '@features/transactions/hooks/useTransactionFilters.js';
 
 // ---------------------------------------------------------------------------
 // Component stubs
@@ -24,15 +34,20 @@ vi.mock('@features/transactions/components/TransactionSummary.js', () => ({
 
 vi.mock('@features/transactions/components/TransactionFilters.js', () => ({
     TransactionFilters: ({
-        onClear
+        onClear,
+        onMultiFilterChange
     }: {
         onClear: () => void;
         onFilterChange: (key: string, value: string | number) => void;
         onDateRangeChange: (start: string, end: string) => void;
+        onMultiFilterChange: (key: string, values: string[]) => void;
         filters: unknown;
     }) => (
         <div data-testid="tx-filters">
             <button onClick={onClear}>Clear filters</button>
+            <button onClick={() => { onMultiFilterChange('categoryId', ['cat-1']); }}>
+                Set category filter
+            </button>
         </div>
     )
 }));
@@ -215,10 +230,6 @@ const mockToggleMutate = vi.fn(
 vi.mock('@/api/transactions/transactions.js', () => ({
     useTransactionsControllerRemove: vi.fn(() => ({mutate: mockRemoveMutate})),
     useTransactionsControllerToggleActive: vi.fn(() => ({mutate: mockToggleMutate})),
-    useTransactionsControllerBulkCategorize: vi.fn(() => ({
-        mutate: vi.fn(),
-        isPending: false
-    })),
     getTransactionsControllerFindAllQueryKey: vi.fn(
         (params?: unknown) => ['/transactions', params]
     ),
@@ -231,16 +242,9 @@ vi.mock('@/api/categories/categories.js', () => ({
     useCategoriesControllerFindAll: vi.fn(() => ({data: [], isLoading: false, isError: false}))
 }));
 
-import {
-    getTransactionsControllerFindAllQueryKey,
-    getTransactionsControllerGetTotalsQueryKey,
-    useTransactionsControllerRemove,
-    useTransactionsControllerToggleActive
-} from '@/api/transactions/transactions.js';
-import {
-    useTransactionFilters,
-    type UseTransactionFiltersReturn
-} from '@features/transactions/hooks/useTransactionFilters.js';
+vi.mock('@/api/accounts/accounts.js', () => ({
+    useAccountsControllerFindAll: vi.fn(() => ({data: [], isLoading: false, isError: false}))
+}));
 
 type RemoveReturn = ReturnType<typeof useTransactionsControllerRemove>;
 type ToggleReturn = ReturnType<typeof useTransactionsControllerToggleActive>;
@@ -305,6 +309,7 @@ describe('TransactionsPage', () => {
         vi.mocked(useTransactionFilters).mockReturnValue({
             ...defaultFilterState,
             updateFilter: mockUpdateFilter,
+            setMultiFilter: mockSetMultiFilter,
             setDateRange: mockSetDateRange,
             clearFilters: mockClearFilters,
             setPage: mockSetPage
@@ -352,6 +357,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 data: {data: txns, total: 2, page: 1, limit: 50},
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -366,6 +372,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 isLoading: true,
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -379,6 +386,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 isError: true,
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -405,6 +413,19 @@ describe('TransactionsPage', () => {
     });
 
     // -------------------------------------------------------------------------
+    // Filter wiring
+    // -------------------------------------------------------------------------
+
+    describe('filter wiring', () => {
+        it('passes setMultiFilter to TransactionFilters as onMultiFilterChange', async () => {
+            const user = userEvent.setup();
+            renderPage(qc);
+            await user.click(screen.getByText('Set category filter'));
+            expect(mockSetMultiFilter).toHaveBeenCalledWith('categoryId', ['cat-1']);
+        });
+    });
+
+    // -------------------------------------------------------------------------
     // Pagination
     // -------------------------------------------------------------------------
 
@@ -414,6 +435,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 data: {data: [], total: 10, page: 1, limit: 50},
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -428,6 +450,7 @@ describe('TransactionsPage', () => {
                 data: {data: [], total: 100, page: 1, limit: 50},
                 isLoading: false,
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -443,6 +466,7 @@ describe('TransactionsPage', () => {
                 data: {data: [], total: 100, page: 1, limit: 50},
                 isLoading: false,
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -484,6 +508,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 data: {data: txns, total: 1, page: 1, limit: 50},
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -518,6 +543,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 data: {data: txns, total: 1, page: 1, limit: 50},
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -586,6 +612,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 data: {data: txns, total: 1, page: 1, limit: 50},
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage
@@ -653,6 +680,7 @@ describe('TransactionsPage', () => {
                 ...defaultFilterState,
                 data: {data: txns, total: 2, page: 1, limit: 50},
                 updateFilter: mockUpdateFilter,
+                setMultiFilter: mockSetMultiFilter,
                 setDateRange: mockSetDateRange,
                 clearFilters: mockClearFilters,
                 setPage: mockSetPage

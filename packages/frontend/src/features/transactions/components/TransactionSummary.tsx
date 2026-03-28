@@ -1,7 +1,7 @@
 import React from 'react';
 import {useTransactionsControllerGetTotals} from '@/api/transactions/transactions.js';
 import {Loading} from '@components/common/Loading/Loading.js';
-import type {TransactionsControllerGetTotalsTransactionTypeItem} from '@/api/model/transactionsControllerGetTotalsTransactionTypeItem.js';
+import type {TransactionsControllerGetTotalsTransactionTypeItem} from '@features/transactions/types/transaction.types.js';
 import '@features/transactions/components/TransactionSummary.css';
 
 interface TransactionSummaryProps {
@@ -34,7 +34,7 @@ export const TransactionSummary = (
 
     if (isError) {
         return (
-            <div className="tx-summary tx-summary--error">
+            <div className="tx-summary tx-summary--error" role="alert">
                 <p className="tx-summary__error-text">Could not load totals. Please try again.</p>
             </div>
         );

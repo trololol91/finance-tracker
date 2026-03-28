@@ -4,6 +4,7 @@ import {Input} from '@components/common/Input/Input.js';
 import {DateRangePicker} from '@components/common/DateRangePicker/DateRangePicker.js';
 import {MultiSelectDropdown} from '@components/common/MultiSelectDropdown/MultiSelectDropdown.js';
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
+import {TransactionsControllerFindAllTransactionTypeItem} from '@/api/model/transactionsControllerFindAllTransactionTypeItem.js';
 import type {CategoryResponseDto} from '@/api/model/categoryResponseDto.js';
 import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import type {
@@ -22,9 +23,9 @@ interface TransactionFiltersProps {
 }
 
 const TYPE_OPTIONS = [
-    {value: 'income', label: 'Income'},
-    {value: 'expense', label: 'Expense'},
-    {value: 'transfer', label: 'Transfer'}
+    {value: TransactionsControllerFindAllTransactionTypeItem.income, label: 'Income'},
+    {value: TransactionsControllerFindAllTransactionTypeItem.expense, label: 'Expense'},
+    {value: TransactionsControllerFindAllTransactionTypeItem.transfer, label: 'Transfer'}
 ];
 
 export const TransactionFilters = ({
@@ -56,19 +57,19 @@ export const TransactionFilters = ({
     return (
         <div className="tx-filters" role="search" aria-label="Transaction filters">
             <div className="tx-filters__row">
-                <div className="tx-filters__group">
-                    <label className="tx-filters__label">Date Range</label>
+                <fieldset className="tx-filters__group tx-filters__fieldset">
+                    <legend className="tx-filters__label">Date Range</legend>
                     <DateRangePicker
                         startDate={filters.startDate}
                         endDate={filters.endDate}
                         onChange={handleDateRange}
                     />
-                </div>
+                </fieldset>
 
                 <div className="tx-filters__group">
-                    <label htmlFor="tx-filter-type" className="tx-filters__label">Type</label>
+                    <span id="tx-label-type" className="tx-filters__label">Type</span>
                     <MultiSelectDropdown
-                        id="tx-filter-type"
+                        labelId="tx-label-type"
                         options={TYPE_OPTIONS}
                         value={filters.transactionType}
                         onChange={(values) => { onMultiFilterChange('transactionType', values); }}
@@ -77,9 +78,9 @@ export const TransactionFilters = ({
                 </div>
 
                 <div className="tx-filters__group">
-                    <label htmlFor="tx-filter-category" className="tx-filters__label">Category</label>
+                    <span id="tx-label-category" className="tx-filters__label">Category</span>
                     <MultiSelectDropdown
-                        id="tx-filter-category"
+                        labelId="tx-label-category"
                         options={categoryOptions}
                         value={filters.categoryId}
                         onChange={(values) => { onMultiFilterChange('categoryId', values); }}
@@ -88,9 +89,9 @@ export const TransactionFilters = ({
                 </div>
 
                 <div className="tx-filters__group">
-                    <label htmlFor="tx-filter-account" className="tx-filters__label">Account</label>
+                    <span id="tx-label-account" className="tx-filters__label">Account</span>
                     <MultiSelectDropdown
-                        id="tx-filter-account"
+                        labelId="tx-label-account"
                         options={accountOptions}
                         value={filters.accountId}
                         onChange={(values) => { onMultiFilterChange('accountId', values); }}
@@ -123,7 +124,6 @@ export const TransactionFilters = ({
                         placeholder="Search transactions..."
                         value={filters.search}
                         onChange={(e) => { onFilterChange('search', e.target.value); }}
-                        aria-label="Search transactions by description"
                     />
                 </div>
 

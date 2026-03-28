@@ -40,7 +40,7 @@ describe('TransactionFilters', () => {
 
     it('renders filter controls', () => {
         render(<TransactionFilters {...defaultProps} />);
-        expect(screen.getByLabelText(/search transactions/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/^search$/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/type/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/status/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('TransactionFilters', () => {
         const user = userEvent.setup();
         render(<TransactionFilters {...defaultProps} onFilterChange={onFilterChange} />);
 
-        await user.type(screen.getByLabelText(/search transactions/i), 'coffee');
+        await user.type(screen.getByLabelText(/^search$/i), 'coffee');
         expect(onFilterChange).toHaveBeenCalledWith('search', expect.any(String));
     });
 

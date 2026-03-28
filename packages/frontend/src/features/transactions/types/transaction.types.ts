@@ -6,22 +6,21 @@ import type {TransactionsControllerFindAllTransactionTypeItem} from '@/api/model
 import type {TransactionsControllerGetTotalsTransactionTypeItem} from '@/api/model/transactionsControllerGetTotalsTransactionTypeItem.js';
 import type {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
 import type {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
+import type {CreateTransactionDtoTransactionType} from '@/api/model/createTransactionDtoTransactionType.js';
 
 export type {TransactionsControllerFindAllIsActive};
 export type {TransactionsControllerFindAllTransactionTypeItem};
 export type {TransactionsControllerGetTotalsTransactionTypeItem};
 export type {TransactionsControllerFindAllSortField};
 export type {TransactionsControllerFindAllSortDirection};
-
-/** Valid transaction type strings. */
-export type TransactionType = 'income' | 'expense' | 'transfer';
+export type {CreateTransactionDtoTransactionType};
 
 /** UI state for the filter bar. */
 export interface TransactionFilterState {
     startDate: string;
     endDate: string;
     /** Empty array means 'no filter / show all'. */
-    transactionType: TransactionType[];
+    transactionType: TransactionsControllerFindAllTransactionTypeItem[];
     isActive: TransactionsControllerFindAllIsActive;
     search: string;
     /** UUIDs of selected categories. Empty array means 'all categories'. */
@@ -47,7 +46,7 @@ export interface TransactionFormValues {
     amount: string;
     description: string;
     notes: string;
-    transactionType: TransactionType;
+    transactionType: CreateTransactionDtoTransactionType;
     /** 'in' | 'out' when type is transfer; empty string otherwise */
     transferDirection: 'in' | 'out' | '';
     date: string;

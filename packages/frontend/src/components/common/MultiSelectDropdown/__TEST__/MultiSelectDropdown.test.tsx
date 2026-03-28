@@ -126,6 +126,17 @@ describe('MultiSelectDropdown', () => {
             await user.keyboard('{ArrowDown}');
             expect(screen.getByRole('listbox')).toBeInTheDocument();
         });
+
+        it('closes when Tab is pressed', async () => {
+            const user = userEvent.setup();
+            renderDropdown();
+            await user.click(screen.getByRole('button'));
+            expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+            // Fire on the container div (where handleContainerKeyDown lives), not the button
+            fireEvent.keyDown(screen.getByRole('button').parentElement!, {key: 'Tab'});
+            expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+        });
     });
 
     describe('listbox accessibility', () => {
@@ -134,6 +145,21 @@ describe('MultiSelectDropdown', () => {
             renderDropdown();
             await user.click(screen.getByRole('button'));
             expect(screen.getByRole('listbox')).toHaveAttribute('aria-multiselectable', 'true');
+        });
+
+        it('sets aria-labelledby on the button to chain external label and button text when labelId is provided', () => {
+            renderDropdown({labelId: 'ext-label'});
+            const btn = screen.getByRole('button');
+            // Should reference both the external label span and the button's own text span
+            const labelledBy = btn.getAttribute('aria-labelledby') ?? '';
+            expect(labelledBy).toContain('ext-label');
+            // The button text span id should also be present so selection state is announced
+            expect(labelledBy.split(' ')).toHaveLength(2);
+        });
+
+        it('does not set aria-labelledby when labelId is not provided', () => {
+            renderDropdown();
+            expect(screen.getByRole('button')).not.toHaveAttribute('aria-labelledby');
         });
 
         it('renders the listbox with aria-label matching placeholder', async () => {
@@ -278,7 +304,16 @@ describe('MultiSelectDropdown', () => {
     });
 
     describe('keyboard navigation', () => {
-        it('ArrowDown moves focus to the first option (index 0 = "All Filters")', async () => {
+        it('opens with focus on the "All" option when nothing is selected (WAI-ARIA listbox pattern)', async () => {
+            const user = userEvent.setup();
+            renderDropdown();
+            await user.click(screen.getByRole('button'));
+
+            const allOption = screen.getByRole('option', {name: /all filters/i});
+            expect(document.activeElement).toBe(allOption);
+        });
+
+        it('ArrowDown moves focus to the first option', async () => {
             const user = userEvent.setup();
             renderDropdown();
             await user.click(screen.getByRole('button'));
@@ -286,8 +321,8 @@ describe('MultiSelectDropdown', () => {
             const container = screen.getByRole('button').parentElement!;
             fireEvent.keyDown(container, {key: 'ArrowDown'});
 
-            const allOption = screen.getByRole('option', {name: /all filters/i});
-            expect(document.activeElement).toBe(allOption);
+            const categoryOption = screen.getByRole('option', {name: /^category$/i});
+            expect(document.activeElement).toBe(categoryOption);
         });
 
         it('ArrowDown twice moves focus to the second option', async () => {
@@ -299,8 +334,8 @@ describe('MultiSelectDropdown', () => {
             fireEvent.keyDown(container, {key: 'ArrowDown'});
             fireEvent.keyDown(container, {key: 'ArrowDown'});
 
-            const categoryOption = screen.getByRole('option', {name: /^category$/i});
-            expect(document.activeElement).toBe(categoryOption);
+            const subcategoryOption = screen.getByRole('option', {name: /^subcategory$/i});
+            expect(document.activeElement).toBe(subcategoryOption);
         });
 
         it('ArrowDown at the last option stays at the last option (Math.min boundary)', async () => {

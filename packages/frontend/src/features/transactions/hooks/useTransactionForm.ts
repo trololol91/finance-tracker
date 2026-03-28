@@ -9,7 +9,6 @@ import {
     getTransactionsControllerGetTotalsQueryKey,
     transactionsControllerCategorizeSuggestion
 } from '@/api/transactions/transactions.js';
-import type {CreateTransactionDtoTransactionType} from '@/api/model/createTransactionDtoTransactionType.js';
 import type {CategorizeSuggestionRequestDtoTransactionType as SuggestionTxType} from '@/api/model/categorizeSuggestionRequestDtoTransactionType.js';
 import type {CreateTransactionDto} from '@/api/model/createTransactionDto.js';
 import type {UpdateTransactionDto} from '@/api/model/updateTransactionDto.js';
@@ -61,7 +60,7 @@ const buildCreateDto = (values: TransactionFormValues): CreateTransactionDto => 
     amount: parseFloat(values.amount),
     description: values.description.trim(),
     notes: values.notes.trim() !== '' ? values.notes.trim() : null,
-    transactionType: values.transactionType as CreateTransactionDtoTransactionType,
+    transactionType: values.transactionType,
     transferDirection: values.transferDirection !== '' ? values.transferDirection : null,
     date: values.date + 'T00:00:00.000Z',
     categoryId: values.categoryId !== '' ? values.categoryId : null,

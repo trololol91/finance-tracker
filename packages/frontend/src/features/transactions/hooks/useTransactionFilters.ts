@@ -4,14 +4,39 @@ import {
     useTransactionsControllerFindAll,
     getTransactionsControllerFindAllQueryKey
 } from '@/api/transactions/transactions.js';
+// Value imports — needed for enum coercion/filtering at runtime (cannot be import type)
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 import {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
 import {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
+import {TransactionsControllerFindAllTransactionTypeItem} from '@/api/model/transactionsControllerFindAllTransactionTypeItem.js';
 import type {TransactionsControllerFindAllParams} from '@/api/model/transactionsControllerFindAllParams.js';
 import type {PaginatedTransactionsResponseDto} from '@/api/model/paginatedTransactionsResponseDto.js';
 import type {
-    TransactionFilterState, TransactionType, ScalarFilterKey, MultiFilterKey
+    TransactionFilterState, ScalarFilterKey, MultiFilterKey
 } from '@features/transactions/types/transaction.types.js';
+
+/** Filters raw URL param strings against a known enum const object. */
+const filterByEnum = <T extends string>(
+    values: string[],
+    enumObj: Record<string, T>
+): T[] => {
+    const valid = new Set(Object.values(enumObj));
+    return values.filter((v): v is T => valid.has(v as T));
+};
+
+/** Returns the value if it belongs to the enum, otherwise the fallback. */
+const coerceEnum = <T extends string>(
+    value: string | null,
+    enumObj: Record<string, T>,
+    fallback: T
+): T => {
+    const valid = new Set(Object.values(enumObj));
+    return value !== null && valid.has(value as T) ? (value as T) : fallback;
+};
+
+/** Filters raw URL param strings to valid UUID v4 values only. */
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const filterByUuid = (values: string[]): string[] => values.filter((v) => UUID_V4_REGEX.test(v));
 
 /** Returns the ISO range for the current calendar month using UTC boundaries. */
 const getThisMonthRange = (): {startDate: string, endDate: string} => {
@@ -53,17 +78,30 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
     const filters: TransactionFilterState = {
         startDate: searchParams.get('startDate') ?? defaultStart,
         endDate: searchParams.get('endDate') ?? defaultEnd,
-        transactionType: searchParams.getAll('transactionType') as TransactionType[],
-        isActive: (
-            searchParams.get('isActive') ?? TransactionsControllerFindAllIsActive.true
-        ) as TransactionsControllerFindAllIsActive,
+        transactionType: filterByEnum(
+            searchParams.getAll('transactionType'),
+            TransactionsControllerFindAllTransactionTypeItem
+        ),
+        isActive: coerceEnum(
+            searchParams.get('isActive'),
+            TransactionsControllerFindAllIsActive,
+            TransactionsControllerFindAllIsActive.true
+        ),
         search: searchParams.get('search') ?? '',
-        categoryId: searchParams.getAll('categoryId'),
-        accountId: searchParams.getAll('accountId'),
-        page: Number(searchParams.get('page') ?? '1'),
-        limit: Number(searchParams.get('limit') ?? '50'),
-        sortField: (searchParams.get('sortField') ?? TransactionsControllerFindAllSortField.date) as TransactionsControllerFindAllSortField,
-        sortDirection: (searchParams.get('sortDirection') ?? TransactionsControllerFindAllSortDirection.desc) as TransactionsControllerFindAllSortDirection
+        categoryId: filterByUuid(searchParams.getAll('categoryId')),
+        accountId: filterByUuid(searchParams.getAll('accountId')),
+        page: Math.max(1, Number(searchParams.get('page') ?? '1') || 1),
+        limit: Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50)),
+        sortField: coerceEnum(
+            searchParams.get('sortField'),
+            TransactionsControllerFindAllSortField,
+            TransactionsControllerFindAllSortField.date
+        ),
+        sortDirection: coerceEnum(
+            searchParams.get('sortDirection'),
+            TransactionsControllerFindAllSortDirection,
+            TransactionsControllerFindAllSortDirection.desc
+        )
     };
 
     const apiParams: TransactionsControllerFindAllParams = {

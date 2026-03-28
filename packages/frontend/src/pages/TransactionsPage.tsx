@@ -30,6 +30,8 @@ import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js
 import '@pages/TransactionsPage.css';
 
 interface BulkCategorizeParams {
+    // BulkCategorizeQueryDto accepts a single accountId string, not an array.
+    // The UI disables the button when >1 account is selected (see handleBulkCategorize).
     accountId?: string;
     startDate?: string;
     endDate?: string;
@@ -89,10 +91,10 @@ export const TransactionsPage = (): React.JSX.Element => {
         mutationFn: bulkCategorizeWithFilters
     });
 
-    const handleAddClick = (): void => {
+    const handleAddClick = useCallback((): void => {
         openCreate();
         setIsModalOpen(true);
-    };
+    }, [openCreate]);
 
     const handleEdit = useCallback(
         (transaction: TransactionResponseDto): void => {
@@ -114,8 +116,8 @@ export const TransactionsPage = (): React.JSX.Element => {
                         });
                         void queryClient.invalidateQueries({
                             queryKey: getTransactionsControllerGetTotalsQueryKey({
-                                startDate: apiParams.startDate!,
-                                endDate: apiParams.endDate!
+                                startDate: filters.startDate,
+                                endDate: filters.endDate
                             }),
                             exact: false
                         });
@@ -123,7 +125,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                 }
             );
         },
-        [toggleActive, queryClient, apiParams]
+        [toggleActive, queryClient, apiParams, filters.startDate, filters.endDate]
     );
 
     const handleDelete = useCallback(
@@ -138,8 +140,8 @@ export const TransactionsPage = (): React.JSX.Element => {
                         });
                         void queryClient.invalidateQueries({
                             queryKey: getTransactionsControllerGetTotalsQueryKey({
-                                startDate: apiParams.startDate!,
-                                endDate: apiParams.endDate!
+                                startDate: filters.startDate,
+                                endDate: filters.endDate
                             }),
                             exact: false
                         });
@@ -147,13 +149,17 @@ export const TransactionsPage = (): React.JSX.Element => {
                 }
             );
         },
-        [removeTransaction, queryClient, apiParams]
+        [removeTransaction, queryClient, apiParams, filters.startDate, filters.endDate]
     );
 
-    const handleBulkCategorize = (): void => {
+    // bulkCategorizeMutation (full object) is listed as dep rather than .mutate
+    // because the React Compiler (react-hooks/preserve-manual-memoization) infers
+    // the broader object as the stable reference and rejects the property access form.
+    const handleBulkCategorize = useCallback((): void => {
         setBulkCategorizeMessage(null);
         bulkCategorizeMutation.mutate(
             {
+                // BulkCategorizeQueryDto accepts scalar accountId — pass only when one is selected
                 accountId: filters.accountId.length === 1 ? filters.accountId[0] : undefined,
                 startDate: filters.startDate || undefined,
                 endDate: filters.endDate || undefined
@@ -170,8 +176,8 @@ export const TransactionsPage = (): React.JSX.Element => {
                     });
                     void queryClient.invalidateQueries({
                         queryKey: getTransactionsControllerGetTotalsQueryKey({
-                            startDate: apiParams.startDate!,
-                            endDate: apiParams.endDate!
+                            startDate: filters.startDate,
+                            endDate: filters.endDate
                         }),
                         exact: false
                     });
@@ -183,11 +189,11 @@ export const TransactionsPage = (): React.JSX.Element => {
                 }
             }
         );
-    };
+    }, [bulkCategorizeMutation, filters, queryClient, apiParams]);
 
-    const handleCloseModal = (): void => {
+    const handleCloseModal = useCallback((): void => {
         setIsModalOpen(false);
-    };
+    }, []);
 
     const transactions = data?.data ?? [];
     const total = data?.total ?? 0;
@@ -219,9 +225,15 @@ export const TransactionsPage = (): React.JSX.Element => {
                                 </span>
                             </Button>
                         )}
-                        {bulkCategorizeMessage !== null && (
-                            <span className="tx-page__bulk-msg">{bulkCategorizeMessage}</span>
-                        )}
+                        {/* Always rendered so screen readers pick up dynamic updates */}
+                        <span
+                            className="tx-page__bulk-msg"
+                            role="status"
+                            aria-live="polite"
+                            aria-atomic="true"
+                        >
+                            {bulkCategorizeMessage ?? ''}
+                        </span>
                         <Button
                             variant="primary"
                             onClick={handleAddClick}

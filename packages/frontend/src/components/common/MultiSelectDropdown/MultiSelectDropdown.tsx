@@ -14,6 +14,8 @@ interface MultiSelectDropdownProps {
     onChange: (values: string[]) => void;
     placeholder: string;
     id?: string;
+    /** ID of an external label element — applied as aria-labelledby on the trigger button. */
+    labelId?: string;
 }
 
 export const MultiSelectDropdown = ({
@@ -21,12 +23,14 @@ export const MultiSelectDropdown = ({
     value,
     onChange,
     placeholder,
-    id
+    id,
+    labelId
 }: MultiSelectDropdownProps): React.JSX.Element => {
     const [isOpen, setIsOpen] = useState(false);
     const [focusedIndex, setFocusedIndex] = useState(-1);
     const containerRef = useRef<HTMLDivElement>(null);
     const listboxRef = useRef<HTMLUListElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
     const generatedId = useId();
     const dropdownId = `${id ?? generatedId}-dropdown`;
 
@@ -77,6 +81,10 @@ export const MultiSelectDropdown = ({
         if (e.key === 'Escape') {
             e.preventDefault();
             close();
+            triggerRef.current?.focus();
+        } else if (e.key === 'Tab') {
+            // Do not prevent default — allow normal tab navigation but close the dropdown
+            close();
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
             setFocusedIndex((prev) => Math.min(prev + 1, totalItems - 1));
@@ -100,9 +108,28 @@ export const MultiSelectDropdown = ({
         }
     }, [clearAll, toggleOption, options]);
 
+    // WAI-ARIA listbox pattern: move focus into the list when opening, landing
+    // on the first selected option (or "All" if nothing is selected).
+    const handleTriggerClick = useCallback((): void => {
+        if (isOpen) {
+            close();
+        } else {
+            const firstSelectedIdx = value.length === 0
+                ? 0
+                : options.findIndex((o) => value.includes(o.value)) + 1;
+            setFocusedIndex(firstSelectedIdx >= 0 ? firstSelectedIdx : 0);
+            setIsOpen(true);
+        }
+    }, [isOpen, close, value, options]);
+
     const buttonLabel = value.length === 0
         ? `All ${placeholder}`
         : `${value.length} selected`;
+
+    // ID for the span that holds the dynamic button label text, used to chain
+    // aria-labelledby so screen readers announce both the external label ("Type")
+    // and the current selection state ("All Types" / "2 selected").
+    const buttonTextId = `${generatedId}-label`;
 
     return (
         <div
@@ -112,14 +139,19 @@ export const MultiSelectDropdown = ({
         >
             <button
                 type="button"
+                ref={triggerRef}
                 className={`msd__trigger${isOpen ? ' msd__trigger--open' : ''}`}
                 id={id}
+                aria-labelledby={labelId ? `${labelId} ${buttonTextId}` : undefined}
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
                 aria-controls={dropdownId}
-                onClick={() => { setIsOpen((prev) => !prev); }}
+                onClick={handleTriggerClick}
             >
-                <span className={value.length > 0 ? 'msd__trigger-label--active' : ''}>
+                <span
+                    id={buttonTextId}
+                    className={value.length > 0 ? 'msd__trigger-label--active' : ''}
+                >
                     {buttonLabel}
                 </span>
                 <span className="msd__chevron" aria-hidden="true">▾</span>

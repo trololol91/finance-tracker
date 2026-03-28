@@ -75,6 +75,18 @@
     background: var(--color-gray-50);
 }
 
+.msd__option:focus-visible,
+.msd__option:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+    background: var(--color-gray-50);
+}
+
+/* Suppress the outline ring for pointer (mouse) interactions in browsers that support :focus-visible */
+.msd__option:focus:not(:focus-visible) {
+    outline: none;
+}
+
 .msd__option--selected {
     color: var(--color-gray-900);
     font-weight: var(--font-weight-medium);

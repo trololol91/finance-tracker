@@ -348,6 +348,27 @@ describe('TransactionsService', () => {
             );
         });
 
+        it('should apply transactionType, categoryId, and accountId simultaneously', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {
+                transactionType: [TransactionType.income, TransactionType.expense],
+                categoryId: ['cat-uuid-1', 'cat-uuid-2'],
+                accountId: ['acc-uuid-1', 'acc-uuid-2']
+            });
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        transactionType: {in: [TransactionType.income, TransactionType.expense]},
+                        categoryId: {in: ['cat-uuid-1', 'cat-uuid-2']},
+                        accountId: {in: ['acc-uuid-1', 'acc-uuid-2']}
+                    })
+                })
+            );
+        });
+
         it('should apply only startDate (no endDate) as gte filter', async () => {
             vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
             vi.mocked(prisma.transaction.count).mockResolvedValue(0);
@@ -986,6 +1007,30 @@ describe('TransactionsService', () => {
                 };
                 expect(calls[0][0].where).toMatchObject(expectedPartial);
                 expect(calls[1][0].where).toMatchObject(expectedPartial);
+            });
+
+            it('should combine transactionType with categoryId and accountId in both aggregate clauses', async () => {
+                await service.getTotals(userId, startDate, endDate, {
+                    transactionType: [TransactionType.income, TransactionType.expense],
+                    categoryId: ['cat-uuid'],
+                    accountId: ['acc-uuid']
+                });
+
+                const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
+                // Both income and expense types present — both aggregates run
+                expect(calls).toHaveLength(2);
+                const expectedPartial = {
+                    categoryId: {in: ['cat-uuid']},
+                    accountId: {in: ['acc-uuid']}
+                };
+                expect(calls[0][0].where).toMatchObject({
+                    ...expectedPartial,
+                    transactionType: TransactionType.income
+                });
+                expect(calls[1][0].where).toMatchObject({
+                    ...expectedPartial,
+                    transactionType: TransactionType.expense
+                });
             });
         });
     });
