@@ -39,6 +39,75 @@
     text-align: right;
 }
 
+.tx-list__th--sortable {
+    padding: 0;
+}
+
+.tx-list__sort-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: 100%;
+    padding: 0.75rem 0.875rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.tx-list__sort-btn:hover {
+    color: var(--color-gray-700);
+}
+
+.tx-list__sort-btn--active {
+    color: var(--color-primary, var(--color-gray-700));
+}
+
+.tx-list__sort-icon {
+    font-style: normal;
+    font-size: 0.7em;
+}
+
+.tx-list__mobile-sort {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .tx-list__mobile-sort {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 0.875rem;
+        border-bottom: 1px solid var(--color-gray-200);
+        background: var(--color-gray-50);
+    }
+}
+
+.tx-list__mobile-sort-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.tx-list__mobile-sort-select {
+    font-size: var(--font-size-sm);
+    color: var(--color-gray-700);
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    background: var(--color-white);
+    cursor: pointer;
+}
+
 @media (max-width: 767px) {
     /* Switch from table to block so rows can become grid cards */
     .tx-list__table,

@@ -4,10 +4,14 @@
 import type {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 import type {TransactionsControllerFindAllTransactionType} from '@/api/model/transactionsControllerFindAllTransactionType.js';
 import type {TransactionsControllerGetTotalsTransactionType} from '@/api/model/transactionsControllerGetTotalsTransactionType.js';
+import type {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
+import type {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
 
 export type {TransactionsControllerFindAllIsActive};
 export type {TransactionsControllerFindAllTransactionType};
 export type {TransactionsControllerGetTotalsTransactionType};
+export type {TransactionsControllerFindAllSortField};
+export type {TransactionsControllerFindAllSortDirection};
 
 /** Valid transaction type strings. */
 export type TransactionType = 'income' | 'expense' | 'transfer';
@@ -26,6 +30,8 @@ export interface TransactionFilterState {
     accountId: string;
     page: number;
     limit: number;
+    sortField: TransactionsControllerFindAllSortField;
+    sortDirection: TransactionsControllerFindAllSortDirection;
 }
 
 /** Form values (all strings for controlled inputs). */

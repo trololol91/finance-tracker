@@ -55,7 +55,7 @@ export const TransactionsPage = (): React.JSX.Element => {
 
     const {
         filters, apiParams, data, isLoading, isError,
-        updateFilter, setDateRange, clearFilters, setPage
+        updateFilter, setDateRange, clearFilters, setPage, setSort
     } = useTransactionFilters();
 
     const {available: aiAvailable} = useAiStatus();
@@ -275,6 +275,9 @@ export const TransactionsPage = (): React.JSX.Element => {
                     onEdit={handleEdit}
                     onToggleActive={handleToggleActive}
                     onDelete={handleDelete}
+                    sortField={filters.sortField}
+                    sortDirection={filters.sortDirection}
+                    onSort={setSort}
                 />
 
                 {/* Pagination */}

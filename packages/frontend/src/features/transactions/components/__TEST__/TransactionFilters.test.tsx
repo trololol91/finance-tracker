@@ -19,7 +19,9 @@ const defaultFilters: TransactionFilterState = {
     categoryId: '',
     accountId: '',
     page: 1,
-    limit: 50
+    limit: 50,
+    sortField: 'date' as const,
+    sortDirection: 'desc' as const
 };
 
 const defaultProps = {

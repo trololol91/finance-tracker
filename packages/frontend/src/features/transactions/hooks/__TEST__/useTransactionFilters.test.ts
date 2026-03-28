@@ -7,6 +7,8 @@ import {
 import {MemoryRouter} from 'react-router-dom';
 import React from 'react';
 import {useTransactionFilters} from '@features/transactions/hooks/useTransactionFilters.js';
+import {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
+import {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
 
 // Mock the Orval hook
 vi.mock('@/api/transactions/transactions.js', () => ({
@@ -139,6 +141,59 @@ describe('useTransactionFilters', () => {
             const end = new Date(result.current.filters.endDate);
             expect(start.getUTCMonth()).toBe(end.getUTCMonth());
             expect(start.getUTCFullYear()).toBe(end.getUTCFullYear());
+        });
+    });
+
+    describe('setSort', () => {
+        it('sets sortField and sortDirection in filters', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => {
+                result.current.setSort(
+                    TransactionsControllerFindAllSortField.amount,
+                    TransactionsControllerFindAllSortDirection.asc
+                );
+            });
+            expect(result.current.filters.sortField).toBe('amount');
+            expect(result.current.filters.sortDirection).toBe('asc');
+        });
+
+        it('resets page to 1 when sort changes', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.setPage(4); });
+            expect(result.current.filters.page).toBe(4);
+            act(() => {
+                result.current.setSort(
+                    TransactionsControllerFindAllSortField.description,
+                    TransactionsControllerFindAllSortDirection.desc
+                );
+            });
+            expect(result.current.filters.page).toBe(1);
+        });
+
+        it('preserves unrelated filters when sort changes', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.updateFilter('search', 'coffee'); });
+            act(() => {
+                result.current.setSort(
+                    TransactionsControllerFindAllSortField.amount,
+                    TransactionsControllerFindAllSortDirection.desc
+                );
+            });
+            expect(result.current.filters.search).toBe('coffee');
+            expect(result.current.filters.sortField).toBe('amount');
+            expect(result.current.filters.sortDirection).toBe('desc');
+        });
+
+        it('can set different combinations of field and direction', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => {
+                result.current.setSort(
+                    TransactionsControllerFindAllSortField.description,
+                    TransactionsControllerFindAllSortDirection.asc
+                );
+            });
+            expect(result.current.filters.sortField).toBe('description');
+            expect(result.current.filters.sortDirection).toBe('asc');
         });
     });
 

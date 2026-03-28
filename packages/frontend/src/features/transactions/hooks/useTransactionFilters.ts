@@ -5,6 +5,8 @@ import {
     getTransactionsControllerFindAllQueryKey
 } from '@/api/transactions/transactions.js';
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
+import {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
+import {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
 import type {TransactionsControllerFindAllTransactionType} from '@/api/model/transactionsControllerFindAllTransactionType.js';
 import type {TransactionsControllerFindAllParams} from '@/api/model/transactionsControllerFindAllParams.js';
 import type {PaginatedTransactionsResponseDto} from '@/api/model/paginatedTransactionsResponseDto.js';
@@ -33,6 +35,10 @@ export interface UseTransactionFiltersReturn {
     setDateRange: (startDate: string, endDate: string) => void;
     clearFilters: () => void;
     setPage: (page: number) => void;
+    setSort: (
+        field: TransactionsControllerFindAllSortField,
+        direction: TransactionsControllerFindAllSortDirection
+    ) => void;
     queryKey: ReturnType<typeof getTransactionsControllerFindAllQueryKey>;
 }
 
@@ -55,7 +61,9 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
         categoryId: searchParams.get('categoryId') ?? '',
         accountId: searchParams.get('accountId') ?? '',
         page: Number(searchParams.get('page') ?? '1'),
-        limit: Number(searchParams.get('limit') ?? '50')
+        limit: Number(searchParams.get('limit') ?? '50'),
+        sortField: (searchParams.get('sortField') ?? TransactionsControllerFindAllSortField.date) as TransactionsControllerFindAllSortField,
+        sortDirection: (searchParams.get('sortDirection') ?? TransactionsControllerFindAllSortDirection.desc) as TransactionsControllerFindAllSortDirection
     };
 
     const apiParams: TransactionsControllerFindAllParams = {
@@ -69,7 +77,9 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
         categoryId: filters.categoryId || undefined,
         accountId: filters.accountId || undefined,
         page: filters.page,
-        limit: filters.limit
+        limit: filters.limit,
+        sortField: filters.sortField,
+        sortDirection: filters.sortDirection
     };
 
     const {data, isLoading, isError} = useTransactionsControllerFindAll(apiParams);
@@ -126,6 +136,22 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
         [setSearchParams]
     );
 
+    const setSort = useCallback(
+        (
+            field: TransactionsControllerFindAllSortField,
+            direction: TransactionsControllerFindAllSortDirection
+        ): void => {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('sortField', field);
+                next.set('sortDirection', direction);
+                next.set('page', '1');
+                return next;
+            });
+        },
+        [setSearchParams]
+    );
+
     return {
         filters,
         apiParams,
@@ -136,6 +162,7 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
         setDateRange,
         clearFilters,
         setPage,
+        setSort,
         queryKey: getTransactionsControllerFindAllQueryKey(apiParams)
     };
 };

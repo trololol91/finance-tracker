@@ -131,6 +131,8 @@ export class TransactionsController {
     @ApiQuery({name: 'search', required: false, description: 'Partial match on description'})
     @ApiQuery({name: 'page', required: false, description: 'Page number (default: 1)', example: 1})
     @ApiQuery({name: 'limit', required: false, description: 'Results per page (default: 50, max: 100)', example: 50})
+    @ApiQuery({name: 'sortField', required: false, enum: ['date', 'amount', 'description'], description: 'Field to sort by (default: date)'})
+    @ApiQuery({name: 'sortDirection', required: false, enum: ['asc', 'desc'], description: 'Sort direction (default: desc)'})
     @ApiResponse({status: 200, description: 'Paginated transaction list', type: PaginatedTransactionsResponseDto})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async findAll(

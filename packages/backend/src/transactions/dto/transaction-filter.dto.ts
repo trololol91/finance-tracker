@@ -86,6 +86,30 @@ export class TransactionFilterDto {
     search?: string;
 
     @ApiProperty({
+        description: 'Field to sort by',
+        enum: ['date', 'amount', 'description'],
+        example: 'date',
+        required: false,
+        default: 'date'
+    })
+    @IsIn(['date', 'amount', 'description'])
+    @IsString()
+    @IsOptional()
+    sortField?: 'date' | 'amount' | 'description' = 'date';
+
+    @ApiProperty({
+        description: 'Sort direction',
+        enum: ['asc', 'desc'],
+        example: 'desc',
+        required: false,
+        default: 'desc'
+    })
+    @IsIn(['asc', 'desc'])
+    @IsString()
+    @IsOptional()
+    sortDirection?: 'asc' | 'desc' = 'desc';
+
+    @ApiProperty({
         description: 'Page number (1-based)',
         example: 1,
         required: false,

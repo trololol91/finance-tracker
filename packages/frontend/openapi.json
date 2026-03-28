@@ -802,6 +802,33 @@
             }
           },
           {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Field to sort by (default: date)",
+            "schema": {
+              "enum": [
+                "date",
+                "amount",
+                "description"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "description": "Sort direction (default: desc)",
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",

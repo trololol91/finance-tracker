@@ -140,7 +140,9 @@ const defaultFilterState: UseTransactionFiltersReturn = {
         search: '',
         transactionType: '',
         categoryId: '',
-        accountId: ''
+        accountId: '',
+        sortField: 'date' as const,
+        sortDirection: 'desc' as const
     },
     apiParams: {
         startDate: '2026-02-01T00:00:00.000Z',
@@ -157,6 +159,7 @@ const defaultFilterState: UseTransactionFiltersReturn = {
     setDateRange: mockSetDateRange,
     clearFilters: mockClearFilters,
     setPage: mockSetPage,
+    setSort: vi.fn(),
     queryKey: getTransactionsControllerFindAllQueryKey()
 };
 

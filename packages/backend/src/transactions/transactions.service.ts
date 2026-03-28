@@ -83,10 +83,13 @@ export class TransactionsService {
 
         const where = this.buildWhereClause(userId, filters);
 
+        const sortField = filters.sortField ?? 'date';
+        const sortDirection = filters.sortDirection ?? 'desc';
+
         const [data, total] = await Promise.all([
             this.prisma.transaction.findMany({
                 where,
-                orderBy: {date: 'desc'},
+                orderBy: {[sortField]: sortDirection},
                 skip,
                 take: limit
             }),

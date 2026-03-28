@@ -1,12 +1,14 @@
 import {
-    describe, it, expect, vi
+    describe, it, expect, vi, beforeEach
 } from 'vitest';
 import {
-    render, screen
+    render, screen, within
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {TransactionList} from '@features/transactions/components/TransactionList.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
+import {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
+import {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
 
 const mockTx = (overrides: Partial<TransactionResponseDto> = {}): TransactionResponseDto => ({
     id: 'tx-1',
@@ -32,10 +34,17 @@ const defaultProps = {
     isError: false,
     onEdit: vi.fn(),
     onToggleActive: vi.fn(),
-    onDelete: vi.fn()
+    onDelete: vi.fn(),
+    sortField: TransactionsControllerFindAllSortField.date,
+    sortDirection: TransactionsControllerFindAllSortDirection.desc,
+    onSort: vi.fn()
 };
 
 describe('TransactionList', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('renders the table with transactions', () => {
         render(<TransactionList {...defaultProps} />);
         expect(screen.getByRole('table', {name: /transactions/i})).toBeInTheDocument();
@@ -90,5 +99,189 @@ describe('TransactionList', () => {
         expect(screen.getByText('Starbucks')).toBeInTheDocument();
         expect(screen.getByText('Netflix')).toBeInTheDocument();
         expect(screen.getByText('Salary')).toBeInTheDocument();
+    });
+
+    describe('SortButton — sort header interactions', () => {
+        it('clicking the active sort column (desc) toggles direction to asc', async () => {
+            const onSort = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    onSort={onSort}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            // The Date column header contains a sort button
+            const dateTh = screen.getByRole('columnheader', {name: /date/i});
+            const btn = within(dateTh).getByRole('button');
+            await user.click(btn);
+            expect(onSort).toHaveBeenCalledWith(
+                TransactionsControllerFindAllSortField.date,
+                TransactionsControllerFindAllSortDirection.asc
+            );
+        });
+
+        it('clicking the active sort column (asc) toggles direction to desc', async () => {
+            const onSort = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    onSort={onSort}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.asc}
+                />
+            );
+            const dateTh = screen.getByRole('columnheader', {name: /date/i});
+            const btn = within(dateTh).getByRole('button');
+            await user.click(btn);
+            expect(onSort).toHaveBeenCalledWith(
+                TransactionsControllerFindAllSortField.date,
+                TransactionsControllerFindAllSortDirection.desc
+            );
+        });
+
+        it('clicking an inactive sort column calls onSort with that field and desc', async () => {
+            const onSort = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    onSort={onSort}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            const descTh = screen.getByRole('columnheader', {name: /description/i});
+            const btn = within(descTh).getByRole('button');
+            await user.click(btn);
+            expect(onSort).toHaveBeenCalledWith(
+                TransactionsControllerFindAllSortField.description,
+                TransactionsControllerFindAllSortDirection.desc
+            );
+        });
+
+        it('active asc column shows ↑ icon', () => {
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.asc}
+                />
+            );
+            const dateTh = screen.getByRole('columnheader', {name: /date/i});
+            expect(within(dateTh).getByText('↑')).toBeInTheDocument();
+        });
+
+        it('active desc column shows ↓ icon', () => {
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            const dateTh = screen.getByRole('columnheader', {name: /date/i});
+            expect(within(dateTh).getByText('↓')).toBeInTheDocument();
+        });
+
+        it('inactive columns show ↕ icon', () => {
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            // Description and Amount are inactive when Date is the active sort field
+            const descTh = screen.getByRole('columnheader', {name: /description/i});
+            expect(within(descTh).getByText('↕')).toBeInTheDocument();
+            const amountTh = screen.getByRole('columnheader', {name: /amount/i});
+            expect(within(amountTh).getByText('↕')).toBeInTheDocument();
+        });
+
+        it('active asc column header has aria-sort="ascending"', () => {
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.asc}
+                />
+            );
+            const dateTh = screen.getByRole('columnheader', {name: /date/i});
+            expect(dateTh).toHaveAttribute('aria-sort', 'ascending');
+        });
+
+        it('active desc column header has aria-sort="descending"', () => {
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            const dateTh = screen.getByRole('columnheader', {name: /date/i});
+            expect(dateTh).toHaveAttribute('aria-sort', 'descending');
+        });
+
+        it('inactive column headers do not have aria-sort attribute', () => {
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            const descTh = screen.getByRole('columnheader', {name: /description/i});
+            expect(descTh).not.toHaveAttribute('aria-sort');
+        });
+
+        it('Amount column header has tx-list__th--right class', () => {
+            render(<TransactionList {...defaultProps} />);
+            const amountTh = screen.getByRole('columnheader', {name: /amount/i});
+            expect(amountTh).toHaveClass('tx-list__th--right');
+        });
+    });
+
+    describe('mobile sort bar', () => {
+        it('mobile sort field select calls onSort with new field and current direction', async () => {
+            const onSort = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    onSort={onSort}
+                    sortField={TransactionsControllerFindAllSortField.date}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            const fieldSelect = screen.getByRole('combobox', {name: /sort by/i});
+            await user.selectOptions(fieldSelect, TransactionsControllerFindAllSortField.amount);
+            expect(onSort).toHaveBeenCalledWith(
+                TransactionsControllerFindAllSortField.amount,
+                TransactionsControllerFindAllSortDirection.desc
+            );
+        });
+
+        it('mobile sort direction select calls onSort with current field and new direction', async () => {
+            const onSort = vi.fn();
+            const user = userEvent.setup();
+            render(
+                <TransactionList
+                    {...defaultProps}
+                    onSort={onSort}
+                    sortField={TransactionsControllerFindAllSortField.amount}
+                    sortDirection={TransactionsControllerFindAllSortDirection.desc}
+                />
+            );
+            const dirSelect = screen.getByRole('combobox', {name: /sort direction/i});
+            await user.selectOptions(dirSelect, TransactionsControllerFindAllSortDirection.asc);
+            expect(onSort).toHaveBeenCalledWith(
+                TransactionsControllerFindAllSortField.amount,
+                TransactionsControllerFindAllSortDirection.asc
+            );
+        });
     });
 });
