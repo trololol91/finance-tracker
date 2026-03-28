@@ -1,5 +1,5 @@
 import React, {
-    useState, useCallback
+    useState, useCallback, useRef, useEffect
 } from 'react';
 import {
     useQueryClient, useMutation
@@ -54,6 +54,15 @@ export const TransactionsPage = (): React.JSX.Element => {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [bulkCategorizeMessage, setBulkCategorizeMessage] = useState<string | null>(null);
+    const bulkMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect((): (() => void) => {
+        return (): void => {
+            if (bulkMsgTimerRef.current !== null) {
+                clearTimeout(bulkMsgTimerRef.current);
+            }
+        };
+    }, []);
 
     const {
         filters, apiParams, data, isLoading, isError,
@@ -181,11 +190,17 @@ export const TransactionsPage = (): React.JSX.Element => {
                         }),
                         exact: false
                     });
-                    setTimeout(() => { setBulkCategorizeMessage(null); }, 4000);
+                    if (bulkMsgTimerRef.current !== null) clearTimeout(bulkMsgTimerRef.current);
+                    bulkMsgTimerRef.current = setTimeout(
+                        () => { setBulkCategorizeMessage(null); }, 4000
+                    );
                 },
                 onError: (): void => {
                     setBulkCategorizeMessage('Auto-categorization failed');
-                    setTimeout(() => { setBulkCategorizeMessage(null); }, 4000);
+                    if (bulkMsgTimerRef.current !== null) clearTimeout(bulkMsgTimerRef.current);
+                    bulkMsgTimerRef.current = setTimeout(
+                        () => { setBulkCategorizeMessage(null); }, 4000
+                    );
                 }
             }
         );

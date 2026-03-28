@@ -1,5 +1,6 @@
 import React from 'react';
 import {useDashboardControllerGetSpendingByCategory} from '@/api/dashboard/dashboard.js';
+import {formatCurrency} from '@utils/currency.js';
 import type {SpendingByCategoryItemDto} from '@/api/model/spendingByCategoryItemDto.js';
 import styles from '@features/dashboard/components/SpendingByCategoryPanel.module.css';
 
@@ -9,9 +10,6 @@ const resolveColor = (color: unknown): string => {
     if (typeof color === 'string') return color;
     return DEFAULT_COLOR;
 };
-
-const formatCurrency = (value: number): string =>
-    new Intl.NumberFormat('en-CA', {style: 'currency', currency: 'CAD'}).format(value);
 
 interface SpendingByCategoryPanelProps {
     month?: string;

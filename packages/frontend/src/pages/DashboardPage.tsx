@@ -5,10 +5,8 @@ import {SpendingByCategoryPanel} from '@features/dashboard/components/SpendingBy
 import {RecentTransactionsList} from '@features/dashboard/components/RecentTransactionsList.js';
 import {AccountsPanel} from '@features/dashboard/components/AccountsPanel.js';
 import {DashboardErrorBoundary} from '@features/dashboard/components/DashboardErrorBoundary.js';
+import {formatCurrency} from '@utils/currency.js';
 import styles from '@features/dashboard/components/DashboardPage.module.css';
-
-const formatCurrency = (value: number): string =>
-    new Intl.NumberFormat('en-CA', {style: 'currency', currency: 'CAD'}).format(value);
 
 const formatPercent = (value: number | null): string =>
     value === null ? 'N/A' : `${value.toFixed(1)}%`;

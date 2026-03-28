@@ -1,11 +1,9 @@
 import React from 'react';
 import {Link} from 'react-router-dom';
 import {APP_ROUTES} from '@config/constants.js';
+import {formatCurrency} from '@utils/currency.js';
 import type {AccountBalanceSummaryItemDto} from '@/api/model/accountBalanceSummaryItemDto.js';
 import styles from '@features/dashboard/components/AccountsPanel.module.css';
-
-const formatCurrency = (value: number, currency: string): string =>
-    new Intl.NumberFormat('en-CA', {style: 'currency', currency}).format(value);
 
 interface AccountsPanelProps {
     accounts: AccountBalanceSummaryItemDto[];

@@ -1,13 +1,11 @@
 import React from 'react';
+import {formatCurrency} from '@utils/currency.js';
 import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import styles from '@features/accounts/components/AccountsSummary.module.css';
 
 interface AccountsSummaryProps {
     accounts: AccountResponseDto[];
 }
-
-const formatCurrency = (value: number): string =>
-    new Intl.NumberFormat('en-CA', {style: 'currency', currency: 'CAD'}).format(value);
 
 export const AccountsSummary = ({accounts}: AccountsSummaryProps): React.JSX.Element => {
     const active = accounts.filter((a) => a.isActive);

@@ -1,6 +1,7 @@
 import React from 'react';
 import {useTransactionsControllerGetTotals} from '@/api/transactions/transactions.js';
 import {Loading} from '@components/common/Loading/Loading.js';
+import {formatCurrency} from '@utils/currency.js';
 import type {TransactionsControllerGetTotalsTransactionTypeItem} from '@features/transactions/types/transaction.types.js';
 import '@features/transactions/components/TransactionSummary.css';
 
@@ -12,9 +13,6 @@ interface TransactionSummaryProps {
     transactionType?: TransactionsControllerGetTotalsTransactionTypeItem[];
     search?: string;
 }
-
-const formatCurrency = (value: number): string =>
-    new Intl.NumberFormat('en-CA', {style: 'currency', currency: 'CAD'}).format(value);
 
 export const TransactionSummary = (
     {startDate, endDate, accountId, categoryId, transactionType, search}: TransactionSummaryProps

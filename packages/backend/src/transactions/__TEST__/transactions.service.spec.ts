@@ -418,12 +418,12 @@ describe('TransactionsService', () => {
             vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
             vi.mocked(prisma.transaction.count).mockResolvedValue(100);
 
-            await service.findAll(userId, {page: 2, limit: 25});
+            const result = await service.findAll(userId, {page: 2, limit: 25});
 
             expect(prisma.transaction.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({skip: 25, take: 25})
             );
-            expect(await service.findAll(userId, {page: 2, limit: 25})).toMatchObject({
+            expect(result).toMatchObject({
                 page: 2,
                 limit: 25
             });

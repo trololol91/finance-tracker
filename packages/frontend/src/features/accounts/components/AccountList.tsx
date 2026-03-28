@@ -1,4 +1,5 @@
 import React from 'react';
+import {formatCurrency} from '@utils/currency.js';
 import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 import styles from '@features/accounts/components/AccountList.module.css';
 
@@ -10,9 +11,6 @@ interface AccountListProps {
     onEdit: (account: AccountResponseDto) => void;
     onDelete: (account: AccountResponseDto) => void;
 }
-
-const formatCurrency = (value: number, currency: string): string =>
-    new Intl.NumberFormat('en-CA', {style: 'currency', currency}).format(value);
 
 const TYPE_LABELS: Record<string, string> = {
     checking: 'Checking',

@@ -1,4 +1,6 @@
-import {useCallback} from 'react';
+import {
+    useCallback, useMemo
+} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import {
     useTransactionsControllerFindAll,
@@ -38,6 +40,16 @@ const coerceEnum = <T extends string>(
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const filterByUuid = (values: string[]): string[] => values.filter((v) => UUID_V4_REGEX.test(v));
 
+/** Guards that a string is a full ISO 8601 UTC datetime (e.g. 2026-03-01T00:00:00.000Z). */
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const isIsoDate = (value: string): boolean => ISO_DATE_REGEX.test(value);
+
+/** Returns the URL param value if it passes ISO validation, otherwise returns the fallback. */
+const getValidIsoParam = (params: URLSearchParams, key: string, fallback: string): string => {
+    const v = params.get(key);
+    return v !== null && isIsoDate(v) ? v : fallback;
+};
+
 /** Returns the ISO range for the current calendar month using UTC boundaries. */
 const getThisMonthRange = (): {startDate: string, endDate: string} => {
     const now = new Date();
@@ -73,11 +85,14 @@ export interface UseTransactionFiltersReturn {
  */
 export const useTransactionFilters = (): UseTransactionFiltersReturn => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const {startDate: defaultStart, endDate: defaultEnd} = getThisMonthRange();
+
+    const {startDate: defaultStart, endDate: defaultEnd} = useMemo(
+        (): {startDate: string, endDate: string} => getThisMonthRange(), []
+    );
 
     const filters: TransactionFilterState = {
-        startDate: searchParams.get('startDate') ?? defaultStart,
-        endDate: searchParams.get('endDate') ?? defaultEnd,
+        startDate: getValidIsoParam(searchParams, 'startDate', defaultStart),
+        endDate: getValidIsoParam(searchParams, 'endDate', defaultEnd),
         transactionType: filterByEnum(
             searchParams.getAll('transactionType'),
             TransactionsControllerFindAllTransactionTypeItem

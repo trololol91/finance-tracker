@@ -447,6 +447,36 @@ describe('MultiSelectDropdown', () => {
             // No listbox rendered, no crash
             expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
         });
+
+        it('Home moves focus to the "All" option', async () => {
+            const user = userEvent.setup();
+            renderDropdown();
+            await user.click(screen.getByRole('button'));
+
+            // Move focus away from the first item first
+            const container = screen.getByRole('button').parentElement!;
+            fireEvent.keyDown(container, {key: 'ArrowDown'});
+            fireEvent.keyDown(container, {key: 'ArrowDown'});
+
+            // Now press Home — should jump back to "All"
+            fireEvent.keyDown(container, {key: 'Home'});
+
+            const allOption = screen.getByRole('option', {name: /all filters/i});
+            expect(document.activeElement).toBe(allOption);
+        });
+
+        it('End moves focus to the last option', async () => {
+            const user = userEvent.setup();
+            renderDropdown();
+            await user.click(screen.getByRole('button'));
+
+            // Press End — should jump directly to the last option ("Tag")
+            const container = screen.getByRole('button').parentElement!;
+            fireEvent.keyDown(container, {key: 'End'});
+
+            const tagOption = screen.getByRole('option', {name: /^tag$/i});
+            expect(document.activeElement).toBe(tagOption);
+        });
     });
 
     describe('empty options list', () => {

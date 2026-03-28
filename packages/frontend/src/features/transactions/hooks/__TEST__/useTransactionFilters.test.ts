@@ -322,5 +322,41 @@ describe('useTransactionFilters', () => {
             });
             expect(result.current.filters.accountId).toEqual([validUuid]);
         });
+
+        it('falls back to default startDate when the URL value is not a valid ISO date', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?startDate=not-a-date')
+            });
+            expect(result.current.filters.startDate).toMatch(/-01T00:00:00\.000Z$/);
+        });
+
+        it('falls back to default endDate when the URL value is not a valid ISO date', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?endDate=2026-13-99')
+            });
+            expect(result.current.filters.endDate).toMatch(/T23:59:59\.999Z$/);
+        });
+
+        it('accepts a valid ISO 8601 startDate from the URL', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?startDate=2025-01-01T00:00:00.000Z')
+            });
+            expect(result.current.filters.startDate).toBe('2025-01-01T00:00:00.000Z');
+        });
+
+        it('accepts a valid ISO 8601 endDate from the URL', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?endDate=2025-01-31T23:59:59.999Z')
+            });
+            expect(result.current.filters.endDate).toBe('2025-01-31T23:59:59.999Z');
+        });
+
+        it('falls back for a date missing milliseconds (not matching the exact ISO pattern)', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {
+                wrapper: wrapperWithUrl('/?startDate=2025-01-01T00:00:00Z')
+            });
+            // Missing .000 milliseconds — should fall back to default
+            expect(result.current.filters.startDate).toMatch(/-01T00:00:00\.000Z$/);
+        });
     });
 });

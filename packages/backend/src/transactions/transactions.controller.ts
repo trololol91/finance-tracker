@@ -19,8 +19,7 @@ import {
     ApiParam,
     ApiBody,
     ApiQuery,
-    ApiBearerAuth,
-    ApiProperty
+    ApiBearerAuth
 } from '@nestjs/swagger';
 import {TransactionsService} from './transactions.service.js';
 import {CreateTransactionDto} from './dto/create-transaction.dto.js';
@@ -33,23 +32,12 @@ import {CategorizeSuggestionResponseDto} from './dto/categorize-suggestion-respo
 import {BulkCategorizeResponseDto} from './dto/bulk-categorize-response.dto.js';
 import {BulkCategorizeQueryDto} from './dto/bulk-categorize-query.dto.js';
 import {GetTotalsQueryDto} from './dto/get-totals-query.dto.js';
+import {PaginatedTransactionsResponseDto} from './dto/paginated-transactions-response.dto.js';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 
-export class PaginatedTransactionsResponseDto {
-    @ApiProperty({type: () => [TransactionResponseDto]})
-    public data!: TransactionResponseDto[];
-
-    @ApiProperty({description: 'Total number of matching transactions', example: 142})
-    public total!: number;
-
-    @ApiProperty({description: 'Current page number', example: 1})
-    public page!: number;
-
-    @ApiProperty({description: 'Number of results per page', example: 50})
-    public limit!: number;
-}
+export {PaginatedTransactionsResponseDto};
 
 @ApiTags('transactions')
 @ApiBearerAuth('JWT-auth')

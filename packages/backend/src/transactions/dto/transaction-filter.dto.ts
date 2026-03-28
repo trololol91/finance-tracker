@@ -9,13 +9,32 @@ import {
     Max,
     MinLength,
     IsDateString,
-    IsString
+    IsString,
+    ValidatorConstraint,
+    ValidatorConstraintInterface,
+    ValidationArguments,
+    Validate
 } from 'class-validator';
 import {
     Type, Transform
 } from 'class-transformer';
 import {ApiProperty} from '@nestjs/swagger';
 import {TransactionType} from '#generated/prisma/client.js';
+
+@ValidatorConstraint({name: 'StartDateNotAfterEndDate', async: false})
+class StartDateNotAfterEndDateConstraint implements ValidatorConstraintInterface {
+    public validate(_value: unknown, args: ValidationArguments): boolean {
+        const obj = args.object as TransactionFilterDto;
+        if (obj.startDate === undefined || obj.endDate === undefined) {
+            return true;
+        }
+        return new Date(obj.startDate) <= new Date(obj.endDate);
+    }
+
+    public defaultMessage(): string {
+        return 'startDate must not be after endDate';
+    }
+}
 
 export class TransactionFilterDto {
     @ApiProperty({
@@ -32,6 +51,7 @@ export class TransactionFilterDto {
         example: '2026-12-31T23:59:59.999Z',
         required: false
     })
+    @Validate(StartDateNotAfterEndDateConstraint)
     @IsDateString()
     @IsOptional()
     endDate?: string;
@@ -87,7 +107,6 @@ export class TransactionFilterDto {
         default: 'true'
     })
     @IsIn(['true', 'false', 'all'])
-    @IsString()
     @IsOptional()
     isActive?: 'true' | 'false' | 'all' = 'true';
 
@@ -109,7 +128,6 @@ export class TransactionFilterDto {
         default: 'date'
     })
     @IsIn(['date', 'amount', 'description'])
-    @IsString()
     @IsOptional()
     sortField?: 'date' | 'amount' | 'description' = 'date';
 
@@ -121,7 +139,6 @@ export class TransactionFilterDto {
         default: 'desc'
     })
     @IsIn(['asc', 'desc'])
-    @IsString()
     @IsOptional()
     sortDirection?: 'asc' | 'desc' = 'desc';
 

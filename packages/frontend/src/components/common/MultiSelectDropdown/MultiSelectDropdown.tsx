@@ -91,6 +91,12 @@ export const MultiSelectDropdown = ({
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setFocusedIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'Home') {
+            e.preventDefault();
+            setFocusedIndex(0);
+        } else if (e.key === 'End') {
+            e.preventDefault();
+            setFocusedIndex(totalItems - 1);
         }
     }, [isOpen, close, totalItems]);
 

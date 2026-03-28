@@ -396,7 +396,8 @@ export class TransactionsService {
             );
         }
 
-        return {categorized: updates.length, skipped: 0, total, processed: transactions.length};
+        const skipped = total - transactions.length;
+        return {categorized: updates.length, skipped, total, processed: transactions.length};
     }
 
     // ---------------------------------------------------------------------------
