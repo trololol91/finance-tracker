@@ -2,14 +2,14 @@
 // Generated DTO/entity types live in @/api/model/ — do not redefine them here.
 
 import type {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
-import type {TransactionsControllerFindAllTransactionType} from '@/api/model/transactionsControllerFindAllTransactionType.js';
-import type {TransactionsControllerGetTotalsTransactionType} from '@/api/model/transactionsControllerGetTotalsTransactionType.js';
+import type {TransactionsControllerFindAllTransactionTypeItem} from '@/api/model/transactionsControllerFindAllTransactionTypeItem.js';
+import type {TransactionsControllerGetTotalsTransactionTypeItem} from '@/api/model/transactionsControllerGetTotalsTransactionTypeItem.js';
 import type {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
 import type {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
 
 export type {TransactionsControllerFindAllIsActive};
-export type {TransactionsControllerFindAllTransactionType};
-export type {TransactionsControllerGetTotalsTransactionType};
+export type {TransactionsControllerFindAllTransactionTypeItem};
+export type {TransactionsControllerGetTotalsTransactionTypeItem};
 export type {TransactionsControllerFindAllSortField};
 export type {TransactionsControllerFindAllSortDirection};
 
@@ -20,19 +20,27 @@ export type TransactionType = 'income' | 'expense' | 'transfer';
 export interface TransactionFilterState {
     startDate: string;
     endDate: string;
-    /** Empty string means 'no filter'. */
-    transactionType: TransactionType | '';
+    /** Empty array means 'no filter / show all'. */
+    transactionType: TransactionType[];
     isActive: TransactionsControllerFindAllIsActive;
     search: string;
-    /** UUID of the selected category filter, or empty string for 'all categories'. */
-    categoryId: string;
-    /** UUID of the selected account filter, or empty string for 'all accounts'. */
-    accountId: string;
+    /** UUIDs of selected categories. Empty array means 'all categories'. */
+    categoryId: string[];
+    /** UUIDs of selected accounts. Empty array means 'all accounts'. */
+    accountId: string[];
     page: number;
     limit: number;
     sortField: TransactionsControllerFindAllSortField;
     sortDirection: TransactionsControllerFindAllSortDirection;
 }
+
+/** Keys of TransactionFilterState that hold scalar (non-array) values.
+ *  Array-valued keys (transactionType, categoryId, accountId) must use setMultiFilter. */
+export type ScalarFilterKey = Exclude<keyof TransactionFilterState,
+    'transactionType' | 'categoryId' | 'accountId'>;
+
+/** Keys of TransactionFilterState that hold array values. */
+export type MultiFilterKey = 'transactionType' | 'categoryId' | 'accountId';
 
 /** Form values (all strings for controlled inputs). */
 export interface TransactionFormValues {

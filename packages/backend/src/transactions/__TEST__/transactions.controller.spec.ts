@@ -27,6 +27,10 @@ import type {CreateTransactionDto} from '#transactions/dto/create-transaction.dt
 import type {UpdateTransactionDto} from '#transactions/dto/update-transaction.dto.js';
 import type {TransactionFilterDto} from '#transactions/dto/transaction-filter.dto.js';
 import type {GetTotalsQueryDto} from '#transactions/dto/get-totals-query.dto.js';
+import type {CategorizeSuggestionRequestDto} from '#transactions/dto/categorize-suggestion-request.dto.js';
+import type {CategorizeSuggestionResponseDto} from '#transactions/dto/categorize-suggestion-response.dto.js';
+import type {BulkCategorizeResponseDto} from '#transactions/dto/bulk-categorize-response.dto.js';
+import type {BulkCategorizeQueryDto} from '#transactions/dto/bulk-categorize-query.dto.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -331,6 +335,71 @@ describe('TransactionsController', () => {
     });
 
     // -------------------------------------------------------------------------
+    // categorizeSuggestion
+    // -------------------------------------------------------------------------
+
+    describe('categorizeSuggestion', () => {
+        const suggestionDto: CategorizeSuggestionRequestDto = {
+            description: 'Starbucks Coffee',
+            amount: 6.50,
+            transactionType: TransactionType.expense
+        };
+        const suggestionResponse: CategorizeSuggestionResponseDto = {
+            categoryId: 'cat-uuid-1',
+            categoryName: 'Dining'
+        };
+
+        it('should call service.categorizeSuggestion with userId and dto', async () => {
+            vi.mocked(service.categorizeSuggestion).mockResolvedValue(suggestionResponse);
+
+            await controller.categorizeSuggestion(suggestionDto, mockCurrentUser);
+
+            expect(service.categorizeSuggestion).toHaveBeenCalledWith(
+                mockCurrentUser.id, suggestionDto
+            );
+        });
+
+        it('should return the suggestion response from service', async () => {
+            vi.mocked(service.categorizeSuggestion).mockResolvedValue(suggestionResponse);
+
+            const result = await controller.categorizeSuggestion(suggestionDto, mockCurrentUser);
+
+            expect(result).toEqual(suggestionResponse);
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // bulkCategorize
+    // -------------------------------------------------------------------------
+
+    describe('bulkCategorize', () => {
+        const bulkResponse: BulkCategorizeResponseDto = {
+            categorized: 5,
+            skipped: 2,
+            total: 10,
+            processed: 7
+        };
+
+        it('should call service.bulkCategorize with userId and query', async () => {
+            const query: BulkCategorizeQueryDto = {accountId: 'acc-uuid-1'};
+            vi.mocked(service.bulkCategorize).mockResolvedValue(bulkResponse);
+
+            await controller.bulkCategorize(query, mockCurrentUser);
+
+            expect(service.bulkCategorize).toHaveBeenCalledWith(mockCurrentUser.id, query);
+        });
+
+        it('should return the bulk categorize response from service', async () => {
+            const query: BulkCategorizeQueryDto = {};
+            vi.mocked(service.bulkCategorize).mockResolvedValue(bulkResponse);
+
+            const result = await controller.bulkCategorize(query, mockCurrentUser);
+
+            expect(result).toEqual(bulkResponse);
+        });
+    });
+
+    // -------------------------------------------------------------------------
     // getTotals
     // -------------------------------------------------------------------------
 
@@ -365,9 +434,9 @@ describe('TransactionsController', () => {
             vi.mocked(service.getTotals).mockResolvedValue(totals);
             const query = {
                 ...baseQuery,
-                accountId: 'acc-1',
-                categoryId: 'cat-1',
-                transactionType: TransactionType.income,
+                accountId: ['acc-1'],
+                categoryId: ['cat-1'],
+                transactionType: [TransactionType.income],
                 search: 'coffee'
             } as GetTotalsQueryDto;
 
@@ -376,9 +445,9 @@ describe('TransactionsController', () => {
             expect(service.getTotals).toHaveBeenCalledWith(
                 mockCurrentUser.id, startDate, endDate,
                 {
-                    accountId: 'acc-1',
-                    categoryId: 'cat-1',
-                    transactionType: TransactionType.income,
+                    accountId: ['acc-1'],
+                    categoryId: ['cat-1'],
+                    transactionType: [TransactionType.income],
                     search: 'coffee'
                 }
             );

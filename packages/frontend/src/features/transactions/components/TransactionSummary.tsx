@@ -1,15 +1,15 @@
 import React from 'react';
 import {useTransactionsControllerGetTotals} from '@/api/transactions/transactions.js';
 import {Loading} from '@components/common/Loading/Loading.js';
-import type {TransactionsControllerGetTotalsTransactionType} from '@features/transactions/types/transaction.types.js';
+import type {TransactionsControllerGetTotalsTransactionTypeItem} from '@/api/model/transactionsControllerGetTotalsTransactionTypeItem.js';
 import '@features/transactions/components/TransactionSummary.css';
 
 interface TransactionSummaryProps {
     startDate: string;
     endDate: string;
-    accountId?: string;
-    categoryId?: string;
-    transactionType?: TransactionsControllerGetTotalsTransactionType;
+    accountId?: string[];
+    categoryId?: string[];
+    transactionType?: TransactionsControllerGetTotalsTransactionTypeItem[];
     search?: string;
 }
 

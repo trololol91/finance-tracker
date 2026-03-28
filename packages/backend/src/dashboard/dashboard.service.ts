@@ -10,6 +10,14 @@ import {
     SpendingByCategoryDto, SpendingByCategoryItemDto
 } from './dto/spending-by-category.dto.js';
 
+interface MonthlyStats {
+    totalIncome: number;
+    totalExpenses: number;
+    netBalance: number;
+    savingsRate: number | null;
+    transactionCount: number;
+}
+
 @Injectable()
 export class DashboardService {
     constructor(private readonly prisma: PrismaService) {}
@@ -23,11 +31,10 @@ export class DashboardService {
         return {start, end, label};
     }
 
-    public async getSummary(userId: string, month?: string): Promise<DashboardSummaryDto> {
-        const {start, end, label} = this.parseMonth(month);
-
-        // Monthly income and expenses in parallel
-        const [incomeResult, expenseResult] = await Promise.all([
+    private async getMonthlyStats(
+        userId: string, start: Date, end: Date
+    ): Promise<MonthlyStats> {
+        const [incomeResult, expenseResult, transactionCount] = await Promise.all([
             this.prisma.transaction.aggregate({
                 where: {userId, isActive: true, transactionType: 'income', date: {gte: start, lte: end}},
                 _sum: {amount: true}
@@ -35,34 +42,25 @@ export class DashboardService {
             this.prisma.transaction.aggregate({
                 where: {userId, isActive: true, transactionType: 'expense', date: {gte: start, lte: end}},
                 _sum: {amount: true}
+            }),
+            this.prisma.transaction.count({
+                where: {userId, isActive: true, date: {gte: start, lte: end}, transactionType: {not: 'transfer'}}
             })
         ]);
-
         const totalIncome = Number(incomeResult._sum.amount ?? 0);
         const totalExpenses = Number(expenseResult._sum.amount ?? 0);
         const netBalance = totalIncome - totalExpenses;
-
         const savingsRate = totalIncome > 0
             ? Math.round(((totalIncome - totalExpenses) / totalIncome) * 10000) / 100
             : null;
+        return {totalIncome, totalExpenses, netBalance, savingsRate, transactionCount};
+    }
 
-        // Count of non-transfer transactions in the period
-        const transactionCount = await this.prisma.transaction.count({
-            where: {
-                userId,
-                isActive: true,
-                date: {gte: start, lte: end},
-                transactionType: {not: 'transfer'}
-            }
-        });
-
-        // Account balances: openingBalance + net of all-time active transactions (with transfers).
-        // Uses aggregate _sum per account to avoid N+1.
+    private async getAccountBalances(userId: string): Promise<AccountBalanceSummaryItemDto[]> {
         const rawAccounts = await this.prisma.account.findMany({
             where: {userId, isActive: true},
             select: {id: true, name: true, currency: true, openingBalance: true}
         });
-
         const [incomeByAccount, expenseByAccount, transferByAccount] = await Promise.all([
             this.prisma.transaction.groupBy({
                 by: ['accountId'],
@@ -76,28 +74,26 @@ export class DashboardService {
             }),
             this.prisma.transaction.groupBy({
                 by: ['accountId', 'transferDirection'],
-                where: {userId, isActive: true, transactionType: 'transfer', transferDirection: {not: null}},
+                where: {
+                    userId, isActive: true, transactionType: 'transfer',
+                    transferDirection: {not: null}
+                },
                 _sum: {amount: true}
             })
         ]);
-
-        const incomeMap = new Map(
-            incomeByAccount.map(r => [r.accountId, Number(r._sum.amount ?? 0)])
-        );
-        const expenseMap = new Map(
-            expenseByAccount.map(r => [r.accountId, Number(r._sum.amount ?? 0)])
-        );
+        const toNum = (v: unknown): number => Number(v ?? 0);
+        const incomeMap = new Map(incomeByAccount.map(r => [r.accountId, toNum(r._sum.amount)]));
+        const expenseMap = new Map(expenseByAccount.map(r => [r.accountId, toNum(r._sum.amount)]));
         const transferInMap = new Map<string | null, number>();
         const transferOutMap = new Map<string | null, number>();
         for (const r of transferByAccount) {
             if (r.transferDirection === TransferDirection.in) {
-                transferInMap.set(r.accountId, Number(r._sum.amount ?? 0));
+                transferInMap.set(r.accountId, toNum(r._sum.amount));
             } else if (r.transferDirection === TransferDirection.out) {
-                transferOutMap.set(r.accountId, Number(r._sum.amount ?? 0));
+                transferOutMap.set(r.accountId, toNum(r._sum.amount));
             }
         }
-
-        const accounts: AccountBalanceSummaryItemDto[] = rawAccounts.map(a => {
+        return rawAccounts.map(a => {
             const balance = Number(a.openingBalance)
                 + (incomeMap.get(a.id) ?? 0)
                 + (transferInMap.get(a.id) ?? 0)
@@ -105,8 +101,9 @@ export class DashboardService {
                 - (transferOutMap.get(a.id) ?? 0);
             return {id: a.id, name: a.name, currency: a.currency, balance};
         });
+    }
 
-        // Recent transactions (last 5)
+    private async getRecentTransactions(userId: string): Promise<TransactionSummaryItemDto[]> {
         const recent = await this.prisma.transaction.findMany({
             where: {userId, isActive: true},
             orderBy: {date: 'desc'},
@@ -116,8 +113,7 @@ export class DashboardService {
                 account: {select: {name: true}}
             }
         });
-
-        const recentTransactions: TransactionSummaryItemDto[] = recent.map(t => ({
+        return recent.map(t => ({
             id: t.id,
             date: t.date.toISOString(),
             description: t.description,
@@ -127,17 +123,16 @@ export class DashboardService {
             categoryName: t.category?.name ?? null,
             accountName: t.account?.name ?? null
         }));
+    }
 
-        return {
-            month: label,
-            totalIncome,
-            totalExpenses,
-            netBalance,
-            transactionCount,
-            savingsRate,
-            accounts,
-            recentTransactions
-        };
+    public async getSummary(userId: string, month?: string): Promise<DashboardSummaryDto> {
+        const {start, end, label} = this.parseMonth(month);
+        const [monthlyStats, accounts, recentTransactions] = await Promise.all([
+            this.getMonthlyStats(userId, start, end),
+            this.getAccountBalances(userId),
+            this.getRecentTransactions(userId)
+        ]);
+        return {month: label, ...monthlyStats, accounts, recentTransactions};
     }
 
     public async getSpendingByCategory(

@@ -126,6 +126,7 @@ vi.mock('@features/transactions/hooks/useAiStatus.js', () => ({
 import {useAiStatus} from '@features/transactions/hooks/useAiStatus.js';
 
 const mockUpdateFilter = vi.fn();
+const mockSetMultiFilter = vi.fn();
 const mockSetDateRange = vi.fn();
 const mockClearFilters = vi.fn();
 const mockSetPage = vi.fn();
@@ -138,9 +139,9 @@ const defaultFilterState: UseTransactionFiltersReturn = {
         page: 1,
         limit: 50,
         search: '',
-        transactionType: '',
-        categoryId: '',
-        accountId: '',
+        transactionType: [],
+        categoryId: [],
+        accountId: [],
         sortField: 'date' as const,
         sortDirection: 'desc' as const
     },
@@ -156,6 +157,7 @@ const defaultFilterState: UseTransactionFiltersReturn = {
     isLoading: false,
     isError: false,
     updateFilter: mockUpdateFilter,
+    setMultiFilter: mockSetMultiFilter,
     setDateRange: mockSetDateRange,
     clearFilters: mockClearFilters,
     setPage: mockSetPage,

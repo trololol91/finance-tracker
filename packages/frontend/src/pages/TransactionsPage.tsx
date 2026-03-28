@@ -55,7 +55,7 @@ export const TransactionsPage = (): React.JSX.Element => {
 
     const {
         filters, apiParams, data, isLoading, isError,
-        updateFilter, setDateRange, clearFilters, setPage, setSort
+        updateFilter, setMultiFilter, setDateRange, clearFilters, setPage, setSort
     } = useTransactionFilters();
 
     const {available: aiAvailable} = useAiStatus();
@@ -114,13 +114,8 @@ export const TransactionsPage = (): React.JSX.Element => {
                         });
                         void queryClient.invalidateQueries({
                             queryKey: getTransactionsControllerGetTotalsQueryKey({
-                                // startDate/endDate always set — defaulted to this month
                                 startDate: apiParams.startDate!,
-                                endDate: apiParams.endDate!,
-                                accountId: apiParams.accountId,
-                                categoryId: apiParams.categoryId,
-                                transactionType: apiParams.transactionType,
-                                search: apiParams.search
+                                endDate: apiParams.endDate!
                             }),
                             exact: false
                         });
@@ -143,13 +138,8 @@ export const TransactionsPage = (): React.JSX.Element => {
                         });
                         void queryClient.invalidateQueries({
                             queryKey: getTransactionsControllerGetTotalsQueryKey({
-                                // startDate/endDate always set — defaulted to this month
                                 startDate: apiParams.startDate!,
-                                endDate: apiParams.endDate!,
-                                accountId: apiParams.accountId,
-                                categoryId: apiParams.categoryId,
-                                transactionType: apiParams.transactionType,
-                                search: apiParams.search
+                                endDate: apiParams.endDate!
                             }),
                             exact: false
                         });
@@ -164,7 +154,7 @@ export const TransactionsPage = (): React.JSX.Element => {
         setBulkCategorizeMessage(null);
         bulkCategorizeMutation.mutate(
             {
-                accountId: filters.accountId || undefined,
+                accountId: filters.accountId.length === 1 ? filters.accountId[0] : undefined,
                 startDate: filters.startDate || undefined,
                 endDate: filters.endDate || undefined
             },
@@ -180,13 +170,8 @@ export const TransactionsPage = (): React.JSX.Element => {
                     });
                     void queryClient.invalidateQueries({
                         queryKey: getTransactionsControllerGetTotalsQueryKey({
-                            // startDate/endDate always set — defaulted to this month
                             startDate: apiParams.startDate!,
-                            endDate: apiParams.endDate!,
-                            accountId: apiParams.accountId,
-                            categoryId: apiParams.categoryId,
-                            transactionType: apiParams.transactionType,
-                            search: apiParams.search
+                            endDate: apiParams.endDate!
                         }),
                         exact: false
                     });
@@ -218,9 +203,13 @@ export const TransactionsPage = (): React.JSX.Element => {
                             <Button
                                 variant="secondary"
                                 onClick={handleBulkCategorize}
-                                disabled={bulkCategorizeMutation.isPending}
+                                disabled={
+                                    bulkCategorizeMutation.isPending || filters.accountId.length > 1
+                                }
                                 className="tx-btn-icon"
-                                title="Auto-categorize"
+                                title={filters.accountId.length > 1
+                                    ? 'Select one account (or all) to auto-categorize'
+                                    : 'Auto-categorize'}
                             >
                                 <Wand2 size={15} aria-hidden="true" />
                                 <span className="tx-btn-label">
@@ -249,9 +238,11 @@ export const TransactionsPage = (): React.JSX.Element => {
                 <TransactionSummary
                     startDate={filters.startDate}
                     endDate={filters.endDate}
-                    accountId={filters.accountId || undefined}
-                    categoryId={filters.categoryId || undefined}
-                    transactionType={filters.transactionType || undefined}
+                    accountId={filters.accountId.length ? filters.accountId : undefined}
+                    categoryId={filters.categoryId.length ? filters.categoryId : undefined}
+                    transactionType={
+                        filters.transactionType.length ? filters.transactionType : undefined
+                    }
                     search={filters.search || undefined}
                 />
 
@@ -261,6 +252,7 @@ export const TransactionsPage = (): React.JSX.Element => {
                     categories={categories}
                     accounts={accounts}
                     onFilterChange={updateFilter}
+                    onMultiFilterChange={setMultiFilter}
                     onDateRangeChange={setDateRange}
                     onClear={clearFilters}
                 />

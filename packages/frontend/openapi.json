@@ -747,34 +747,43 @@
             "name": "categoryId",
             "required": false,
             "in": "query",
-            "description": "Category UUID",
+            "description": "Category UUIDs (repeat for multiple)",
             "schema": {
               "example": "550e8400-e29b-41d4-a716-446655440000",
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
             "name": "accountId",
             "required": false,
             "in": "query",
-            "description": "Account UUID",
+            "description": "Account UUIDs (repeat for multiple)",
             "schema": {
               "example": "550e8400-e29b-41d4-a716-446655440001",
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
             "name": "transactionType",
             "required": false,
             "in": "query",
-            "description": "Filter by transaction type",
+            "description": "Transaction type(s) (repeat for multiple)",
             "schema": {
-              "enum": [
-                "income",
-                "expense",
-                "transfer"
-              ],
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "income",
+                  "expense",
+                  "transfer"
+                ]
+              }
             }
           },
           {
@@ -1009,32 +1018,41 @@
             "name": "accountId",
             "required": false,
             "in": "query",
-            "description": "Filter by account UUID",
+            "description": "Filter by account UUIDs (repeat for multiple)",
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
             "name": "categoryId",
             "required": false,
             "in": "query",
-            "description": "Filter by category UUID",
+            "description": "Filter by category UUIDs (repeat for multiple)",
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
             "name": "transactionType",
             "required": false,
             "in": "query",
-            "description": "Filter by transaction type",
+            "description": "Filter by transaction type (repeat for multiple)",
             "schema": {
-              "enum": [
-                "income",
-                "expense",
-                "transfer"
-              ],
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "income",
+                  "expense",
+                  "transfer"
+                ]
+              }
             }
           },
           {

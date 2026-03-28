@@ -34,7 +34,7 @@ describe('useTransactionFilters', () => {
         expect(result.current.filters.page).toBe(1);
         expect(result.current.filters.limit).toBe(50);
         expect(result.current.filters.search).toBe('');
-        expect(result.current.filters.transactionType).toBe('');
+        expect(result.current.filters.transactionType).toEqual([]);
     });
 
     it('updateFilter changes the filter value', () => {
@@ -75,13 +75,13 @@ describe('useTransactionFilters', () => {
         const {result} = renderHook(() => useTransactionFilters(), {wrapper});
         act(() => {
             result.current.updateFilter('search', 'coffee');
-            result.current.updateFilter('transactionType', 'expense');
+            result.current.setMultiFilter('transactionType', ['expense']);
         });
         act(() => {
             result.current.clearFilters();
         });
         expect(result.current.filters.search).toBe('');
-        expect(result.current.filters.transactionType).toBe('');
+        expect(result.current.filters.transactionType).toEqual([]);
         expect(result.current.filters.page).toBe(1);
     });
 
@@ -197,31 +197,59 @@ describe('useTransactionFilters', () => {
         });
     });
 
-    describe('accountId filter (Phase 6)', () => {
-        it('accountId defaults to empty string', () => {
+    describe('setMultiFilter', () => {
+        it('accountId defaults to empty array', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            expect(result.current.filters.accountId).toBe('');
+            expect(result.current.filters.accountId).toEqual([]);
         });
 
-        it('updateFilter updates accountId', () => {
+        it('setMultiFilter sets accountId to multiple values', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => { result.current.updateFilter('accountId', 'acc-1'); });
-            expect(result.current.filters.accountId).toBe('acc-1');
+            act(() => { result.current.setMultiFilter('accountId', ['acc-1', 'acc-2']); });
+            expect(result.current.filters.accountId).toEqual(['acc-1', 'acc-2']);
         });
 
-        it('updateFilter with accountId resets page to 1', () => {
+        it('setMultiFilter sets accountId to a single value', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
+            expect(result.current.filters.accountId).toEqual(['acc-1']);
+        });
+
+        it('setMultiFilter clears accountId when passed empty array', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
+            act(() => { result.current.setMultiFilter('accountId', []); });
+            expect(result.current.filters.accountId).toEqual([]);
+        });
+
+        it('setMultiFilter resets page to 1', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
             act(() => { result.current.setPage(3); });
-            act(() => { result.current.updateFilter('accountId', 'acc-1'); });
+            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
             expect(result.current.filters.page).toBe(1);
         });
 
-        it('clearFilters resets accountId to empty string', () => {
+        it('clearFilters resets accountId to empty array', () => {
             const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => { result.current.updateFilter('accountId', 'acc-1'); });
-            expect(result.current.filters.accountId).toBe('acc-1');
+            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
+            expect(result.current.filters.accountId).toEqual(['acc-1']);
             act(() => { result.current.clearFilters(); });
-            expect(result.current.filters.accountId).toBe('');
+            expect(result.current.filters.accountId).toEqual([]);
+        });
+
+        it('clearFilters resets categoryId to empty array', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.setMultiFilter('categoryId', ['cat-1', 'cat-2']); });
+            act(() => { result.current.clearFilters(); });
+            expect(result.current.filters.categoryId).toEqual([]);
+        });
+
+        it('setMultiFilter preserves other filters', () => {
+            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
+            act(() => { result.current.updateFilter('search', 'coffee'); });
+            act(() => { result.current.setMultiFilter('accountId', ['acc-1']); });
+            expect(result.current.filters.search).toBe('coffee');
+            expect(result.current.filters.accountId).toEqual(['acc-1']);
         });
 
         it('removes the param from URL when value is empty string', () => {
@@ -229,17 +257,6 @@ describe('useTransactionFilters', () => {
             act(() => { result.current.updateFilter('search', 'coffee'); });
             expect(result.current.filters.search).toBe('coffee');
             act(() => { result.current.updateFilter('search', ''); });
-            expect(result.current.filters.search).toBe('');
-        });
-
-        it('clearFilters does not preserve accountId alongside other filters', () => {
-            const {result} = renderHook(() => useTransactionFilters(), {wrapper});
-            act(() => {
-                result.current.updateFilter('accountId', 'acc-2');
-                result.current.updateFilter('search', 'coffee');
-            });
-            act(() => { result.current.clearFilters(); });
-            expect(result.current.filters.accountId).toBe('');
             expect(result.current.filters.search).toBe('');
         });
     });

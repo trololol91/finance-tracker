@@ -4,13 +4,16 @@ import {
     IsEnum,
     IsIn,
     IsInt,
+    IsArray,
     Min,
     Max,
     MinLength,
     IsDateString,
     IsString
 } from 'class-validator';
-import {Type} from 'class-transformer';
+import {
+    Type, Transform
+} from 'class-transformer';
 import {ApiProperty} from '@nestjs/swagger';
 import {TransactionType} from '#generated/prisma/client.js';
 
@@ -34,34 +37,47 @@ export class TransactionFilterDto {
     endDate?: string;
 
     @ApiProperty({
-        description: 'Filter by category ID (UUID)',
+        description: 'Filter by category IDs (UUIDs). Repeat the param for multiple values.',
         example: '550e8400-e29b-41d4-a716-446655440000',
         required: false,
-        type: String
+        type: [String]
     })
-    @IsUUID()
+    @IsArray()
+    @IsUUID(4, {each: true})
+    @Transform(({value}: {value: unknown}) =>
+        (value === undefined ? undefined : Array.isArray(value) ? value : [value])
+    )
     @IsOptional()
-    categoryId?: string;
+    categoryId?: string[];
 
     @ApiProperty({
-        description: 'Filter by account ID (UUID)',
+        description: 'Filter by account IDs (UUIDs). Repeat the param for multiple values.',
         example: '550e8400-e29b-41d4-a716-446655440001',
         required: false,
-        type: String
+        type: [String]
     })
-    @IsUUID()
+    @IsArray()
+    @IsUUID(4, {each: true})
+    @Transform(({value}: {value: unknown}) =>
+        (value === undefined ? undefined : Array.isArray(value) ? value : [value])
+    )
     @IsOptional()
-    accountId?: string;
+    accountId?: string[];
 
     @ApiProperty({
-        description: 'Filter by transaction type',
+        description: 'Filter by transaction type. Repeat the param for multiple values.',
+        isArray: true,
         enum: TransactionType,
         example: TransactionType.expense,
         required: false
     })
-    @IsEnum(TransactionType)
+    @IsArray()
+    @IsEnum(TransactionType, {each: true})
+    @Transform(({value}: {value: unknown}) =>
+        (value === undefined ? undefined : Array.isArray(value) ? value : [value])
+    )
     @IsOptional()
-    transactionType?: TransactionType;
+    transactionType?: TransactionType[];
 
     @ApiProperty({
         description: 'Filter by active status: "true", "false", or "all"',

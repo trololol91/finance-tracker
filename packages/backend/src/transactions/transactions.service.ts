@@ -187,9 +187,9 @@ export class TransactionsService {
         startDate: string,
         endDate: string,
         filters?: {
-            accountId?: string;
-            categoryId?: string;
-            transactionType?: TransactionType;
+            accountId?: string[];
+            categoryId?: string[];
+            transactionType?: TransactionType[];
             search?: string;
         }
     ): Promise<TransactionTotals> {
@@ -208,23 +208,22 @@ export class TransactionsService {
             date: {gte: start, lte: end}
         };
 
-        if (filters?.accountId) {
-            baseWhere.accountId = filters.accountId;
+        if (filters?.accountId?.length) {
+            baseWhere.accountId = {in: filters.accountId};
         }
-        if (filters?.categoryId) {
-            baseWhere.categoryId = filters.categoryId;
+        if (filters?.categoryId?.length) {
+            baseWhere.categoryId = {in: filters.categoryId};
         }
         if (filters?.search) {
             baseWhere.description = {contains: filters.search, mode: 'insensitive'};
         }
 
         // transfers are excluded from totals; skip both aggregates when filtered to transfer only
-        const skipIncome =
-            filters?.transactionType === TransactionType.expense ||
-            filters?.transactionType === TransactionType.transfer;
-        const skipExpense =
-            filters?.transactionType === TransactionType.income ||
-            filters?.transactionType === TransactionType.transfer;
+        const types = filters?.transactionType ?? [];
+        const hasIncome = types.length === 0 || types.includes(TransactionType.income);
+        const hasExpense = types.length === 0 || types.includes(TransactionType.expense);
+        const skipIncome = !hasIncome;
+        const skipExpense = !hasExpense;
 
         const [incomeResult, expenseResult] = await Promise.all([
             skipIncome
@@ -429,16 +428,16 @@ export class TransactionsService {
             }
         }
 
-        if (filters.categoryId) {
-            where.categoryId = filters.categoryId;
+        if (filters.categoryId?.length) {
+            where.categoryId = {in: filters.categoryId};
         }
 
-        if (filters.accountId) {
-            where.accountId = filters.accountId;
+        if (filters.accountId?.length) {
+            where.accountId = {in: filters.accountId};
         }
 
-        if (filters.transactionType) {
-            where.transactionType = filters.transactionType;
+        if (filters.transactionType?.length) {
+            where.transactionType = {in: filters.transactionType};
         }
 
         if (filters.search) {

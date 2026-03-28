@@ -7,11 +7,10 @@ import {
 import {TransactionsControllerFindAllIsActive} from '@/api/model/transactionsControllerFindAllIsActive.js';
 import {TransactionsControllerFindAllSortField} from '@/api/model/transactionsControllerFindAllSortField.js';
 import {TransactionsControllerFindAllSortDirection} from '@/api/model/transactionsControllerFindAllSortDirection.js';
-import type {TransactionsControllerFindAllTransactionType} from '@/api/model/transactionsControllerFindAllTransactionType.js';
 import type {TransactionsControllerFindAllParams} from '@/api/model/transactionsControllerFindAllParams.js';
 import type {PaginatedTransactionsResponseDto} from '@/api/model/paginatedTransactionsResponseDto.js';
 import type {
-    TransactionFilterState, TransactionType
+    TransactionFilterState, TransactionType, ScalarFilterKey, MultiFilterKey
 } from '@features/transactions/types/transaction.types.js';
 
 /** Returns the ISO range for the current calendar month using UTC boundaries. */
@@ -31,7 +30,8 @@ export interface UseTransactionFiltersReturn {
     data: PaginatedTransactionsResponseDto | undefined;
     isLoading: boolean;
     isError: boolean;
-    updateFilter: (key: keyof TransactionFilterState, value: string | number) => void;
+    updateFilter: (key: ScalarFilterKey, value: string | number) => void;
+    setMultiFilter: (key: MultiFilterKey, values: string[]) => void;
     setDateRange: (startDate: string, endDate: string) => void;
     clearFilters: () => void;
     setPage: (page: number) => void;
@@ -53,13 +53,13 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
     const filters: TransactionFilterState = {
         startDate: searchParams.get('startDate') ?? defaultStart,
         endDate: searchParams.get('endDate') ?? defaultEnd,
-        transactionType: (searchParams.get('transactionType') ?? '') as TransactionType | '',
+        transactionType: searchParams.getAll('transactionType') as TransactionType[],
         isActive: (
             searchParams.get('isActive') ?? TransactionsControllerFindAllIsActive.true
         ) as TransactionsControllerFindAllIsActive,
         search: searchParams.get('search') ?? '',
-        categoryId: searchParams.get('categoryId') ?? '',
-        accountId: searchParams.get('accountId') ?? '',
+        categoryId: searchParams.getAll('categoryId'),
+        accountId: searchParams.getAll('accountId'),
         page: Number(searchParams.get('page') ?? '1'),
         limit: Number(searchParams.get('limit') ?? '50'),
         sortField: (searchParams.get('sortField') ?? TransactionsControllerFindAllSortField.date) as TransactionsControllerFindAllSortField,
@@ -69,13 +69,11 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
     const apiParams: TransactionsControllerFindAllParams = {
         startDate: filters.startDate,
         endDate: filters.endDate,
-        transactionType: filters.transactionType
-            ? (filters.transactionType as TransactionsControllerFindAllTransactionType)
-            : undefined,
+        transactionType: filters.transactionType.length ? filters.transactionType : undefined,
         isActive: filters.isActive,
         search: filters.search || undefined,
-        categoryId: filters.categoryId || undefined,
-        accountId: filters.accountId || undefined,
+        categoryId: filters.categoryId.length ? filters.categoryId : undefined,
+        accountId: filters.accountId.length ? filters.accountId : undefined,
         page: filters.page,
         limit: filters.limit,
         sortField: filters.sortField,
@@ -85,7 +83,7 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
     const {data, isLoading, isError} = useTransactionsControllerFindAll(apiParams);
 
     const updateFilter = useCallback(
-        (key: keyof TransactionFilterState, value: string | number): void => {
+        (key: ScalarFilterKey, value: string | number): void => {
             setSearchParams((prev) => {
                 const next = new URLSearchParams(prev);
                 if (value === '') {
@@ -95,6 +93,19 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
                 }
                 // Reset to page 1 on any filter change except page itself
                 if (key !== 'page') next.set('page', '1');
+                return next;
+            });
+        },
+        [setSearchParams]
+    );
+
+    const setMultiFilter = useCallback(
+        (key: MultiFilterKey, values: string[]): void => {
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete(key);
+                values.forEach((v) => { next.append(key, v); });
+                next.set('page', '1');
                 return next;
             });
         },
@@ -121,7 +132,9 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
             endDate,
             isActive: TransactionsControllerFindAllIsActive.true,
             page: '1',
-            limit: '50'
+            limit: '50',
+            sortField: TransactionsControllerFindAllSortField.date,
+            sortDirection: TransactionsControllerFindAllSortDirection.desc
         });
     }, [setSearchParams]);
 
@@ -159,6 +172,7 @@ export const useTransactionFilters = (): UseTransactionFiltersReturn => {
         isLoading,
         isError,
         updateFilter,
+        setMultiFilter,
         setDateRange,
         clearFilters,
         setPage,

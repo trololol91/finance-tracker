@@ -2,7 +2,7 @@ import {
     describe, it, expect, vi, beforeEach
 } from 'vitest';
 import {
-    render, screen
+    render, screen, within
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {TransactionFilters} from '@features/transactions/components/TransactionFilters.js';
@@ -13,11 +13,11 @@ import type {AccountResponseDto} from '@/api/model/accountResponseDto.js';
 const defaultFilters: TransactionFilterState = {
     startDate: '2026-02-01T00:00:00.000Z',
     endDate: '2026-02-28T23:59:59.999Z',
-    transactionType: '',
+    transactionType: [],
     isActive: TransactionsControllerFindAllIsActive.true,
     search: '',
-    categoryId: '',
-    accountId: '',
+    categoryId: [],
+    accountId: [],
     page: 1,
     limit: 50,
     sortField: 'date' as const,
@@ -28,6 +28,7 @@ const defaultProps = {
     filters: defaultFilters,
     categories: [],
     onFilterChange: vi.fn(),
+    onMultiFilterChange: vi.fn(),
     onDateRangeChange: vi.fn(),
     onClear: vi.fn()
 };
@@ -45,8 +46,8 @@ describe('TransactionFilters', () => {
         expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
     });
 
-    it('calls onFilterChange with categoryId when a category is selected', async () => {
-        const onFilterChange = vi.fn();
+    it('calls onMultiFilterChange with categoryId when a category is selected', async () => {
+        const onMultiFilterChange = vi.fn();
         const user = userEvent.setup();
         const categories = [
             {
@@ -60,20 +61,22 @@ describe('TransactionFilters', () => {
             <TransactionFilters
                 {...defaultProps}
                 categories={categories}
-                onFilterChange={onFilterChange}
+                onMultiFilterChange={onMultiFilterChange}
             />
         );
 
-        await user.selectOptions(screen.getByLabelText(/category/i), 'cat-1');
-        expect(onFilterChange).toHaveBeenCalledWith('categoryId', 'cat-1');
+        await user.click(screen.getByLabelText(/category/i));
+        await user.click(screen.getByRole('option', {name: /food/i}));
+        expect(onMultiFilterChange).toHaveBeenCalledWith('categoryId', ['cat-1']);
     });
 
-    it('shows "All Categories" option when no category is selected', () => {
+    it('shows "All Categories" button label when no category is selected', () => {
         render(<TransactionFilters {...defaultProps} />);
-        expect(screen.getByRole('option', {name: /all categories/i})).toBeInTheDocument();
+        expect(screen.getByLabelText(/category/i)).toHaveTextContent('All Categories');
     });
 
-    it('excludes inactive categories from the category dropdown', () => {
+    it('excludes inactive categories from the category dropdown', async () => {
+        const user = userEvent.setup();
         const categories = [
             {
                 id: 'cat-1', name: 'Food', color: '#ff0000', icon: null,
@@ -89,6 +92,7 @@ describe('TransactionFilters', () => {
             }
         ];
         render(<TransactionFilters {...defaultProps} categories={categories} />);
+        await user.click(screen.getByLabelText(/category/i));
         expect(screen.getByRole('option', {name: /food/i})).toBeInTheDocument();
         expect(screen.queryByRole('option', {name: /hidden/i})).not.toBeInTheDocument();
     });
@@ -102,13 +106,14 @@ describe('TransactionFilters', () => {
         expect(onFilterChange).toHaveBeenCalledWith('search', expect.any(String));
     });
 
-    it('calls onFilterChange when selecting a type', async () => {
-        const onFilterChange = vi.fn();
+    it('calls onMultiFilterChange when selecting a type', async () => {
+        const onMultiFilterChange = vi.fn();
         const user = userEvent.setup();
-        render(<TransactionFilters {...defaultProps} onFilterChange={onFilterChange} />);
+        render(<TransactionFilters {...defaultProps} onMultiFilterChange={onMultiFilterChange} />);
 
-        await user.selectOptions(screen.getByLabelText(/type/i), 'expense');
-        expect(onFilterChange).toHaveBeenCalledWith('transactionType', 'expense');
+        await user.click(screen.getByLabelText(/type/i));
+        await user.click(screen.getByRole('option', {name: /expense/i}));
+        expect(onMultiFilterChange).toHaveBeenCalledWith('transactionType', ['expense']);
     });
 
     it('calls onFilterChange when selecting a status', async () => {
@@ -134,7 +139,7 @@ describe('TransactionFilters', () => {
         expect(screen.getByRole('search', {name: /transaction filters/i})).toBeInTheDocument();
     });
 
-    describe('account filter (Phase 6)', () => {
+    describe('account filter', () => {
         const makeAccount = (overrides: Partial<AccountResponseDto> = {}): AccountResponseDto => ({
             id: 'acc-1',
             userId: 'u-1',
@@ -153,69 +158,74 @@ describe('TransactionFilters', () => {
             ...overrides
         });
 
-        it('renders the Account filter select', () => {
+        it('renders the Account filter button', () => {
             render(<TransactionFilters {...defaultProps} />);
             expect(screen.getByLabelText(/account/i)).toBeInTheDocument();
         });
 
-        it('shows "All Accounts" as the default option', () => {
+        it('shows "All Accounts" button label by default', () => {
             render(<TransactionFilters {...defaultProps} />);
-            expect(screen.getByRole('option', {name: /all accounts/i})).toBeInTheDocument();
+            expect(screen.getByLabelText(/account/i)).toHaveTextContent('All Accounts');
         });
 
-        it('shows active account names as options', () => {
-            render(
-                <TransactionFilters
-                    {...defaultProps}
-                    accounts={[makeAccount({id: 'acc-1', name: 'Main Chequing'})]}
-                />
-            );
-            expect(screen.getByRole('option', {name: 'Main Chequing'})).toBeInTheDocument();
-        });
-
-        it('excludes inactive accounts from the account dropdown', () => {
-            const accounts = [
-                makeAccount({id: 'acc-1', name: 'Main Chequing', isActive: true}),
-                makeAccount({id: 'acc-2', name: 'Closed Savings', isActive: false})
-            ];
-            render(<TransactionFilters {...defaultProps} accounts={accounts} />);
-            const accountSelect = screen.getByLabelText<HTMLSelectElement>(/account/i);
-            const optionValues = Array.from(accountSelect.options).map((o) => o.value);
-            expect(optionValues).toContain('acc-1');
-            expect(optionValues).not.toContain('acc-2');
-        });
-
-        it('calls onFilterChange with accountId when an account is selected', async () => {
-            const onFilterChange = vi.fn();
+        it('shows active account names as options in dropdown', async () => {
             const user = userEvent.setup();
             render(
                 <TransactionFilters
                     {...defaultProps}
                     accounts={[makeAccount({id: 'acc-1', name: 'Main Chequing'})]}
-                    onFilterChange={onFilterChange}
                 />
             );
-            await user.selectOptions(screen.getByLabelText(/account/i), 'acc-1');
-            expect(onFilterChange).toHaveBeenCalledWith('accountId', 'acc-1');
+            await user.click(screen.getByLabelText(/account/i));
+            expect(screen.getByRole('option', {name: 'Main Chequing'})).toBeInTheDocument();
         });
 
-        it('account filter reflects the current filters.accountId value', () => {
+        it('excludes inactive accounts from the account dropdown', async () => {
+            const user = userEvent.setup();
+            const accounts = [
+                makeAccount({id: 'acc-1', name: 'Main Chequing', isActive: true}),
+                makeAccount({id: 'acc-2', name: 'Closed Savings', isActive: false})
+            ];
+            render(<TransactionFilters {...defaultProps} accounts={accounts} />);
+            await user.click(screen.getByLabelText(/account/i));
+            expect(screen.getByRole('option', {name: 'Main Chequing'})).toBeInTheDocument();
+            expect(screen.queryByRole('option', {name: 'Closed Savings'})).not.toBeInTheDocument();
+        });
+
+        it('calls onMultiFilterChange with accountId when an account is selected', async () => {
+            const onMultiFilterChange = vi.fn();
+            const user = userEvent.setup();
             render(
                 <TransactionFilters
                     {...defaultProps}
-                    filters={{...defaultFilters, accountId: 'acc-1'}}
+                    accounts={[makeAccount({id: 'acc-1', name: 'Main Chequing'})]}
+                    onMultiFilterChange={onMultiFilterChange}
+                />
+            );
+            await user.click(screen.getByLabelText(/account/i));
+            await user.click(screen.getByRole('option', {name: 'Main Chequing'}));
+            expect(onMultiFilterChange).toHaveBeenCalledWith('accountId', ['acc-1']);
+        });
+
+        it('shows selected count label when account is active in filter', () => {
+            render(
+                <TransactionFilters
+                    {...defaultProps}
+                    filters={{...defaultFilters, accountId: ['acc-1']}}
                     accounts={[makeAccount({id: 'acc-1', name: 'Main Chequing'})]}
                 />
             );
-            const select = screen.getByLabelText<HTMLSelectElement>(/account/i);
-            expect(select.value).toBe('acc-1');
+            expect(screen.getByLabelText(/account/i)).toHaveTextContent('1 selected');
         });
 
-        it('renders empty account filter when no accounts are passed', () => {
+        it('renders empty account dropdown (only All Accounts) when no accounts passed', async () => {
+            const user = userEvent.setup();
             render(<TransactionFilters {...defaultProps} accounts={[]} />);
-            const select = screen.getByLabelText<HTMLSelectElement>(/account/i);
-            // Only "All Accounts" option present
-            expect(select.options.length).toBe(1);
+            await user.click(screen.getByLabelText(/account/i));
+            const listbox = screen.getByRole('listbox', {name: /accounts/i});
+            const options = within(listbox).getAllByRole('option');
+            // Only "All Accounts" option
+            expect(options).toHaveLength(1);
         });
     });
 

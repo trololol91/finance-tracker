@@ -14,6 +14,27 @@ class ApiClient {
             timeout: env.API_TIMEOUT,
             headers: {
                 'Content-Type': 'application/json'
+            },
+            // Serialize arrays as repeated params (?a=1&a=2) instead of
+            // Axios's default bracket notation (?a[]=1&a[]=2) so NestJS
+            // @Query() decorators receive them correctly.
+            paramsSerializer: {
+                serialize: (params: Record<string, unknown>): string => {
+                    const search = new URLSearchParams();
+                    for (const [key, val] of Object.entries(params)) {
+                        if (val === undefined || val === null) continue;
+                        if (Array.isArray(val)) {
+                            val.forEach((v: string | number | boolean) => {
+                                search.append(key, String(v));
+                            });
+                        } else if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+                            search.set(key, String(val));
+                        }
+                        // Objects, Dates, and other non-primitive values are intentionally
+                        // dropped. Serialize them before passing as query params if needed.
+                    }
+                    return search.toString();
+                }
             }
         });
 

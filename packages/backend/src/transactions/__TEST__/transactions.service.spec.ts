@@ -268,11 +268,30 @@ describe('TransactionsService', () => {
             vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
             vi.mocked(prisma.transaction.count).mockResolvedValue(0);
 
-            await service.findAll(userId, {transactionType: TransactionType.income});
+            await service.findAll(userId, {transactionType: [TransactionType.income]});
 
             expect(prisma.transaction.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    where: expect.objectContaining({transactionType: TransactionType.income})
+                    where: expect.objectContaining({
+                        transactionType: {in: [TransactionType.income]}
+                    })
+                })
+            );
+        });
+
+        it('should apply multiple transactionType values as an in filter', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {
+                transactionType: [TransactionType.income, TransactionType.expense]
+            });
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        transactionType: {in: [TransactionType.income, TransactionType.expense]}
+                    })
                 })
             );
         });
@@ -281,11 +300,24 @@ describe('TransactionsService', () => {
             vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
             vi.mocked(prisma.transaction.count).mockResolvedValue(0);
 
-            await service.findAll(userId, {categoryId: 'cat-uuid'});
+            await service.findAll(userId, {categoryId: ['cat-uuid']});
 
             expect(prisma.transaction.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    where: expect.objectContaining({categoryId: 'cat-uuid'})
+                    where: expect.objectContaining({categoryId: {in: ['cat-uuid']}})
+                })
+            );
+        });
+
+        it('should apply multiple categoryId values as an in filter', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {categoryId: ['cat-uuid-1', 'cat-uuid-2']});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({categoryId: {in: ['cat-uuid-1', 'cat-uuid-2']}})
                 })
             );
         });
@@ -294,11 +326,24 @@ describe('TransactionsService', () => {
             vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
             vi.mocked(prisma.transaction.count).mockResolvedValue(0);
 
-            await service.findAll(userId, {accountId: 'acc-uuid'});
+            await service.findAll(userId, {accountId: ['acc-uuid']});
 
             expect(prisma.transaction.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    where: expect.objectContaining({accountId: 'acc-uuid'})
+                    where: expect.objectContaining({accountId: {in: ['acc-uuid']}})
+                })
+            );
+        });
+
+        it('should apply multiple accountId values as an in filter', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {accountId: ['acc-uuid-1', 'acc-uuid-2']});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({accountId: {in: ['acc-uuid-1', 'acc-uuid-2']}})
                 })
             );
         });
@@ -847,21 +892,21 @@ describe('TransactionsService', () => {
             });
 
             it('should apply accountId to both aggregate where clauses', async () => {
-                await service.getTotals(userId, startDate, endDate, {accountId: 'acc-uuid'});
+                await service.getTotals(userId, startDate, endDate, {accountId: ['acc-uuid']});
 
                 const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
                 expect(calls).toHaveLength(2);
-                expect(calls[0][0].where).toMatchObject({accountId: 'acc-uuid'});
-                expect(calls[1][0].where).toMatchObject({accountId: 'acc-uuid'});
+                expect(calls[0][0].where).toMatchObject({accountId: {in: ['acc-uuid']}});
+                expect(calls[1][0].where).toMatchObject({accountId: {in: ['acc-uuid']}});
             });
 
             it('should apply categoryId to both aggregate where clauses', async () => {
-                await service.getTotals(userId, startDate, endDate, {categoryId: 'cat-uuid'});
+                await service.getTotals(userId, startDate, endDate, {categoryId: ['cat-uuid']});
 
                 const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
                 expect(calls).toHaveLength(2);
-                expect(calls[0][0].where).toMatchObject({categoryId: 'cat-uuid'});
-                expect(calls[1][0].where).toMatchObject({categoryId: 'cat-uuid'});
+                expect(calls[0][0].where).toMatchObject({categoryId: {in: ['cat-uuid']}});
+                expect(calls[1][0].where).toMatchObject({categoryId: {in: ['cat-uuid']}});
             });
 
             it('should apply search as case-insensitive description contains filter', async () => {
@@ -880,7 +925,7 @@ describe('TransactionsService', () => {
                 );
 
                 const result = await service.getTotals(
-                    userId, startDate, endDate, {transactionType: TransactionType.income}
+                    userId, startDate, endDate, {transactionType: [TransactionType.income]}
                 );
 
                 expect(prisma.transaction.aggregate).toHaveBeenCalledTimes(1);
@@ -900,7 +945,7 @@ describe('TransactionsService', () => {
                 );
 
                 const result = await service.getTotals(
-                    userId, startDate, endDate, {transactionType: TransactionType.expense}
+                    userId, startDate, endDate, {transactionType: [TransactionType.expense]}
                 );
 
                 expect(prisma.transaction.aggregate).toHaveBeenCalledTimes(1);
@@ -916,7 +961,7 @@ describe('TransactionsService', () => {
 
             it('should skip both aggregates and return all zeros when transactionType is transfer', async () => {
                 const result = await service.getTotals(
-                    userId, startDate, endDate, {transactionType: TransactionType.transfer}
+                    userId, startDate, endDate, {transactionType: [TransactionType.transfer]}
                 );
 
                 expect(prisma.transaction.aggregate).not.toHaveBeenCalled();
@@ -927,16 +972,16 @@ describe('TransactionsService', () => {
 
             it('should combine multiple filters in both aggregate where clauses', async () => {
                 await service.getTotals(userId, startDate, endDate, {
-                    accountId: 'acc-uuid',
-                    categoryId: 'cat-uuid',
+                    accountId: ['acc-uuid'],
+                    categoryId: ['cat-uuid'],
                     search: 'groceries'
                 });
 
                 const calls = vi.mocked(prisma.transaction.aggregate).mock.calls;
                 expect(calls).toHaveLength(2);
                 const expectedPartial = {
-                    accountId: 'acc-uuid',
-                    categoryId: 'cat-uuid',
+                    accountId: {in: ['acc-uuid']},
+                    categoryId: {in: ['cat-uuid']},
                     description: {contains: 'groceries', mode: 'insensitive'}
                 };
                 expect(calls[0][0].where).toMatchObject(expectedPartial);

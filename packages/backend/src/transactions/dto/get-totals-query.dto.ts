@@ -1,6 +1,7 @@
 import {
-    IsOptional, IsUUID, IsString, IsEnum, IsDateString, IsNotEmpty, MinLength
+    IsOptional, IsUUID, IsString, IsEnum, IsDateString, IsNotEmpty, MinLength, IsArray
 } from 'class-validator';
+import {Transform} from 'class-transformer';
 import {
     ApiProperty, ApiPropertyOptional
 } from '@nestjs/swagger';
@@ -19,20 +20,32 @@ export class GetTotalsQueryDto {
     // required; @IsNotEmpty() rejects empty, @IsDateString() rejects invalid format
     endDate!: string;
 
-    @ApiPropertyOptional({description: 'Filter by account UUID'})
-    @IsUUID()
+    @ApiPropertyOptional({description: 'Filter by account UUIDs (repeat for multiple)', type: [String]})
+    @IsArray()
+    @IsUUID(4, {each: true})
+    @Transform(({value}: {value: unknown}) =>
+        (value === undefined ? undefined : Array.isArray(value) ? value : [value])
+    )
     @IsOptional()
-    accountId?: string;
+    accountId?: string[];
 
-    @ApiPropertyOptional({description: 'Filter by category UUID'})
-    @IsUUID()
+    @ApiPropertyOptional({description: 'Filter by category UUIDs (repeat for multiple)', type: [String]})
+    @IsArray()
+    @IsUUID(4, {each: true})
+    @Transform(({value}: {value: unknown}) =>
+        (value === undefined ? undefined : Array.isArray(value) ? value : [value])
+    )
     @IsOptional()
-    categoryId?: string;
+    categoryId?: string[];
 
-    @ApiPropertyOptional({description: 'Filter by transaction type', enum: TransactionType})
-    @IsEnum(TransactionType)
+    @ApiPropertyOptional({description: 'Filter by transaction type (repeat for multiple)', enum: TransactionType, isArray: true})
+    @IsArray()
+    @IsEnum(TransactionType, {each: true})
+    @Transform(({value}: {value: unknown}) =>
+        (value === undefined ? undefined : Array.isArray(value) ? value : [value])
+    )
     @IsOptional()
-    transactionType?: TransactionType;
+    transactionType?: TransactionType[];
 
     @ApiPropertyOptional({description: 'Filter by description text (partial match)'})
     @IsString()
