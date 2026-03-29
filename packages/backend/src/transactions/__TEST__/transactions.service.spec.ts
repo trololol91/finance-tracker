@@ -452,6 +452,115 @@ describe('TransactionsService', () => {
                 expect.objectContaining({orderBy: {date: 'desc'}})
             );
         });
+
+        // Sort field and direction tests
+        it('should order by date desc when no sort params provided (explicit default)', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortField: undefined, sortDirection: undefined});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {date: 'desc'}})
+            );
+        });
+
+        it('should order by amount asc when sortField=amount and sortDirection=asc', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortField: 'amount', sortDirection: 'asc'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {amount: 'asc'}})
+            );
+        });
+
+        it('should order by amount desc when sortField=amount and sortDirection=desc', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortField: 'amount', sortDirection: 'desc'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {amount: 'desc'}})
+            );
+        });
+
+        it('should order by description desc when sortField=description and sortDirection=desc', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortField: 'description', sortDirection: 'desc'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {description: 'desc'}})
+            );
+        });
+
+        it('should order by description asc when sortField=description and sortDirection=asc', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortField: 'description', sortDirection: 'asc'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {description: 'asc'}})
+            );
+        });
+
+        it('should order by date asc when sortField=date and sortDirection=asc', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortField: 'date', sortDirection: 'asc'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {date: 'asc'}})
+            );
+        });
+
+        it('should default sortDirection to desc when only sortField is provided', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortField: 'amount'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {amount: 'desc'}})
+            );
+        });
+
+        it('should default sortField to date when only sortDirection is provided', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {sortDirection: 'asc'});
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({orderBy: {date: 'asc'}})
+            );
+        });
+
+        it('sort state is independent of filter state — filters and sort work together', async () => {
+            vi.mocked(prisma.transaction.findMany).mockResolvedValue([]);
+            vi.mocked(prisma.transaction.count).mockResolvedValue(0);
+
+            await service.findAll(userId, {
+                transactionType: [TransactionType.expense],
+                sortField: 'amount',
+                sortDirection: 'asc'
+            });
+
+            expect(prisma.transaction.findMany).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: expect.objectContaining({
+                        transactionType: {in: [TransactionType.expense]}
+                    }),
+                    orderBy: {amount: 'asc'}
+                })
+            );
+        });
     });
 
     // -------------------------------------------------------------------------

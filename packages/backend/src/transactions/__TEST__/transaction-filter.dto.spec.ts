@@ -85,3 +85,64 @@ describe('TransactionFilterDto — date range cross-field validation', () => {
         expect(hasDateError).toBe(true);
     });
 });
+
+// ---------------------------------------------------------------------------
+// TransactionFilterDto — sortField and sortDirection validation
+// ---------------------------------------------------------------------------
+
+describe('TransactionFilterDto — sortField and sortDirection validation', () => {
+    it('should pass when sortField is "date"', async () => {
+        const errors = await validateDto({sortField: 'date'});
+        expect(errors).toHaveLength(0);
+    });
+
+    it('should pass when sortField is "amount"', async () => {
+        const errors = await validateDto({sortField: 'amount'});
+        expect(errors).toHaveLength(0);
+    });
+
+    it('should pass when sortField is "description"', async () => {
+        const errors = await validateDto({sortField: 'description'});
+        expect(errors).toHaveLength(0);
+    });
+
+    it('should fail when sortField is an invalid value', async () => {
+        const errors = await validateDto({sortField: 'foobar'});
+        expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should fail when sortField is a prototype-pollution attempt', async () => {
+        const errors = await validateDto({sortField: '__proto__'});
+        expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should pass when sortDirection is "asc"', async () => {
+        const errors = await validateDto({sortDirection: 'asc'});
+        expect(errors).toHaveLength(0);
+    });
+
+    it('should pass when sortDirection is "desc"', async () => {
+        const errors = await validateDto({sortDirection: 'desc'});
+        expect(errors).toHaveLength(0);
+    });
+
+    it('should fail when sortDirection is an invalid value', async () => {
+        const errors = await validateDto({sortDirection: 'sideways'});
+        expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should fail when sortDirection is "ASCENDING" (case-sensitive)', async () => {
+        const errors = await validateDto({sortDirection: 'ASCENDING'});
+        expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should pass when both sortField and sortDirection are omitted', async () => {
+        const errors = await validateDto({});
+        expect(errors).toHaveLength(0);
+    });
+
+    it('should pass when both sortField and sortDirection are valid', async () => {
+        const errors = await validateDto({sortField: 'amount', sortDirection: 'asc'});
+        expect(errors).toHaveLength(0);
+    });
+});

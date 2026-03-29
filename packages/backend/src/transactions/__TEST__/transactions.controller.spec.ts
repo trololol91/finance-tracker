@@ -542,6 +542,55 @@ describe('TransactionsController', () => {
     });
 
     // -------------------------------------------------------------------------
+    // findAll — sort params threaded to service
+    // -------------------------------------------------------------------------
+
+    describe('findAll — sort params', () => {
+        it('should pass sortField and sortDirection to service.findAll', async () => {
+            const paginated: PaginatedTransactions = {
+                data: [], total: 0, page: 1, limit: 50
+            };
+            vi.mocked(service.findAll).mockResolvedValue(paginated);
+
+            const filters: TransactionFilterDto = {sortField: 'amount', sortDirection: 'asc'};
+            await controller.findAll(filters, mockCurrentUser);
+
+            expect(service.findAll).toHaveBeenCalledWith(
+                mockCurrentUser.id,
+                expect.objectContaining({sortField: 'amount', sortDirection: 'asc'})
+            );
+        });
+
+        it('should pass sortField=date and sortDirection=desc by default (no sort params)', async () => {
+            const paginated: PaginatedTransactions = {
+                data: [], total: 0, page: 1, limit: 50
+            };
+            vi.mocked(service.findAll).mockResolvedValue(paginated);
+
+            const filters: TransactionFilterDto = {};
+            await controller.findAll(filters, mockCurrentUser);
+
+            // The service applies the defaults internally; the controller just passes through
+            expect(service.findAll).toHaveBeenCalledWith(mockCurrentUser.id, filters);
+        });
+
+        it('should pass sortField=description and sortDirection=desc to service', async () => {
+            const paginated: PaginatedTransactions = {
+                data: [], total: 0, page: 1, limit: 50
+            };
+            vi.mocked(service.findAll).mockResolvedValue(paginated);
+
+            const filters: TransactionFilterDto = {sortField: 'description', sortDirection: 'desc'};
+            await controller.findAll(filters, mockCurrentUser);
+
+            expect(service.findAll).toHaveBeenCalledWith(
+                mockCurrentUser.id,
+                expect.objectContaining({sortField: 'description', sortDirection: 'desc'})
+            );
+        });
+    });
+
+    // -------------------------------------------------------------------------
     // PaginatedTransactionsResponseDto shape
     // -------------------------------------------------------------------------
 
