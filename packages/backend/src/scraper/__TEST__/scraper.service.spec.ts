@@ -814,7 +814,7 @@ describe('ScraperService', () => {
 
             await service.cancelMfa(sessionId);
 
-            type SsePayload = {status?: string; errorMessage?: string};
+            interface SsePayload {status?: string, errorMessage?: string}
             const parsed = events.map(d => JSON.parse(d) as SsePayload);
             expect(parsed.some(e => e.status === SyncJobStatus.failed)).toBe(true);
             expect(parsed.some(e => e.errorMessage === CANCEL_ERROR_MESSAGE)).toBe(true);
