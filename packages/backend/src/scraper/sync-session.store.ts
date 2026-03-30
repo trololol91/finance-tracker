@@ -1,13 +1,13 @@
 import {Injectable} from '@nestjs/common';
 import {
-    Subject,
+    ReplaySubject,
     Observable,
     EMPTY
 } from 'rxjs';
 import type {MessageEvent} from '@nestjs/common';
 
 interface SessionEntry {
-    subject: Subject<MessageEvent>;
+    subject: ReplaySubject<MessageEvent>;
     mfaResolver: ((code: string) => void) | null;
 }
 
@@ -21,10 +21,13 @@ interface SessionEntry {
 export class SyncSessionStore {
     private readonly sessions = new Map<string, SessionEntry>();
 
-    /** Create a new session for the given sessionId. */
+    /** Create a new session for the given sessionId. Throws if already exists. */
     public createSession(sessionId: string): void {
+        if (this.sessions.has(sessionId)) {
+            throw new Error(`Session ${sessionId} already exists`);
+        }
         this.sessions.set(sessionId, {
-            subject: new Subject<MessageEvent>(),
+            subject: new ReplaySubject<MessageEvent>(1),
             mfaResolver: null
         });
     }
@@ -81,7 +84,6 @@ export class SyncSessionStore {
 
     /** Returns true if the session has a pending MFA resolver. */
     public hasPendingMfa(sessionId: string): boolean {
-        return this.sessions.get(sessionId)?.mfaResolver !== null &&
-               this.sessions.get(sessionId)?.mfaResolver !== undefined;
+        return this.sessions.get(sessionId)?.mfaResolver != null;
     }
 }

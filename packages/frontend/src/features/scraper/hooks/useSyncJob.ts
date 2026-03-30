@@ -6,7 +6,8 @@ import {
 } from 'react';
 import {
     useSyncJobControllerRunNow,
-    useSyncJobControllerMfaResponse
+    useSyncJobControllerMfaResponse,
+    useSyncJobControllerCancelMfa
 } from '@/api/sync-schedules/sync-schedules.js';
 
 export interface UseSyncJobReturn {
@@ -14,8 +15,10 @@ export interface UseSyncJobReturn {
     isTriggeringId: string | null;
     trigger: (scheduleId: string, startDate?: string) => void;
     submitMfa: (sessionId: string, mfaCode: string) => void;
+    cancelSync: (sessionId: string) => void;
     clearSession: () => void;
     isSubmittingMfa: boolean;
+    isCancellingMfa: boolean;
 }
 
 export const useSyncJob = (): UseSyncJobReturn => {
@@ -24,6 +27,7 @@ export const useSyncJob = (): UseSyncJobReturn => {
 
     const runNowMutation = useSyncJobControllerRunNow();
     const mfaMutation = useSyncJobControllerMfaResponse();
+    const cancelMfaMutation = useSyncJobControllerCancelMfa();
 
     const trigger = useCallback(
         (scheduleId: string, startDate?: string): void => {
@@ -47,15 +51,25 @@ export const useSyncJob = (): UseSyncJobReturn => {
     );
 
     const submitMfa = useCallback(
-        (sessionId: string, mfaCode: string): void => {
+        (id: string, mfaCode: string): void => {
             mfaMutation.mutate(
-                {id: sessionId, data: {code: mfaCode}},
+                {id, data: {code: mfaCode}},
                 {
                     onError: (err: unknown) => { console.error('[useSyncJob] MFA', err); }
                 }
             );
         },
         [mfaMutation]
+    );
+
+    const cancelSync = useCallback(
+        (id: string): void => {
+            cancelMfaMutation.mutate(
+                {id},
+                {onError: (err: unknown) => { console.error('[useSyncJob] cancelMfa', err); }}
+            );
+        },
+        [cancelMfaMutation]
     );
 
     const clearSession = useCallback((): void => {
@@ -67,7 +81,9 @@ export const useSyncJob = (): UseSyncJobReturn => {
         isTriggeringId,
         trigger,
         submitMfa,
+        cancelSync,
         clearSession,
-        isSubmittingMfa: mfaMutation.isPending
+        isSubmittingMfa: mfaMutation.isPending,
+        isCancellingMfa: cancelMfaMutation.isPending
     };
 };

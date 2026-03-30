@@ -48,8 +48,14 @@ try {
 
     const resolver = (prompt: string): Promise<string> => {
         parentPort!.postMessage({type: 'mfa_required', prompt});
-        return new Promise<string>(r =>
-            parentPort!.once('message', ({code}: {code: string}) => { r(code); })
+        return new Promise<string>((resolve, reject) =>
+            parentPort!.once('message', (msg: {type: string, code?: string}) => {
+                if (msg.type === 'mfa_cancel') {
+                    reject(new Error('MFA cancelled by user'));
+                } else {
+                    resolve(msg.code ?? '');
+                }
+            })
         );
     };
 

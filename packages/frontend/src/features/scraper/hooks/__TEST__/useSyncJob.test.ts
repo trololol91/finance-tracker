@@ -12,16 +12,19 @@ import {useSyncJob} from '@features/scraper/hooks/useSyncJob.js';
 
 vi.mock('@/api/sync-schedules/sync-schedules.js', () => ({
     useSyncJobControllerRunNow: vi.fn(),
-    useSyncJobControllerMfaResponse: vi.fn()
+    useSyncJobControllerMfaResponse: vi.fn(),
+    useSyncJobControllerCancelMfa: vi.fn()
 }));
 
 import {
     useSyncJobControllerRunNow,
-    useSyncJobControllerMfaResponse
+    useSyncJobControllerMfaResponse,
+    useSyncJobControllerCancelMfa
 } from '@/api/sync-schedules/sync-schedules.js';
 
 type RunNowReturn = ReturnType<typeof useSyncJobControllerRunNow>;
 type MfaReturn = ReturnType<typeof useSyncJobControllerMfaResponse>;
+type CancelReturn = ReturnType<typeof useSyncJobControllerCancelMfa>;
 
 const makeRunNow = (mutate = vi.fn(), isPending = false): RunNowReturn =>
     ({mutate, isPending}) as unknown as RunNowReturn;
@@ -29,8 +32,12 @@ const makeRunNow = (mutate = vi.fn(), isPending = false): RunNowReturn =>
 const makeMfa = (mutate = vi.fn(), isPending = false): MfaReturn =>
     ({mutate, isPending}) as unknown as MfaReturn;
 
+const makeCancel = (mutate = vi.fn(), isPending = false): CancelReturn =>
+    ({mutate, isPending}) as unknown as CancelReturn;
+
 const mockRunNow = vi.mocked(useSyncJobControllerRunNow);
 const mockMfa = vi.mocked(useSyncJobControllerMfaResponse);
+const mockCancel = vi.mocked(useSyncJobControllerCancelMfa);
 
 const createWrapper = (): (({children}: {children: React.ReactNode}) => React.JSX.Element) => {
     const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
@@ -43,6 +50,7 @@ describe('useSyncJob', () => {
         vi.clearAllMocks();
         mockRunNow.mockReturnValue(makeRunNow());
         mockMfa.mockReturnValue(makeMfa());
+        mockCancel.mockReturnValue(makeCancel());
     });
 
     describe('initial state', () => {
@@ -162,6 +170,37 @@ describe('useSyncJob', () => {
             mockMfa.mockReturnValue(makeMfa(mutate));
             const {result} = renderHook(() => useSyncJob(), {wrapper: createWrapper()});
             act(() => { result.current.submitMfa('sess-mfa', '000000'); });
+            expect(consoleSpy).toHaveBeenCalled();
+            consoleSpy.mockRestore();
+        });
+    });
+
+    describe('cancelSync', () => {
+        it('calls cancel mutation with sessionId', () => {
+            const mutate = vi.fn();
+            mockCancel.mockReturnValue(makeCancel(mutate));
+            const {result} = renderHook(() => useSyncJob(), {wrapper: createWrapper()});
+            act(() => { result.current.cancelSync('sess-abc'); });
+            expect(mutate).toHaveBeenCalledWith(
+                {id: 'sess-abc'},
+                expect.any(Object)
+            );
+        });
+
+        it('reflects isCancellingMfa from cancel mutation isPending', () => {
+            mockCancel.mockReturnValue(makeCancel(vi.fn(), true));
+            const {result} = renderHook(() => useSyncJob(), {wrapper: createWrapper()});
+            expect(result.current.isCancellingMfa).toBe(true);
+        });
+
+        it('logs error on cancel failure', () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            const mutate = vi.fn((_args: unknown, cbs: {onError?: (e: unknown) => void}) => {
+                cbs.onError?.(new Error('Cancel failed'));
+            });
+            mockCancel.mockReturnValue(makeCancel(mutate));
+            const {result} = renderHook(() => useSyncJob(), {wrapper: createWrapper()});
+            act(() => { result.current.cancelSync('sess-x'); });
             expect(consoleSpy).toHaveBeenCalled();
             consoleSpy.mockRestore();
         });

@@ -198,8 +198,10 @@ const makeSyncJobReturn = (
     isTriggeringId: null,
     trigger: vi.fn(),
     submitMfa: vi.fn(),
+    cancelSync: vi.fn(),
     clearSession: vi.fn(),
     isSubmittingMfa: false,
+    isCancellingMfa: false,
     ...overrides
 });
 

@@ -2,6 +2,9 @@ import {
     describe, it, expect, beforeEach, vi
 } from 'vitest';
 import {NotFoundException} from '@nestjs/common';
+import {
+    SyncJobStatus, CANCEL_ERROR_MESSAGE
+} from '#scraper/sync-job-status.js';
 import {ScraperService} from '#scraper/scraper.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
 import type {PrismaService} from '#database/prisma.service.js';
@@ -86,6 +89,8 @@ const mockJob = {
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01')
 };
+
+const yieldToEventLoop = (): Promise<void> => new Promise(resolve => { setImmediate(resolve); });
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -219,7 +224,7 @@ describe('ScraperService', () => {
 
         it('should pass dryRun: true to the worker input when dryRun is true', async () => {
             await service.sync('user-1', 'sched-1', 'manual', undefined, true);
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
             expect(workerInput.dryRun).toBe(true);
@@ -229,7 +234,7 @@ describe('ScraperService', () => {
 
         it('should pass dryRun: false to the worker input when dryRun is not provided', async () => {
             await service.sync('user-1', 'sched-1', 'manual', undefined);
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
             expect(workerInput.dryRun).toBe(false);
@@ -239,7 +244,7 @@ describe('ScraperService', () => {
 
         it('should pass dryRun: false to the worker input when dryRun is explicitly false', async () => {
             await service.sync('user-1', 'sched-1', 'manual', undefined, false);
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             const workerInput = workerHandlers.lastWorkerData as ScraperWorkerInput;
             expect(workerInput.dryRun).toBe(false);
@@ -252,7 +257,7 @@ describe('ScraperService', () => {
             mockRegistry.getPluginPath.mockReturnValue(undefined);
 
             await service.sync('user-1', 'sched-1', 'manual');
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             expect(prisma.syncJob.update).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -270,7 +275,7 @@ describe('ScraperService', () => {
         it('should ignore non-WorkerMessage payloads (isWorkerMessage guard)', async () => {
             await service.sync('user-1', 'sched-1');
             // Flush microtasks so runWorker() registers worker.on() handlers
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             // Send an invalid (non-WorkerMessage) payload — guard returns early
             workerHandlers.message?.('this is not a WorkerMessage');
@@ -279,10 +284,10 @@ describe('ScraperService', () => {
 
         it('should handle result WorkerMessage via worker.on message callback', async () => {
             const {sessionId} = await service.sync('user-1', 'sched-1');
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             workerHandlers.message?.({type: 'result', transactions: [], importedCount: 0, skippedCount: 0});
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             expect(prisma.syncJob.update).toHaveBeenCalledWith(
                 expect.objectContaining({data: expect.objectContaining({status: 'complete'})})
@@ -292,10 +297,10 @@ describe('ScraperService', () => {
 
         it('should handle errors via worker.on error callback', async () => {
             const {sessionId} = await service.sync('user-1', 'sched-1');
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             workerHandlers.error?.(new Error('Worker crash'));
-            await new Promise<void>(resolve => { setImmediate(resolve); });
+            await yieldToEventLoop();
 
             expect(prisma.syncJob.update).toHaveBeenCalledWith(
                 expect.objectContaining({data: expect.objectContaining({status: 'failed'})})
@@ -763,6 +768,70 @@ describe('ScraperService', () => {
                     data: expect.objectContaining({status: 'complete'})
                 })
             );
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // cancelMfa
+    // -------------------------------------------------------------------------
+
+    describe('cancelMfa', () => {
+        it('should update job status to failed with "Cancelled by user"', async () => {
+            const {sessionId} = await service.sync('user-1', 'sched-1');
+            await yieldToEventLoop();
+
+            await service.cancelMfa(sessionId);
+
+            expect(prisma.syncJob.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        status: 'failed',
+                        errorMessage: CANCEL_ERROR_MESSAGE
+                    })
+                })
+            );
+        });
+
+        it('should update schedule lastRunStatus to failed', async () => {
+            const {sessionId} = await service.sync('user-1', 'sched-1');
+            await yieldToEventLoop();
+
+            await service.cancelMfa(sessionId);
+
+            expect(prisma.syncSchedule.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({lastRunStatus: 'failed'})
+                })
+            );
+        });
+
+        it('should emit a failed SSE event', async () => {
+            const {sessionId} = await service.sync('user-1', 'sched-1');
+            await yieldToEventLoop();
+
+            const events: string[] = [];
+            sessionStore.getObservable(sessionId).subscribe(e => events.push(e.data as string));
+
+            await service.cancelMfa(sessionId);
+
+            type SsePayload = {status?: string; errorMessage?: string};
+            const parsed = events.map(d => JSON.parse(d) as SsePayload);
+            expect(parsed.some(e => e.status === SyncJobStatus.failed)).toBe(true);
+            expect(parsed.some(e => e.errorMessage === CANCEL_ERROR_MESSAGE)).toBe(true);
+        });
+
+        it('should remove session from store', async () => {
+            const {sessionId} = await service.sync('user-1', 'sched-1');
+            await yieldToEventLoop();
+
+            await service.cancelMfa(sessionId);
+
+            expect(sessionStore.hasSession(sessionId)).toBe(false);
+        });
+
+        it('should not throw when called with a non-existent session', async () => {
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue(null);
+            await expect(service.cancelMfa('no-such-session')).resolves.toBeUndefined();
         });
     });
 });

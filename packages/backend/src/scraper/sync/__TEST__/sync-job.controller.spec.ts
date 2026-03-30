@@ -77,7 +77,8 @@ describe('SyncJobController', () => {
 
     beforeEach(() => {
         scraperService = {
-            sync: vi.fn()
+            sync: vi.fn(),
+            cancelMfa: vi.fn()
         } as unknown as ScraperService;
 
         sessionStore = {
@@ -376,6 +377,41 @@ describe('SyncJobController', () => {
             await controller.mfaResponse(SESSION_ID, {code: 'TOKEN-XYZ'}, mockUser);
 
             expect(sessionStore.resolveMfa).toHaveBeenCalledWith(SESSION_ID, 'TOKEN-XYZ');
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // POST /:id/cancel-mfa
+    // -------------------------------------------------------------------------
+
+    describe('cancelMfa', () => {
+        it('should call scraperService.cancelMfa and return {ok: true}', async () => {
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue(mockSyncJob);
+            vi.mocked(scraperService.cancelMfa).mockResolvedValue(undefined);
+
+            const result = await controller.cancelMfa(SESSION_ID, mockUser);
+
+            expect(scraperService.cancelMfa).toHaveBeenCalledWith(SESSION_ID);
+            expect(result).toEqual({ok: true});
+        });
+
+        it('should throw NotFoundException when job not found', async () => {
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue(null);
+
+            await expect(controller.cancelMfa(SESSION_ID, mockUser)).rejects.toThrow(
+                NotFoundException
+            );
+        });
+
+        it('should throw NotFoundException when job belongs to different user', async () => {
+            vi.mocked(prisma.syncJob.findUnique).mockResolvedValue({
+                ...mockSyncJob,
+                userId: 'other-user-uuid'
+            } as typeof mockSyncJob);
+
+            await expect(controller.cancelMfa(SESSION_ID, mockUser)).rejects.toThrow(
+                NotFoundException
+            );
         });
     });
 });

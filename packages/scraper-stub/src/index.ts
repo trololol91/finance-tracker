@@ -7,6 +7,8 @@ import type {
     RawTransaction
 } from '@finance-tracker/plugin-sdk';
 
+const MFA_KEY = 'mfa';
+
 const stubScraper: BankScraper = {
     bankId: 'stub',
     displayName: 'Stub Bank (test only)',
@@ -21,11 +23,26 @@ const stubScraper: BankScraper = {
             type: 'text',
             required: true,
             hint: 'Any value — this scraper is a test stub'
+        },
+        {
+            key: MFA_KEY,
+            label: 'Trigger MFA',
+            type: 'select',
+            required: false,
+            hint: 'Set to "yes" to simulate an MFA challenge during login',
+            options: [
+                {value: 'no', label: 'No MFA'},
+                {value: 'yes', label: 'Trigger MFA (30s delay)'}
+            ]
         }
     ] satisfies PluginFieldDescriptor[],
 
-    login(_inputs: PluginInputs): Promise<void> {
-        return Promise.resolve();
+    async login(inputs: PluginInputs, resolveMfa?: (prompt: string) => Promise<string>): Promise<void> {
+        if (inputs[MFA_KEY] === 'yes') {
+            if (!resolveMfa) throw new Error('MFA required but no resolver provided');
+            await new Promise<void>(r => { setTimeout(r, 30_000); });
+            await resolveMfa('Enter the 6-digit code sent to your stub device');
+        }
     },
 
     scrapeTransactions(_input: PluginInputs, _options: ScrapeOptions): Promise<RawTransaction[]> {

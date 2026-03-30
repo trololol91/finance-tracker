@@ -1,5 +1,5 @@
 import React, {
-    useState, useCallback, useEffect
+    useCallback, useEffect
 } from 'react';
 import {
     useNavigate,
@@ -15,12 +15,10 @@ const MfaPageInner = (): React.JSX.Element => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const scheduleId = searchParams.get('scheduleId') ?? '';
-    const sessionIdParam = searchParams.get('sessionId') ?? null;
-
-    const [sessionId, setSessionId] = useState<string | null>(sessionIdParam);
+    const sessionId = searchParams.get('sessionId') ?? null;
 
     const {event, error: streamError} = useSyncStream(sessionId);
-    const {submitMfa, isSubmittingMfa} = useSyncJob();
+    const {submitMfa, isSubmittingMfa, cancelSync} = useSyncJob();
 
     // Derive display values directly from the SSE event — no setState in effects
     const isDone = event.status === 'completed';
@@ -47,14 +45,11 @@ const MfaPageInner = (): React.JSX.Element => {
     );
 
     const handleMfaCancel = useCallback((): void => {
+        if (sessionId !== null) {
+            cancelSync(sessionId);
+        }
         void navigate(APP_ROUTES.SCRAPER);
-    }, [navigate]);
-
-    const handleStartSession = useCallback(
-        (id: string): void => { setSessionId(id); },
-        []
-    );
-    void handleStartSession; // exposed for parent to trigger a session if needed
+    }, [sessionId, cancelSync, navigate]);
 
     return (
         <main className={styles.page} aria-label="MFA Authentication">

@@ -177,6 +177,28 @@ export class SyncJobController {
         return {ok: true};
     }
 
+    @Post(':id/cancel-mfa')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({
+        summary: 'Cancel a pending MFA challenge',
+        description:
+            'Terminates the waiting sync worker, marks the job as failed, ' +
+            'and emits a failed SSE event. Safe to call even if the session ' +
+            'has already ended (idempotent).'
+    })
+    @ApiParam({name: 'id', description: 'Session (SyncJob) UUID', type: String})
+    @ApiResponse({status: 200, description: 'MFA challenge cancelled'})
+    @ApiResponse({status: 401, description: 'Unauthorized'})
+    @ApiResponse({status: 404, description: 'Session not found or not owned by user'})
+    public async cancelMfa(
+        @Param('id', new ParseUUIDPipe({version: '4'})) sessionId: string,
+        @CurrentUser() currentUser: User
+    ): Promise<{ok: true}> {
+        await this.assertJobOwner(sessionId, currentUser.id);
+        await this.scraperService.cancelMfa(sessionId);
+        return {ok: true};
+    }
+
     // ---------------------------------------------------------------------------
     // Private helpers
     // ---------------------------------------------------------------------------

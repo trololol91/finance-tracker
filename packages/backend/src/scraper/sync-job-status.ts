@@ -29,3 +29,5 @@ export const SyncRunStatus = {
 } as const;
 
 export type SyncRunStatusValue = typeof SyncRunStatus[keyof typeof SyncRunStatus];
+
+export const CANCEL_ERROR_MESSAGE = 'Cancelled by user';

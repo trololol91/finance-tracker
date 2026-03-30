@@ -14,7 +14,7 @@ import {CryptoService} from '#scraper/crypto/crypto.service.js';
 import {SyncSessionStore} from '#scraper/sync-session.store.js';
 import {ScraperRegistry} from '#scraper/scraper.registry.js';
 import {
-    SyncJobStatus, SyncRunStatus
+    SyncJobStatus, SyncRunStatus, CANCEL_ERROR_MESSAGE
 } from '#scraper/sync-job-status.js';
 import type {SyncSchedule} from '#generated/prisma/client.js';
 import type {
@@ -44,6 +44,7 @@ export interface SyncResult {
 @Injectable()
 export class ScraperService {
     private readonly logger = new Logger(ScraperService.name);
+    private readonly activeWorkers = new Map<string, Worker>();
     /** Default timeout per sync run: 5 minutes. */
     private static readonly WORKER_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -101,6 +102,52 @@ export class ScraperService {
         void this.runWorker(sessionId, job.id, schedule, startDateOverride, dryRun);
 
         return {sessionId};
+    }
+
+    /** Safe to call even if the worker has already exited (idempotent). */
+    public async cancelMfa(sessionId: string): Promise<void> {
+        const worker = this.activeWorkers.get(sessionId);
+        if (worker) {
+            // postMessage throws ERR_WORKER_NOT_RUNNING if the thread already exited
+            try { worker.postMessage({type: 'mfa_cancel'}); } catch { /* already exited */ }
+            worker.terminate().catch((err: unknown) => {
+                this.logger.warn(
+                    `worker.terminate() failed for session ${sessionId}: ` +
+                    (err instanceof Error ? err.message : String(err))
+                );
+            });
+            this.activeWorkers.delete(sessionId);
+        }
+
+        const errorMessage = CANCEL_ERROR_MESSAGE;
+
+        // DB writes before SSE so clients that poll immediately see the updated status.
+        // Status guard prevents overwriting a job that already completed normally.
+        const updatedJob = await this.prisma.syncJob.update({
+            where: {id: sessionId, status: {notIn: [SyncJobStatus.complete, SyncJobStatus.failed]}},
+            data: {status: SyncJobStatus.failed, errorMessage},
+            select: {syncScheduleId: true}
+        }).catch((err: unknown) => {
+            this.logger.warn(
+                `cancelMfa: syncJob update skipped for session ${sessionId}: ` +
+                (err instanceof Error ? err.message : String(err))
+            );
+            return null;
+        });
+
+        if (updatedJob) {
+            await this.prisma.syncSchedule.update({
+                where: {id: updatedJob.syncScheduleId},
+                data: {lastRunAt: new Date(), lastRunStatus: SyncRunStatus.failed}
+            });
+        }
+
+        if (this.sessionStore.hasSession(sessionId)) {
+            this.sessionStore.emit(sessionId, {
+                data: JSON.stringify({status: SyncJobStatus.failed, errorMessage})
+            } as MessageEvent);
+            this.sessionStore.complete(sessionId);
+        }
     }
 
     // ---------------------------------------------------------------------------
@@ -161,8 +208,14 @@ export class ScraperService {
             );
             /* v8 ignore next 5 */
             const worker = new Worker(workerPath, {workerData: workerInput});
+            this.activeWorkers.set(sessionId, worker);
             const timeout = setTimeout(() => {
-                void worker.terminate();
+                this.cancelMfa(sessionId).catch((err: unknown) => {
+                    this.logger.error(
+                        `cancelMfa failed during timeout for session ${sessionId}: ` +
+                        (err instanceof Error ? err.message : String(err))
+                    );
+                });
             }, ScraperService.WORKER_TIMEOUT_MS);
 
             worker.on('message', (msg: unknown) => {
@@ -172,12 +225,14 @@ export class ScraperService {
 
             worker.on('error', (err: Error) => {
                 clearTimeout(timeout);
+                this.activeWorkers.delete(sessionId);
                 void this.handleWorkerError(sessionId, jobId, schedule, err);
             });
 
             /* v8 ignore next 5 */
             worker.on('exit', (code: number | null) => {
                 clearTimeout(timeout);
+                this.activeWorkers.delete(sessionId);
                 if (code !== 0 && code !== null) {
                     this.logger.warn(
                         `Scraper worker exited with code ${String(code)} for job ${jobId}`
