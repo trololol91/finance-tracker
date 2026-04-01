@@ -1,6 +1,7 @@
 import React, {
     useState, useRef, useEffect
 } from 'react';
+import {createPortal} from 'react-dom';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@features/transactions/components/TransactionActions.css';
 
@@ -21,7 +22,8 @@ export const TransactionActions = ({
 }: TransactionActionsProps): React.JSX.Element => {
     const [isOpen, setIsOpen] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const menuPanelRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const [menuPos, setMenuPos] = useState<
         {top?: number, bottom?: number, right: number} | null
@@ -30,7 +32,10 @@ export const TransactionActions = ({
     useEffect(() => {
         if (!isOpen) return;
         const handleClickOutside = (e: MouseEvent): void => {
-            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            const inContainer = containerRef.current?.contains(target) ?? false;
+            const inPanel = menuPanelRef.current?.contains(target) ?? false;
+            if (!inContainer && !inPanel) {
                 setIsOpen(false);
                 setShowConfirm(false);
             }
@@ -40,13 +45,15 @@ export const TransactionActions = ({
     }, [isOpen]);
 
     const calcMenuPos = (rect: DOMRect): {top?: number, bottom?: number, right: number} => {
+        // Use visualViewport when available so mobile browser toolbars are accounted for
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
         const right = window.innerWidth - rect.right;
-        const estimatedMenuHeight = 130;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        if (spaceBelow >= estimatedMenuHeight || spaceBelow >= rect.top) {
+        const estimatedMenuHeight = 150;
+        const spaceBelow = viewportHeight - rect.bottom;
+        if (spaceBelow >= estimatedMenuHeight) {
             return {top: rect.bottom + 4, right};
         }
-        return {bottom: window.innerHeight - rect.top + 4, right};
+        return {bottom: viewportHeight - rect.top + 4, right};
     };
 
     // Keep the fixed-position menu in sync with the trigger while open
@@ -58,9 +65,13 @@ export const TransactionActions = ({
         };
         window.addEventListener('scroll', update, true);
         window.addEventListener('resize', update);
+        window.visualViewport?.addEventListener('resize', update);
+        window.visualViewport?.addEventListener('scroll', update);
         return (): void => {
             window.removeEventListener('scroll', update, true);
             window.removeEventListener('resize', update);
+            window.visualViewport?.removeEventListener('resize', update);
+            window.visualViewport?.removeEventListener('scroll', update);
         };
     }, [isOpen]);
 
@@ -78,8 +89,77 @@ export const TransactionActions = ({
         setIsOpen((prev) => !prev);
     };
 
+    const menuPanel = isOpen && menuPos !== null && createPortal(
+        <div
+            ref={menuPanelRef}
+            className="tx-actions__menu"
+            role="menu"
+            style={{position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right}}
+        >
+            {!showConfirm ? (
+                <>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className="tx-actions__item"
+                        onClick={() => {
+                            onEdit(transaction);
+                            setIsOpen(false);
+                        }}
+                    >
+                        Edit
+                    </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className="tx-actions__item"
+                        onClick={() => {
+                            onToggleActive(transaction.id);
+                            setIsOpen(false);
+                        }}
+                    >
+                        {transaction.isActive ? 'Mark Inactive' : 'Mark Active'}
+                    </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className="tx-actions__item tx-actions__item--danger"
+                        onClick={() => { setShowConfirm(true); }}
+                    >
+                        Delete
+                    </button>
+                </>
+            ) : (
+                <div className="tx-actions__confirm">
+                    <p className="tx-actions__confirm-text">Delete this transaction?</p>
+                    <div className="tx-actions__confirm-buttons">
+                        <button
+                            type="button"
+                            className="tx-actions__item tx-actions__item--danger"
+                            onClick={() => {
+                                onDelete(transaction.id);
+                                setIsOpen(false);
+                                setShowConfirm(false);
+                            }}
+                        >
+                            Delete
+                        </button>
+                        <button
+                            type="button"
+                            className="tx-actions__item"
+                            onClick={() => { setShowConfirm(false); }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>,
+        document.body
+    );
+
     return (
-        <div className="tx-actions" ref={menuRef} onKeyDown={handleKeyDown}>
+        <div className="tx-actions" ref={containerRef} onKeyDown={handleKeyDown}>
             <button
                 ref={triggerRef}
                 type="button"
@@ -92,73 +172,7 @@ export const TransactionActions = ({
             >
                 &#8942;
             </button>
-
-            {isOpen && menuPos !== null && (
-                <div
-                    className="tx-actions__menu"
-                    role="menu"
-                    style={{position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right}}
-                >
-                    {!showConfirm ? (
-                        <>
-                            <button
-                                type="button"
-                                role="menuitem"
-                                className="tx-actions__item"
-                                onClick={() => {
-                                    onEdit(transaction);
-                                    setIsOpen(false);
-                                }}
-                            >
-                                Edit
-                            </button>
-                            <button
-                                type="button"
-                                role="menuitem"
-                                className="tx-actions__item"
-                                onClick={() => {
-                                    onToggleActive(transaction.id);
-                                    setIsOpen(false);
-                                }}
-                            >
-                                {transaction.isActive ? 'Mark Inactive' : 'Mark Active'}
-                            </button>
-                            <button
-                                type="button"
-                                role="menuitem"
-                                className="tx-actions__item tx-actions__item--danger"
-                                onClick={() => { setShowConfirm(true); }}
-                            >
-                                Delete
-                            </button>
-                        </>
-                    ) : (
-                        <div className="tx-actions__confirm">
-                            <p className="tx-actions__confirm-text">Delete this transaction?</p>
-                            <div className="tx-actions__confirm-buttons">
-                                <button
-                                    type="button"
-                                    className="tx-actions__item tx-actions__item--danger"
-                                    onClick={() => {
-                                        onDelete(transaction.id);
-                                        setIsOpen(false);
-                                        setShowConfirm(false);
-                                    }}
-                                >
-                                    Delete
-                                </button>
-                                <button
-                                    type="button"
-                                    className="tx-actions__item"
-                                    onClick={() => { setShowConfirm(false); }}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
+            {menuPanel}
         </div>
     );
 };

@@ -97,26 +97,26 @@ describe('TransactionActions', () => {
 
     it('closes menu on Escape', async () => {
         const user = userEvent.setup();
-        const {container} = render(<TransactionActions {...defaultProps} />);
+        render(<TransactionActions {...defaultProps} />);
         await user.click(screen.getByRole('button', {name: /actions for/i}));
         expect(screen.getByRole('menu')).toBeInTheDocument();
         await user.keyboard('{Escape}');
-        expect(container.querySelector('.tx-actions__menu')).not.toBeInTheDocument();
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
     it('closes menu when a mousedown occurs outside the component', async () => {
         const user = userEvent.setup();
-        const {container} = render(
+        render(
             <div>
                 <TransactionActions {...defaultProps} />
                 <button type="button">Outside</button>
             </div>
         );
         await user.click(screen.getByRole('button', {name: /actions for/i}));
-        expect(container.querySelector('.tx-actions__menu')).toBeInTheDocument();
+        expect(screen.getByRole('menu')).toBeInTheDocument();
         // clicking an element outside the component triggers the mousedown handler
         await user.click(screen.getByRole('button', {name: /outside/i}));
-        expect(container.querySelector('.tx-actions__menu')).not.toBeInTheDocument();
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
     it('opens menu upward when trigger is near the bottom of the viewport', async () => {
