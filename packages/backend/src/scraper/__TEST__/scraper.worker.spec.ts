@@ -60,12 +60,14 @@ const prismaMocks = vi.hoisted(() => ({
     findMany: vi.fn().mockResolvedValue([]),
     createMany: vi.fn().mockResolvedValue({count: 0}),
     updateMany: vi.fn().mockResolvedValue({count: 0}),
+    deleteMany: vi.fn().mockResolvedValue({count: 0}),
     disconnect: vi.fn().mockResolvedValue(undefined)
 }));
 
 const mockPrismaFindMany = prismaMocks.findMany;
 const mockPrismaCreateMany = prismaMocks.createMany;
 const mockPrismaUpdateMany = prismaMocks.updateMany;
+const mockPrismaDeleteMany = prismaMocks.deleteMany;
 const mockPrismaDisconnect = prismaMocks.disconnect;
 
 vi.mock('#generated/prisma/client.js', () => ({
@@ -73,7 +75,8 @@ vi.mock('#generated/prisma/client.js', () => ({
         public transaction = {
             findMany: prismaMocks.findMany,
             createMany: prismaMocks.createMany,
-            updateMany: prismaMocks.updateMany
+            updateMany: prismaMocks.updateMany,
+            deleteMany: prismaMocks.deleteMany
         };
         public $disconnect = prismaMocks.disconnect;
         constructor(_opts: unknown) {}
@@ -141,6 +144,7 @@ describe('scraper.worker.ts (Phase 8)', () => {
         mockPrismaFindMany.mockReset().mockResolvedValue([]);
         mockPrismaCreateMany.mockReset().mockResolvedValue({count: 0});
         mockPrismaUpdateMany.mockReset().mockResolvedValue({count: 0});
+        mockPrismaDeleteMany.mockReset().mockResolvedValue({count: 0});
         mockPrismaDisconnect.mockReset().mockResolvedValue(undefined);
 
         // Reset to default stub input with the real plugin URL
@@ -210,12 +214,13 @@ describe('scraper.worker.ts (Phase 8)', () => {
     });
 
     // TC-W-04
-    it('dryRun: true — prisma.transaction.createMany is NOT called', async () => {
+    it('dryRun: true — prisma.transaction.createMany and deleteMany are NOT called', async () => {
         mockState.workerData = {...mockState.workerData, dryRun: true};
 
         await importWorker();
 
         expect(mockPrismaCreateMany).not.toHaveBeenCalled();
+        expect(mockPrismaDeleteMany).not.toHaveBeenCalled();
 
         const resultMsg = getResultMsg();
         expect(resultMsg!.importedCount).toBe(3);
@@ -264,7 +269,7 @@ describe('scraper.worker.ts (Phase 8)', () => {
     });
 
     // TC-W-15
-    it('pending→cleared: updateMany called for cleared transaction; createMany not called for it', async () => {
+    it('pending→cleared (same syntheticId): updateMany sets isPending=false; createMany not called for it', async () => {
         // DB has stub-ccc-0003 stored as pending; scraper now returns it as cleared
         mockPrismaFindMany.mockResolvedValue([{fitid: 'stub-ccc-0003', isPending: true}]);
 
@@ -289,6 +294,55 @@ describe('scraper.worker.ts (Phase 8)', () => {
         const resultMsg = getResultMsg();
         expect(resultMsg!.importedCount).toBe(1);
         expect(resultMsg!.skippedCount).toBe(0);
+    });
+
+    // TC-W-16
+    it('stale pending (syntheticId changed on settlement): deleteMany removes old record within scrape window', async () => {
+        // Scraper returns only the cleared version with a new syntheticId
+        // (date/description changed on settlement). Old pending is no longer in results.
+        const clearedScraper: BankScraper = {
+            ...stubScraper,
+            scrapeTransactions: vi.fn().mockResolvedValue([
+                {date: '2026-01-22', description: 'TIM HORTONS #1234', amount: -5.00, pending: false, syntheticId: 'new-cleared-id'}
+            ])
+        };
+
+        await importWorker(() => {
+            vi.doMock(STUB_PLUGIN_URL, () => ({default: clearedScraper}));
+        });
+        vi.doUnmock(STUB_PLUGIN_URL);
+
+        expect(mockPrismaDeleteMany).toHaveBeenCalledOnce();
+        expect(mockPrismaDeleteMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: expect.objectContaining({
+                    userId: 'user-1',
+                    accountId: 'acct-1',
+                    fitid: expect.objectContaining({notIn: ['new-cleared-id']})
+                })
+            })
+        );
+        // The new cleared transaction is inserted
+        expect(mockPrismaCreateMany).toHaveBeenCalledOnce();
+    });
+
+    // TC-W-17
+    it('dryRun: true — deleteMany is NOT called even with stale pending records', async () => {
+        mockState.workerData = {...mockState.workerData, dryRun: true};
+
+        const clearedScraper: BankScraper = {
+            ...stubScraper,
+            scrapeTransactions: vi.fn().mockResolvedValue([
+                {date: '2026-01-22', description: 'TIM HORTONS #1234', amount: -5.00, pending: false, syntheticId: 'new-cleared-id'}
+            ])
+        };
+
+        await importWorker(() => {
+            vi.doMock(STUB_PLUGIN_URL, () => ({default: clearedScraper}));
+        });
+        vi.doUnmock(STUB_PLUGIN_URL);
+
+        expect(mockPrismaDeleteMany).not.toHaveBeenCalled();
     });
 
     // TC-W-07

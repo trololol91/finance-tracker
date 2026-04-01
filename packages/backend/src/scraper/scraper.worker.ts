@@ -113,12 +113,29 @@ try {
                 }))
             });
         }
+
         if (toClearFitids.length > 0) {
             await prisma.transaction.updateMany({
                 where: {userId: input.userId, fitid: {in: toClearFitids}},
                 data: {isPending: false}
             });
         }
+
+        // Hard-delete any scraper-originated transactions in the scrape window
+        // that were not returned by this scrape (e.g. stale pending where date or
+        // description changed on settlement). Only touches fitid-tagged rows to
+        // preserve manually-entered and OFX-imported transactions.
+        await prisma.transaction.deleteMany({
+            where: {
+                userId: input.userId,
+                accountId: input.accountId,
+                fitid: {not: null, notIn: syntheticIds},
+                date: {
+                    gte: new Date(input.startDate),
+                    lte: new Date(input.endDate)
+                }
+            }
+        });
     }
 
     parentPort.postMessage({
