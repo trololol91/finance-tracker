@@ -139,7 +139,7 @@ describe('DateRangePicker', () => {
     describe('detectPreset active state', () => {
         it('highlights this-month button when current startDate matches this month start', () => {
             const now = new Date();
-            const y = now.getUTCFullYear(), m = now.getUTCMonth();
+            const y = now.getFullYear(), m = now.getMonth();
             const start = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)).toISOString();
             const end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)).toISOString();
             render(<DateRangePicker startDate={start} endDate={end} onChange={vi.fn()} />);

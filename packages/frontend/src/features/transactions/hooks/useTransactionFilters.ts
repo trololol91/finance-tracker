@@ -50,11 +50,11 @@ const getValidIsoParam = (params: URLSearchParams, key: string, fallback: string
     return v !== null && isIsoDate(v) ? v : fallback;
 };
 
-/** Returns the ISO range for the current calendar month using UTC boundaries. */
+/** Returns the ISO range for the current calendar month using local date to determine the month. */
 const getThisMonthRange = (): {startDate: string, endDate: string} => {
     const now = new Date();
-    const y = now.getUTCFullYear();
-    const m = now.getUTCMonth();
+    const y = now.getFullYear();
+    const m = now.getMonth();
     return {
         startDate: new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)).toISOString(),
         endDate: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)).toISOString()

@@ -27,17 +27,17 @@ const getPresetRange = (preset: DatePreset): DateRange | null => {
     const now = new Date();
     switch (preset) {
         case 'today': {
-            const y = now.getUTCFullYear(), m = now.getUTCMonth(), d = now.getUTCDate();
+            const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
             return {
                 startDate: new Date(Date.UTC(y, m, d, 0, 0, 0, 0)).toISOString(),
                 endDate: new Date(Date.UTC(y, m, d, 23, 59, 59, 999)).toISOString()
             };
         }
         case 'this-week': {
-            const day = now.getUTCDay();
+            const day = now.getDay();
             const monday = new Date(Date.UTC(
-                now.getUTCFullYear(), now.getUTCMonth(),
-                now.getUTCDate() - ((day + 6) % 7), 0, 0, 0, 0
+                now.getFullYear(), now.getMonth(),
+                now.getDate() - ((day + 6) % 7), 0, 0, 0, 0
             ));
             const sunday = new Date(monday);
             sunday.setUTCDate(monday.getUTCDate() + 6);
@@ -45,14 +45,14 @@ const getPresetRange = (preset: DatePreset): DateRange | null => {
             return {startDate: monday.toISOString(), endDate: sunday.toISOString()};
         }
         case 'this-month': {
-            const y = now.getUTCFullYear(), m = now.getUTCMonth();
+            const y = now.getFullYear(), m = now.getMonth();
             return {
                 startDate: new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)).toISOString(),
                 endDate: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)).toISOString()
             };
         }
         case 'this-year': {
-            const y = now.getUTCFullYear();
+            const y = now.getFullYear();
             return {
                 startDate: new Date(Date.UTC(y, 0, 1, 0, 0, 0, 0)).toISOString(),
                 endDate: new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999)).toISOString()
