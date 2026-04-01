@@ -19,8 +19,10 @@ const getCurrentMonth = (): string => {
 };
 
 const DashboardPageInner = (): React.JSX.Element => {
-    const {data, isLoading, isError, refetch} = useDashboardControllerGetSummary();
     const currentMonth = getCurrentMonth();
+    const {data, isLoading, isError, refetch} = useDashboardControllerGetSummary(
+        {month: currentMonth}
+    );
 
     if (isError) {
         return (
