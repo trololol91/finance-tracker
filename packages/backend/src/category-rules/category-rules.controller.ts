@@ -20,18 +20,21 @@ import {
 import {CategoryRulesService} from './category-rules.service.js';
 import {CreateCategoryRuleDto} from './dto/create-category-rule.dto.js';
 import {CategoryRuleResponseDto} from './dto/category-rule-response.dto.js';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
+import {ScopesGuard} from '#auth/guards/scopes.guard.js';
+import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 
 @ApiTags('category-rules')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('category-rules')
 export class CategoryRulesController {
     constructor(private readonly categoryRulesService: CategoryRulesService) {}
 
     @Get()
+    @RequireScopes('categories:read')
     @ApiOperation({summary: 'List category rules'})
     @ApiResponse({status: 200, type: [CategoryRuleResponseDto]})
     public async findAll(@CurrentUser() user: User): Promise<CategoryRuleResponseDto[]> {
@@ -39,6 +42,7 @@ export class CategoryRulesController {
     }
 
     @Post()
+    @RequireScopes('categories:write')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({
         summary: 'Create category rule',
@@ -57,6 +61,7 @@ export class CategoryRulesController {
     }
 
     @Delete(':id')
+    @RequireScopes('categories:write')
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({summary: 'Delete category rule'})
     @ApiParam({name: 'id', type: String})

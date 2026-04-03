@@ -18,6 +18,14 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 - **Scheduled sync** — cron-based sync schedules per account with configurable lookback window; MFA challenge/response flow; sync job history
 - **Push notifications** — Web Push (VAPID) and email (SMTP) alerts when a bank sync requires MFA; per-user notification preferences
 - **Export tools** — CLI scripts for exporting transactions by week (TD and CIBC formats)
+- **API tokens** — personal access tokens with configurable scopes (`transactions:read/write`, `accounts:read/write`, `categories:read/write`, `dashboard:read`, `admin`); SHA-256 hashed storage; optional expiry; soft-delete revocation; managed from Settings → API Tokens
+
+### MCP Server
+- **Model Context Protocol server** — exposes finance data to AI assistants (Claude, GitHub Copilot, Cursor, Windsurf, and any MCP-compatible client)
+- **Dual transport** — stdio mode for local/desktop clients; HTTP mode for remote/Docker deployments
+- **Token-based auth** — uses the same API tokens generated in Settings; no credentials in client config
+- **Tools** — `list_transactions` (full filter surface: date range, category, account, type, search), `get_transaction_totals`, `list_accounts`, `list_categories`, `get_dashboard_summary`
+- See [`packages/mcp-server/CONNECT.md`](./packages/mcp-server/CONNECT.md) for client setup instructions
 
 ### Frontend
 - **Auth pages** — login and registration with form validation
@@ -28,6 +36,7 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 - **Profile page** — view and edit profile, delete account
 - **Admin** — user list and role management (admin users only)
 - **Reports / Budgets** — pages scaffolded, in development
+- **Settings — API Tokens** — generate, list, and revoke personal API tokens with scope selection; generated token shown once with copy prompt
 - **API layer** — auto-generated TypeScript client via Orval from OpenAPI spec; TanStack Query for data fetching and caching
 
 ## Tech Stack
@@ -69,12 +78,16 @@ finance-tracker/
 │   │   │   ├── transactions/   # Transaction CRUD & filtering
 │   │   │   └── users/          # User management & admin panel
 │   │   └── prisma/             # Schema & migrations
-│   └── frontend/               # React + Vite app (port 3002)
+│   ├── frontend/               # React + Vite app (port 3002)
+│   │   └── src/
+│   │       ├── api/            # Orval-generated API client
+│   │       ├── components/     # Shared UI components
+│   │       ├── features/       # Feature modules (accounts, auth, categories, scraper, transactions, users)
+│   │       └── pages/          # Route-level pages
+│   └── mcp-server/             # MCP server (stdio + HTTP, port 3010)
 │       └── src/
-│           ├── api/            # Orval-generated API client
-│           ├── components/     # Shared UI components
-│           ├── features/       # Feature modules (accounts, auth, categories, scraper, transactions, users)
-│           └── pages/          # Route-level pages
+│           ├── index.ts        # Server entry point, tool definitions, HTTP/stdio transport
+│           └── services/       # API fetcher with AsyncLocalStorage token threading
 ├── tools/
 │   └── export/                 # Transaction export scripts (TD, CIBC)
 └── docs/                       # Architecture docs, roadmaps, design docs
@@ -149,6 +162,7 @@ docker-compose down
 | PostgreSQL | 5432 | — |
 | Backend API | 3001 | http://localhost:3001 |
 | Frontend | 3002 | http://localhost:3002 |
+| MCP Server | 3010 | http://localhost:3010/mcp |
 | Health check | — | http://localhost:3001/health |
 | Prisma Studio | 5555 | http://localhost:5555 |
 
@@ -224,6 +238,17 @@ npm run dev                   # Dev server
 npm run build                 # Production build
 npm run orval                 # Regenerate API client from OpenAPI spec
 ```
+
+### MCP Server
+
+```bash
+# From packages/mcp-server/
+npm run dev                   # Run with tsx (no build step)
+npm run build                 # Compile to dist/
+npm run start                 # Run compiled output
+```
+
+See [`packages/mcp-server/CONNECT.md`](./packages/mcp-server/CONNECT.md) for connecting Claude Desktop, GitHub Copilot, Cursor, Windsurf, and other MCP clients.
 
 ## Build Order
 

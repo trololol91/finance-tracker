@@ -14,6 +14,7 @@ import {ScraperModule} from '#scraper/scraper.module.js';
 import {DashboardModule} from '#dashboard/dashboard.module.js';
 import {AiCategorizationModule} from '#ai-categorization/index.js';
 import {CategoryRulesModule} from '#category-rules/category-rules.module.js';
+import {ApiTokensModule} from '#api-tokens/api-tokens.module.js';
 
 @Module({
     imports: [
@@ -33,7 +34,8 @@ import {CategoryRulesModule} from '#category-rules/category-rules.module.js';
         ScraperModule,
         DashboardModule,
         AiCategorizationModule,
-        CategoryRulesModule
+        CategoryRulesModule,
+        ApiTokensModule
     ],
     controllers: [AppController],
     providers: [AppService]

@@ -111,6 +111,10 @@ describe('TransactionsService', () => {
             date: '2026-02-15T10:00:00.000Z'
         };
 
+        beforeEach(() => {
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(null);
+        });
+
         it('should create a transaction and pass correct data to Prisma', async () => {
             const mockTxn = makeTransaction();
             vi.mocked(prisma.transaction.create).mockResolvedValue(mockTxn);
@@ -129,10 +133,11 @@ describe('TransactionsService', () => {
                     transferDirection: null,
                     date: new Date(dto.date),
                     originalDate: new Date(dto.date),
-                    isActive: true
+                    isActive: true,
+                    fitid: null
                 }
             });
-            expect(result).toEqual(mockTxn);
+            expect(result).toEqual({status: 'created', transaction: mockTxn});
         });
 
         it('should set originalDate equal to date', async () => {
@@ -185,6 +190,40 @@ describe('TransactionsService', () => {
                     accountId: null
                 })
             });
+        });
+
+        it('should return status duplicate when fitid matches existing transaction', async () => {
+            const existing = makeTransaction({fitid: 'fit-abc'});
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(existing);
+
+            const dtoWithFitid: CreateTransactionDto = {...dto, fitid: 'fit-abc'};
+            const result = await service.create(userId, dtoWithFitid);
+
+            expect(prisma.transaction.findFirst).toHaveBeenCalledWith({
+                where: {userId, fitid: 'fit-abc'}
+            });
+            expect(prisma.transaction.create).not.toHaveBeenCalled();
+            expect(result).toEqual({status: 'duplicate', transaction: existing});
+        });
+
+        it('should not check for duplicates when fitid is omitted', async () => {
+            vi.mocked(prisma.transaction.create).mockResolvedValue(makeTransaction());
+
+            await service.create(userId, dto);
+
+            expect(prisma.transaction.findFirst).not.toHaveBeenCalled();
+        });
+
+        it('should pass fitid to Prisma when provided and no duplicate found', async () => {
+            vi.mocked(prisma.transaction.findFirst).mockResolvedValue(null);
+            vi.mocked(prisma.transaction.create).mockResolvedValue(makeTransaction({fitid: 'fit-xyz'}));
+
+            const result = await service.create(userId, {...dto, fitid: 'fit-xyz'});
+
+            expect(prisma.transaction.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({fitid: 'fit-xyz'})
+            });
+            expect(result.status).toBe('created');
         });
     });
 

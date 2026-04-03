@@ -20,6 +20,16 @@ if $frontend_changed; then
   npm run -w packages/frontend test:coverage
 fi
 
-if ! $backend_changed && ! $frontend_changed; then
+mcp_changed=false
+echo "$STAGED" | grep -q "^packages/mcp-server/" && mcp_changed=true
+
+if $mcp_changed; then
+  echo "[pre-commit] mcp-server changes detected — running typecheck, lint, coverage"
+  npm run -w packages/mcp-server typecheck
+  npm run -w packages/mcp-server lint:eslint
+  npm run -w packages/mcp-server test:coverage
+fi
+
+if ! $backend_changed && ! $frontend_changed && ! $mcp_changed; then
   echo "[pre-commit] no package source changes — skipping checks"
 fi

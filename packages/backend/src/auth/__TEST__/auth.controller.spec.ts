@@ -47,7 +47,9 @@ describe('AuthController', () => {
     beforeEach(() => {
         service = {
             register: vi.fn(),
-            login: vi.fn()
+            login: vi.fn(),
+            getSetupStatus: vi.fn(),
+            setupAdmin: vi.fn()
         } as unknown as AuthService;
 
         controller = new AuthController(service);
@@ -131,6 +133,29 @@ describe('AuthController', () => {
                 firstName: mockUser.firstName,
                 lastName: mockUser.lastName
             });
+        });
+    });
+
+    describe('getSetupStatus', () => {
+        it('returns setup status from service', async () => {
+            vi.mocked(service.getSetupStatus).mockResolvedValue({required: true});
+
+            const result = await controller.getSetupStatus();
+
+            expect(service.getSetupStatus).toHaveBeenCalled();
+            expect(result).toEqual({required: true});
+        });
+    });
+
+    describe('setupAdmin', () => {
+        it('calls service.setupAdmin and returns auth response', async () => {
+            vi.mocked(service.setupAdmin).mockResolvedValue(mockAuthResponse);
+            const dto = {email: 'admin@example.com', password: 'secure', firstName: 'Admin', lastName: 'User'};
+
+            const result = await controller.setupAdmin(dto as never);
+
+            expect(service.setupAdmin).toHaveBeenCalledWith(dto);
+            expect(result).toBe(mockAuthResponse);
         });
     });
 

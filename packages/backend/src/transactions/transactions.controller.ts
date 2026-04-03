@@ -26,6 +26,7 @@ import {CreateTransactionDto} from './dto/create-transaction.dto.js';
 import {UpdateTransactionDto} from './dto/update-transaction.dto.js';
 import {TransactionFilterDto} from './dto/transaction-filter.dto.js';
 import {TransactionResponseDto} from './dto/transaction-response.dto.js';
+import {CreateTransactionResponseDto} from './dto/create-transaction-response.dto.js';
 import {TransactionTotalsResponseDto} from './dto/transaction-totals-response.dto.js';
 import {CategorizeSuggestionRequestDto} from './dto/categorize-suggestion-request.dto.js';
 import {CategorizeSuggestionResponseDto} from './dto/categorize-suggestion-response.dto.js';
@@ -33,13 +34,15 @@ import {BulkCategorizeResponseDto} from './dto/bulk-categorize-response.dto.js';
 import {BulkCategorizeQueryDto} from './dto/bulk-categorize-query.dto.js';
 import {GetTotalsQueryDto} from './dto/get-totals-query.dto.js';
 import {PaginatedTransactionsResponseDto} from './dto/paginated-transactions-response.dto.js';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
+import {ScopesGuard} from '#auth/guards/scopes.guard.js';
+import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 
 @ApiTags('transactions')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('transactions')
 export class TransactionsController {
     constructor(private readonly transactionsService: TransactionsService) {}
@@ -49,21 +52,25 @@ export class TransactionsController {
      * POST /transactions
      */
     @Post()
+    @RequireScopes('transactions:write')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({
         summary: 'Create transaction',
         description: 'Create a new transaction for the authenticated user. originalDate is set from date and cannot be changed.'
     })
     @ApiBody({type: CreateTransactionDto})
-    @ApiResponse({status: 201, description: 'Transaction created', type: TransactionResponseDto})
+    @ApiResponse({status: 201, description: 'Transaction created or duplicate found', type: CreateTransactionResponseDto})
     @ApiResponse({status: 400, description: 'Invalid input data'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async create(
         @Body() createDto: CreateTransactionDto,
         @CurrentUser() currentUser: User
-    ): Promise<TransactionResponseDto> {
-        const transaction = await this.transactionsService.create(currentUser.id, createDto);
-        return TransactionResponseDto.fromEntity(transaction);
+    ): Promise<CreateTransactionResponseDto> {
+        const result = await this.transactionsService.create(currentUser.id, createDto);
+        return {
+            status: result.status,
+            transaction: TransactionResponseDto.fromEntity(result.transaction)
+        };
     }
 
     /**
@@ -71,6 +78,7 @@ export class TransactionsController {
      * POST /transactions/categorize-suggestion — must be declared before /:id
      */
     @Post('categorize-suggestion')
+    @RequireScopes('transactions:write')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({summary: 'Get AI-suggested category for a transaction'})
     @ApiBody({type: CategorizeSuggestionRequestDto})
@@ -88,6 +96,7 @@ export class TransactionsController {
      * POST /transactions/bulk-categorize — must be declared before /:id
      */
     @Post('bulk-categorize')
+    @RequireScopes('transactions:write')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({summary: 'Auto-categorize all uncategorized transactions using AI'})
     @ApiResponse({status: 200, type: BulkCategorizeResponseDto})
@@ -104,6 +113,7 @@ export class TransactionsController {
      * GET /transactions
      */
     @Get()
+    @RequireScopes('transactions:read')
     @ApiOperation({
         summary: 'List transactions',
         description: 'Get paginated list of transactions for the authenticated user. Defaults to active transactions only.'
@@ -139,6 +149,7 @@ export class TransactionsController {
      * GET /transactions/totals — must be declared before /:id
      */
     @Get('totals')
+    @RequireScopes('transactions:read')
     @ApiOperation({
         summary: 'Get totals by date range',
         description: 'Get income, expense, and net totals for a date range. Only active transactions are included. Transfers are excluded from totals.'
@@ -174,6 +185,7 @@ export class TransactionsController {
      * GET /transactions/totals/:year/:month — must be declared before /:id
      */
     @Get('totals/:year/:month')
+    @RequireScopes('transactions:read')
     @ApiOperation({
         summary: 'Get monthly totals',
         description: 'Convenience endpoint to get income, expense, and net totals for a full calendar month (1-based).'
@@ -195,6 +207,7 @@ export class TransactionsController {
      * GET /transactions/:id
      */
     @Get(':id')
+    @RequireScopes('transactions:read')
     @ApiOperation({
         summary: 'Get transaction by ID',
         description: 'Get a specific transaction. Returns 404 if not found or belongs to another user.'
@@ -216,6 +229,7 @@ export class TransactionsController {
      * PATCH /transactions/:id/toggle-active — declared before /:id to avoid routing ambiguity
      */
     @Patch(':id/toggle-active')
+    @RequireScopes('transactions:write')
     @ApiOperation({
         summary: 'Toggle active status',
         description: 'Flip the isActive flag on a transaction. Inactive transactions are excluded from totals.'
@@ -237,6 +251,7 @@ export class TransactionsController {
      * PATCH /transactions/:id
      */
     @Patch(':id')
+    @RequireScopes('transactions:write')
     @ApiOperation({
         summary: 'Update transaction',
         description: 'Partially update a transaction. transactionType cannot be changed. originalDate is never modified.'
@@ -261,6 +276,7 @@ export class TransactionsController {
      * DELETE /transactions/:id
      */
     @Delete(':id')
+    @RequireScopes('transactions:write')
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({
         summary: 'Delete transaction',

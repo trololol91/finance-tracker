@@ -21,6 +21,11 @@ import {CategoriesService} from '#categories/categories.service.js';
 import {AiCategorizationService} from '#ai-categorization/ai-categorization.service.js';
 import {CategoryRulesService} from '#category-rules/category-rules.service.js';
 
+export interface CreateTransactionResult {
+    status: 'created' | 'duplicate';
+    transaction: Transaction;
+}
+
 export interface PaginatedTransactions {
     data: Transaction[];
     total: number;
@@ -47,12 +52,25 @@ export class TransactionsService {
 
     /**
      * Create a transaction for the given user.
+     * If fitid is provided and a transaction with that fitid already exists for this user,
+     * the existing transaction is returned silently with status 'duplicate'.
      * originalDate is set from date on creation and never changes.
      */
-    public async create(userId: string, createDto: CreateTransactionDto): Promise<Transaction> {
-        const date = new Date(createDto.date);
+    public async create(
+        userId: string,
+        createDto: CreateTransactionDto
+    ): Promise<CreateTransactionResult> {
+        if (createDto.fitid) {
+            const existing = await this.prisma.transaction.findFirst({
+                where: {userId, fitid: createDto.fitid}
+            });
+            if (existing) {
+                return {status: 'duplicate', transaction: existing};
+            }
+        }
 
-        return this.prisma.transaction.create({
+        const date = new Date(createDto.date);
+        const transaction = await this.prisma.transaction.create({
             data: {
                 userId,
                 amount: Math.abs(createDto.amount),
@@ -64,9 +82,12 @@ export class TransactionsService {
                 transferDirection: createDto.transferDirection ?? null,
                 date,
                 originalDate: date,
-                isActive: true
+                isActive: true,
+                fitid: createDto.fitid ?? null
             }
         });
+
+        return {status: 'created', transaction};
     }
 
     /**

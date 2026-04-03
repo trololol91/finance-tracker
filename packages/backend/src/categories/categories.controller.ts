@@ -24,13 +24,15 @@ import {CategoriesService} from './categories.service.js';
 import {CreateCategoryDto} from './dto/create-category.dto.js';
 import {UpdateCategoryDto} from './dto/update-category.dto.js';
 import {CategoryResponseDto} from './dto/category-response.dto.js';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
+import {ScopesGuard} from '#auth/guards/scopes.guard.js';
+import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 
 @ApiTags('categories')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('categories')
 export class CategoriesController {
     constructor(private readonly categoriesService: CategoriesService) {}
@@ -40,6 +42,7 @@ export class CategoriesController {
      * GET /categories
      */
     @Get()
+    @RequireScopes('categories:read')
     @ApiOperation({
         summary: 'List categories',
         description:
@@ -56,6 +59,7 @@ export class CategoriesController {
      * GET /categories/:id
      */
     @Get(':id')
+    @RequireScopes('categories:read')
     @ApiOperation({
         summary: 'Get category by ID',
         description:
@@ -77,6 +81,7 @@ export class CategoriesController {
      * POST /categories
      */
     @Post()
+    @RequireScopes('categories:write')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({
         summary: 'Create category',
@@ -101,6 +106,7 @@ export class CategoriesController {
      * PATCH /categories/:id
      */
     @Patch(':id')
+    @RequireScopes('categories:write')
     @ApiOperation({
         summary: 'Update category',
         description:
@@ -126,6 +132,7 @@ export class CategoriesController {
      * DELETE /categories/:id
      */
     @Delete(':id')
+    @RequireScopes('categories:write')
     @ApiOperation({
         summary: 'Delete category',
         description:

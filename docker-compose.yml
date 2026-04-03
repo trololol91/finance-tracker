@@ -85,6 +85,30 @@ services:
         networks:
             - nest-network
 
+    mcp-server:
+        build:
+            context: .
+            dockerfile: packages/mcp-server/Dockerfile
+        container_name: finance-tracker-mcp
+        restart: unless-stopped
+        ports:
+            - "3010:3010"
+        environment:
+            - MCP_TRANSPORT=http
+            - MCP_PORT=3010
+            - FINANCE_TRACKER_URL=http://backend:3001
+        depends_on:
+            backend:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "wget", "-qO-", "http://localhost:3010/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 15s
+        networks:
+            - nest-network
+
     frontend:
         build:
             context: .

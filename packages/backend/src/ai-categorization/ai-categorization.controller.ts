@@ -4,7 +4,9 @@ import {
 import {
     ApiTags, ApiBearerAuth, ApiOperation
 } from '@nestjs/swagger';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
+import {ScopesGuard} from '#auth/guards/scopes.guard.js';
+import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {AiCategorizationService} from './ai-categorization.service.js';
 
 interface AiStatusResponse {
@@ -15,12 +17,13 @@ interface AiStatusResponse {
 
 @ApiTags('ai-categorization')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('ai-categorization')
 export class AiCategorizationController {
     constructor(private readonly aiCategorizationService: AiCategorizationService) {}
 
     @Get('status')
+    @RequireScopes('transactions:read')
     @ApiOperation({summary: 'Get AI categorization availability and configuration'})
     public getStatus(): AiStatusResponse {
         return {

@@ -56,10 +56,10 @@ describe('JwtStrategy', () => {
         it('should return user if payload is valid', async () => {
             vi.mocked(authService.validateJwtPayload).mockResolvedValue(mockUser);
 
-            const result: User = await strategy.validate(mockPayload);
+            const result = await strategy.validate(mockPayload);
 
             expect(authService.validateJwtPayload).toHaveBeenCalledWith(mockPayload);
-            expect(result).toEqual(mockUser);
+            expect(result).toEqual({...mockUser, apiTokenScopes: ['*'], isApiKeyAuth: false});
         });
 
         it('should throw UnauthorizedException if user not found', async () => {

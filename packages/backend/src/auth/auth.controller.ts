@@ -5,7 +5,7 @@ import {
     ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth
 } from '@nestjs/swagger';
 import {AuthService} from '#auth/auth.service.js';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import {CreateUserDto} from '#users/dto/create-user.dto.js';
 import {UserResponseDto} from '#users/dto/user-response.dto.js';
@@ -81,7 +81,7 @@ export class AuthController {
      * @throws {UnauthorizedException} If JWT token is invalid or missing
      */
     @Get('me')
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(FlexibleAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation({summary: 'Get current user profile', description: 'Retrieve the authenticated user\'s profile information'})
     @ApiResponse({status: 200, description: 'User profile retrieved', type: UserResponseDto})

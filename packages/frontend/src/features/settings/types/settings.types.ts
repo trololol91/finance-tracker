@@ -3,4 +3,4 @@
  */
 
 /** Active tab in the Settings page. */
-export type SettingsTab = 'profile' | 'notifications';
+export type SettingsTab = 'profile' | 'notifications' | 'api-tokens';

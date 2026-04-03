@@ -51,6 +51,10 @@ packages/backend/logs
 packages/frontend/dist
 packages/frontend/.vite/
 
+# MCP server specific
+packages/mcp-server/dist
+packages/mcp-server/src/api/
+
 # Ignore database files
 *.db
 

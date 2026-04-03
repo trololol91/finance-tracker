@@ -15,11 +15,11 @@
     "prepare": "husky",
     "typecheck:all": "npm run -w packages/backend typecheck && npm run -w packages/frontend typecheck",
     "lint:all": "npm run -w packages/backend lint:eslint && npm run -w packages/frontend lint:eslint",
-    "test:all": "npm run -w packages/backend test && npm run -w packages/frontend test",
-    "test:coverage:all": "npm run -w packages/backend test:coverage && npm run -w packages/frontend test:coverage",
+    "test:all": "npm run -w packages/backend test && npm run -w packages/frontend test && npm run -w packages/mcp-server test",
+    "test:coverage:all": "npm run -w packages/backend test:coverage && npm run -w packages/frontend test:coverage && npm run -w packages/mcp-server test:coverage",
     "export:transactions:cibc": "node tools/export/export-transactions-by-week-cibc.mjs",
     "export:transactions:td": "node tools/export/export-transactions-by-week-td.mjs",
-    "generate:api": "npm run -w packages/frontend generate:api",
+    "generate:api": "npm run -w packages/frontend generate:api && npm run -w packages/mcp-server generate:api",
     "generate:api:live": "npm run -w packages/frontend generate:api:live"
   },
   "author": "",
@@ -29,7 +29,8 @@
   },
   "devDependencies": {
     "archiver": "7.0.1",
-    "husky": "9.1.7"
+    "husky": "9.1.7",
+    "ps-list": "9.0.0"
   },
   "dependencies": {
     "class-transformer": "0.5.1",

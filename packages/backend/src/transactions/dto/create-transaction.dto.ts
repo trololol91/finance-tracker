@@ -90,4 +90,15 @@ export class CreateTransactionDto {
     @IsEnum(TransferDirection)
     @IsNotEmpty()
     transferDirection?: TransferDirection | null;
+
+    @ApiProperty({
+        description: 'Optional deduplication key. If a transaction with this fitid already exists for the user, the existing transaction is returned silently instead of creating a duplicate. Useful for AI-driven imports.',
+        example: 'a3f1e2d4b5c6...',
+        required: false,
+        nullable: true,
+        type: String
+    })
+    @IsString()
+    @IsOptional()
+    fitid?: string;
 }

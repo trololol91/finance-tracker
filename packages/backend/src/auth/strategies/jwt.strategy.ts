@@ -39,13 +39,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
      * @returns User object if valid
      * @throws {UnauthorizedException} If user not found or payload invalid
      */
-    public async validate(payload: JwtPayload): Promise<User> {
+    public async validate(
+        payload: JwtPayload
+    ): Promise<User & {apiTokenScopes: string[], isApiKeyAuth: false}> {
         const user: User | null = await this.authService.validateJwtPayload(payload);
 
         if (!user) {
             throw new UnauthorizedException();
         }
 
-        return user;
+        return {...user, apiTokenScopes: ['*'], isApiKeyAuth: false as const};
     }
 }

@@ -4,7 +4,9 @@ import {
 import {
     ApiBearerAuth, ApiOperation, ApiResponse, ApiTags
 } from '@nestjs/swagger';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
+import {ScopesGuard} from '#auth/guards/scopes.guard.js';
+import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {AdminGuard} from '#common/guards/admin.guard.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
@@ -14,12 +16,13 @@ import {UpdateUserRoleDto} from './dto/update-user-role.dto.js';
 
 @ApiTags('admin')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(FlexibleAuthGuard, ScopesGuard, AdminGuard)
 @Controller('admin/users')
 export class AdminUsersController {
     constructor(private readonly usersService: UsersService) {}
 
     @Get()
+    @RequireScopes('admin')
     @ApiOperation({summary: 'List all users (admin only)'})
     @ApiResponse({status: 200, type: [AdminUserListItemDto]})
     public async findAll(): Promise<AdminUserListItemDto[]> {
@@ -27,6 +30,7 @@ export class AdminUsersController {
     }
 
     @Patch(':id/role')
+    @RequireScopes('admin')
     @ApiOperation({summary: 'Update a user\'s role (admin only)'})
     @ApiResponse({status: 200, type: AdminUserListItemDto})
     @ApiResponse({status: 400, description: 'Cannot change your own role'})

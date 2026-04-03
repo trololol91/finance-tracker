@@ -1,0 +1,38 @@
+{
+  "name": "@finance-tracker/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "node --env-file=.env --import tsx/esm src/index.ts",
+    "start": "node dist/index.js",
+    "generate:api": "orval --config orval.config.ts",
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "lint:eslint": "eslint \"src/**/*.ts\" --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.10.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.18.0",
+    "@stylistic/eslint-plugin": "4.2.0",
+    "@types/node": "22.10.7",
+    "@vitest/coverage-v8": "4.0.15",
+    "eslint": "9.27.0",
+    "globals": "16.0.0",
+    "orval": "8.4.2",
+    "tsx": "4.21.0",
+    "typescript": "5.7.3",
+    "typescript-eslint": "8.20.0",
+    "vitest": "4.0.15"
+  },
+  "engines": {
+    "node": "24.13.0"
+  }
+}

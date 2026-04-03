@@ -23,6 +23,10 @@ vi.mock('@features/settings/components/NotificationsForm.js', () => ({
     NotificationsForm: (): React.JSX.Element => <div data-testid="notifications-form" />
 }));
 
+vi.mock('@features/settings/components/ApiTokens.js', () => ({
+    ApiTokens: (): React.JSX.Element => <div data-testid="api-tokens" />
+}));
+
 vi.mock('@features/settings/components/SettingsErrorBoundary.js', () => ({
     SettingsErrorBoundary: ({children}: {children: React.ReactNode}): React.JSX.Element => (
         <>{children}</>
@@ -65,6 +69,11 @@ describe('SettingsPage', () => {
         it('renders Notifications tab button', () => {
             renderPage();
             expect(screen.getByRole('tab', {name: /notifications/i})).toBeInTheDocument();
+        });
+
+        it('renders API Tokens tab button', () => {
+            renderPage();
+            expect(screen.getByRole('tab', {name: /api tokens/i})).toBeInTheDocument();
         });
     });
 
@@ -133,6 +142,32 @@ describe('SettingsPage', () => {
         });
     });
 
+    describe('API Tokens tab', () => {
+        it('shows ApiTokens component when API Tokens tab is clicked', async () => {
+            const user = userEvent.setup();
+            renderPage();
+            await user.click(screen.getByRole('tab', {name: /api tokens/i}));
+            expect(screen.getByTestId('api-tokens')).toBeInTheDocument();
+        });
+
+        it('hides ProfileForm after switching to API Tokens tab', async () => {
+            const user = userEvent.setup();
+            renderPage();
+            await user.click(screen.getByRole('tab', {name: /api tokens/i}));
+            expect(screen.queryByTestId('profile-form')).not.toBeInTheDocument();
+        });
+
+        it('marks API Tokens tab as selected after clicking it', async () => {
+            const user = userEvent.setup();
+            renderPage();
+            await user.click(screen.getByRole('tab', {name: /api tokens/i}));
+            expect(screen.getByRole('tab', {name: /api tokens/i})).toHaveAttribute(
+                'aria-selected',
+                'true'
+            );
+        });
+    });
+
     describe('ARIA wiring', () => {
         it('Profile tab controls the profile panel', () => {
             renderPage();
@@ -147,6 +182,14 @@ describe('SettingsPage', () => {
             expect(screen.getByRole('tab', {name: /notifications/i})).toHaveAttribute(
                 'aria-controls',
                 'panel-notifications'
+            );
+        });
+
+        it('API Tokens tab controls the api-tokens panel', () => {
+            renderPage();
+            expect(screen.getByRole('tab', {name: /api tokens/i})).toHaveAttribute(
+                'aria-controls',
+                'panel-api-tokens'
             );
         });
     });
@@ -191,24 +234,37 @@ describe('SettingsPage', () => {
             );
         });
 
-        it('End key moves to last tab', async () => {
+        it('End key moves to last tab (API Tokens)', async () => {
             const user = userEvent.setup();
             renderPage();
             const profileTab = screen.getByRole('tab', {name: /profile/i});
             profileTab.focus();
             await user.keyboard('{End}');
-            expect(screen.getByRole('tab', {name: /notifications/i})).toHaveAttribute(
+            expect(screen.getByRole('tab', {name: /api tokens/i})).toHaveAttribute(
                 'aria-selected',
                 'true'
             );
         });
 
-        it('ArrowRight wraps from last tab to first', async () => {
+        it('ArrowRight from Notifications moves to API Tokens tab', async () => {
             const user = userEvent.setup();
             renderPage();
             await user.click(screen.getByRole('tab', {name: /notifications/i}));
             const notifTab = screen.getByRole('tab', {name: /notifications/i});
             notifTab.focus();
+            await user.keyboard('{ArrowRight}');
+            expect(screen.getByRole('tab', {name: /api tokens/i})).toHaveAttribute(
+                'aria-selected',
+                'true'
+            );
+        });
+
+        it('ArrowRight wraps from API Tokens (last) tab to Profile (first)', async () => {
+            const user = userEvent.setup();
+            renderPage();
+            await user.click(screen.getByRole('tab', {name: /api tokens/i}));
+            const apiTokensTab = screen.getByRole('tab', {name: /api tokens/i});
+            apiTokensTab.focus();
             await user.keyboard('{ArrowRight}');
             expect(screen.getByRole('tab', {name: /profile/i})).toHaveAttribute(
                 'aria-selected',

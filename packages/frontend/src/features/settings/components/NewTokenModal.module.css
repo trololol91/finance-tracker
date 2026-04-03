@@ -1,0 +1,275 @@
+.modal {
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    padding: 0;
+    width: min(90vw, 38rem);
+    max-height: 90vh;
+    overflow-y: auto;
+    background-color: var(--color-surface);
+    margin: auto;
+}
+
+.modal::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    background-color: var(--color-surface);
+    z-index: 1;
+}
+
+.title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    line-height: 1;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.closeBtn:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface-hover);
+}
+
+.body {
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ── Form fields ─────────────────────────── */
+
+.fieldGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+}
+
+.input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    background: var(--color-surface-alt);
+    transition: border-color 0.15s;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+
+.inputError {
+    border-color: var(--color-danger);
+}
+
+.errorText {
+    font-size: var(--font-size-xs);
+    color: var(--color-danger);
+    margin: 0;
+}
+
+/* ── Scope groups ────────────────────────── */
+
+.scopeGroups {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.scopeGroup {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.scopeGroupTitle {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.375rem 0.75rem;
+    background: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
+    margin: 0;
+}
+
+.scopeItem {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+}
+
+.scopeItem:not(:last-child) {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.scopeItem:hover {
+    background: var(--color-surface-hover);
+}
+
+.scopeCheckbox {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+}
+
+.scopeLabel {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono, 'ui-monospace', monospace);
+}
+
+/* ── Actions ─────────────────────────────── */
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 0.5rem;
+}
+
+/* ── Token reveal step ───────────────────── */
+
+.tokenReveal {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.tokenWarning {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-warning-100);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+}
+
+.warningIcon {
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 0.0625rem;
+}
+
+.tokenBox {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.tokenValue {
+    flex: 1;
+    padding: 0.625rem 0.75rem;
+    font-family: var(--font-mono, 'ui-monospace', monospace);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    background: var(--color-surface-alt);
+    word-break: break-all;
+    border: none;
+    outline: none;
+    resize: none;
+    min-height: 3rem;
+    cursor: text;
+}
+
+.copyBtn {
+    padding: 0 1rem;
+    border: none;
+    border-left: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s;
+    flex-shrink: 0;
+}
+
+.copyBtn:hover {
+    background: var(--color-surface-hover);
+}
+
+.copiedBadge {
+    font-size: var(--font-size-xs);
+    color: var(--color-success);
+    font-weight: var(--font-weight-medium);
+    align-self: center;
+    margin-left: auto;
+}
+
+/* ── Bottom-sheet on mobile ≤480px ──────── */
+
+@media (max-width: 480px) {
+    .modal {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        transform: none;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 1rem 1rem 0 0;
+        max-height: 90vh;
+        margin: 0;
+    }
+}
+
+@media (max-width: 767px) {
+    .actions {
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+    }
+
+    .actions > * {
+        width: 100%;
+    }
+}

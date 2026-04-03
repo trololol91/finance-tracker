@@ -25,13 +25,15 @@ import {AccountsService} from '#accounts/accounts.service.js';
 import {CreateAccountDto} from '#accounts/dto/create-account.dto.js';
 import {UpdateAccountDto} from '#accounts/dto/update-account.dto.js';
 import {AccountResponseDto} from '#accounts/dto/account-response.dto.js';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
+import {ScopesGuard} from '#auth/guards/scopes.guard.js';
+import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 
 @ApiTags('accounts')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('accounts')
 export class AccountsController {
     constructor(private readonly accountsService: AccountsService) {}
@@ -41,6 +43,7 @@ export class AccountsController {
      * GET /accounts
      */
     @Get()
+    @RequireScopes('accounts:read')
     @ApiOperation({
         summary: 'List accounts',
         description:
@@ -57,6 +60,7 @@ export class AccountsController {
      * GET /accounts/:id
      */
     @Get(':id')
+    @RequireScopes('accounts:read')
     @ApiOperation({
         summary: 'Get account by ID',
         description: 'Get a specific account. Returns 404 if not found or belongs to another user.'
@@ -78,6 +82,7 @@ export class AccountsController {
      * POST /accounts
      */
     @Post()
+    @RequireScopes('accounts:write')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({
         summary: 'Create account',
@@ -101,6 +106,7 @@ export class AccountsController {
      * PATCH /accounts/:id
      */
     @Patch(':id')
+    @RequireScopes('accounts:write')
     @ApiOperation({
         summary: 'Update account',
         description:
@@ -127,6 +133,7 @@ export class AccountsController {
      * DELETE /accounts/:id
      */
     @Delete(':id')
+    @RequireScopes('accounts:write')
     @ApiOperation({
         summary: 'Delete account',
         description:

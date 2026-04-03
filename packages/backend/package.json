@@ -25,7 +25,8 @@
     "#generated/*": "./dist/generated/*",
     "#dashboard/*": "./dist/dashboard/*",
     "#ai-categorization/*": "./dist/ai-categorization/*",
-    "#category-rules/*": "./dist/category-rules/*"
+    "#category-rules/*": "./dist/category-rules/*",
+    "#api-tokens/*": "./dist/api-tokens/*"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

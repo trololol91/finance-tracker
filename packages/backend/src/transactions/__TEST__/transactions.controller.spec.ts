@@ -14,7 +14,8 @@ import {PaginatedTransactionsResponseDto} from '#transactions/dto/paginated-tran
 import type {TransactionsService} from '#transactions/transactions.service.js';
 import type {
     PaginatedTransactions,
-    TransactionTotals
+    TransactionTotals,
+    CreateTransactionResult
 } from '#transactions/transactions.service.js';
 import type {
     Transaction,
@@ -111,34 +112,48 @@ describe('TransactionsController', () => {
             date: '2026-02-15T10:00:00.000Z'
         };
 
+        const makeCreateResult = (txn = makeTransaction()): CreateTransactionResult =>
+            ({status: 'created', transaction: txn});
+
         it('should call service.create with userId and dto', async () => {
-            vi.mocked(service.create).mockResolvedValue(makeTransaction());
+            vi.mocked(service.create).mockResolvedValue(makeCreateResult());
 
             await controller.create(createDto, mockCurrentUser);
 
             expect(service.create).toHaveBeenCalledWith(mockCurrentUser.id, createDto);
         });
 
-        it('should return a TransactionResponseDto with amount as number', async () => {
-            vi.mocked(service.create).mockResolvedValue(makeTransaction());
+        it('should return status and transaction with amount as number', async () => {
+            vi.mocked(service.create).mockResolvedValue(makeCreateResult());
 
             const result = await controller.create(createDto, mockCurrentUser);
 
-            expect(result.amount).toBe(42.50);
-            expect(typeof result.amount).toBe('number');
+            expect(result.status).toBe('created');
+            expect(result.transaction.amount).toBe(42.50);
+            expect(typeof result.transaction.amount).toBe('number');
         });
 
         it('should include all expected response fields', async () => {
             const txn = makeTransaction();
-            vi.mocked(service.create).mockResolvedValue(txn);
+            vi.mocked(service.create).mockResolvedValue(makeCreateResult(txn));
 
             const result = await controller.create(createDto, mockCurrentUser);
 
-            expect(result.id).toBe(txn.id);
-            expect(result.userId).toBe(txn.userId);
-            expect(result.description).toBe(txn.description);
-            expect(result.transactionType).toBe(TransactionType.expense);
-            expect(result.isActive).toBe(true);
+            expect(result.transaction.id).toBe(txn.id);
+            expect(result.transaction.userId).toBe(txn.userId);
+            expect(result.transaction.description).toBe(txn.description);
+            expect(result.transaction.transactionType).toBe(TransactionType.expense);
+            expect(result.transaction.isActive).toBe(true);
+        });
+
+        it('should return status duplicate when service returns duplicate', async () => {
+            const txn = makeTransaction();
+            vi.mocked(service.create).mockResolvedValue({status: 'duplicate', transaction: txn});
+
+            const result = await controller.create(createDto, mockCurrentUser);
+
+            expect(result.status).toBe('duplicate');
+            expect(result.transaction.id).toBe(txn.id);
         });
     });
 

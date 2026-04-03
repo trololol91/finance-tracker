@@ -5,6 +5,7 @@ import React, {
 } from 'react';
 import {ProfileForm} from '@features/settings/components/ProfileForm.js';
 import {NotificationsForm} from '@features/settings/components/NotificationsForm.js';
+import {ApiTokens} from '@features/settings/components/ApiTokens.js';
 import {SettingsErrorBoundary} from '@features/settings/components/SettingsErrorBoundary.js';
 import type {SettingsTab} from '@features/settings/types/settings.types.js';
 import styles from '@features/settings/pages/SettingsPage.module.css';
@@ -16,7 +17,8 @@ interface TabDef {
 
 const TABS: TabDef[] = [
     {id: 'profile', label: 'Profile'},
-    {id: 'notifications', label: 'Notifications'}
+    {id: 'notifications', label: 'Notifications'},
+    {id: 'api-tokens', label: 'API Tokens'}
 ];
 
 export const SettingsPage = (): React.JSX.Element => {
@@ -98,6 +100,19 @@ export const SettingsPage = (): React.JSX.Element => {
                         {activeTab === 'notifications' && (
                             <SettingsErrorBoundary>
                                 <NotificationsForm />
+                            </SettingsErrorBoundary>
+                        )}
+                    </div>
+
+                    <div
+                        id="panel-api-tokens"
+                        role="tabpanel"
+                        aria-labelledby="tab-api-tokens"
+                        hidden={activeTab !== 'api-tokens'}
+                    >
+                        {activeTab === 'api-tokens' && (
+                            <SettingsErrorBoundary>
+                                <ApiTokens />
                             </SettingsErrorBoundary>
                         )}
                     </div>

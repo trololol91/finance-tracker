@@ -68,6 +68,9 @@
             ],
             "#category-rules/*": [
                 "./category-rules/*"
+            ],
+            "#api-tokens/*": [
+                "./api-tokens/*"
             ]
         },
         "incremental": true,

@@ -4,7 +4,9 @@ import {
 import {
     ApiBearerAuth, ApiOperation, ApiResponse, ApiTags
 } from '@nestjs/swagger';
-import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
+import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
+import {ScopesGuard} from '#auth/guards/scopes.guard.js';
+import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
 import {DashboardService} from './dashboard.service.js';
@@ -14,12 +16,13 @@ import {SpendingByCategoryDto} from './dto/spending-by-category.dto.js';
 
 @ApiTags('dashboard')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('dashboard')
 export class DashboardController {
     constructor(private readonly dashboardService: DashboardService) {}
 
     @Get('summary')
+    @RequireScopes('dashboard:read')
     @ApiOperation({summary: 'Get dashboard summary (net worth, income, expenses, savings rate)'})
     @ApiResponse({status: 200, type: DashboardSummaryDto})
     public async getSummary(
@@ -30,6 +33,7 @@ export class DashboardController {
     }
 
     @Get('spending-by-category')
+    @RequireScopes('dashboard:read')
     @ApiOperation({summary: 'Get spending breakdown by category for a given month'})
     @ApiResponse({status: 200, type: SpendingByCategoryDto})
     public async getSpendingByCategory(

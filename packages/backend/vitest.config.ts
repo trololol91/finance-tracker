@@ -57,7 +57,8 @@ export default defineConfig({
             '#generated': resolve(__dirname, './src/generated'),
             '#dashboard': resolve(__dirname, './src/dashboard'),
             '#ai-categorization': resolve(__dirname, './src/ai-categorization'),
-            '#category-rules': resolve(__dirname, './src/category-rules')
+            '#category-rules': resolve(__dirname, './src/category-rules'),
+            '#api-tokens': resolve(__dirname, './src/api-tokens')
         }
     }
 });
