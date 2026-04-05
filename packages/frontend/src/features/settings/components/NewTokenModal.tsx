@@ -2,8 +2,8 @@ import React, {
     useState,
     useRef,
     useEffect,
-    useLayoutEffect,
-    useCallback
+    useCallback,
+    useMemo
 } from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {useAuth} from '@features/auth/hooks/useAuth.js';
@@ -17,9 +17,17 @@ import styles from '@features/settings/components/NewTokenModal.module.css';
 
 const HEADING_ID = 'new-token-modal-title';
 
+// Keep in sync with API_TOKEN_SCOPES in packages/backend/src/auth/api-token-scopes.ts
+type ApiTokenScope =
+    | 'transactions:read' | 'transactions:write'
+    | 'accounts:read'     | 'accounts:write'
+    | 'categories:read'   | 'categories:write'
+    | 'dashboard:read'
+    | 'admin';
+
 interface ScopeGroup {
     label: string;
-    scopes: string[];
+    scopes: ApiTokenScope[];
 }
 
 const SCOPE_GROUPS: ScopeGroup[] = [
@@ -38,7 +46,7 @@ interface NewTokenModalProps {
 
 type ModalStep = 'form' | 'reveal';
 
-export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.Element | null => {
+export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.Element => {
     const {user} = useAuth();
     const queryClient = useQueryClient();
     const {mutate: createToken, isPending} = useApiTokensControllerCreate();
@@ -50,7 +58,7 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
     const [step, setStep] = useState<ModalStep>('form');
     const [name, setName] = useState('');
     const [nameError, setNameError] = useState('');
-    const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set());
+    const [selectedScopes, setSelectedScopes] = useState<Set<ApiTokenScope>>(new Set());
     const [scopesError, setScopesError] = useState('');
     const [expiresAt, setExpiresAt] = useState('');
     const [apiError, setApiError] = useState('');
@@ -94,9 +102,9 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
 
     // Reset form state when modal opens.
      
-    useLayoutEffect(() => {  
+    useEffect(() => {  
         if (isOpen) {
-            setStep('form'); // eslint-disable-line react-hooks/set-state-in-effect
+            setStep('form');
             setName('');  
             setNameError('');  
             setSelectedScopes(new Set());  
@@ -153,7 +161,7 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
         [onClose]
     );
 
-    const toggleScope = (scope: string): void => {
+    const toggleScope = (scope: ApiTokenScope): void => {
         setSelectedScopes((prev) => {
             const next = new Set(prev);
             if (next.has(scope)) {
@@ -175,6 +183,9 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
         let valid = true;
         if (name.trim() === '') {
             setNameError('Token name is required.');
+            valid = false;
+        } else if (name.trim().length > 100) {
+            setNameError('Token name must be 100 characters or fewer.');
             valid = false;
         }
         if (selectedScopes.size === 0) {
@@ -211,15 +222,26 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
         if (!createdToken) return;
         void navigator.clipboard.writeText(createdToken.token).then(() => {
             setCopied(true);
+            setTimeout(() => { setCopied(false); }, 2000);
         }).catch(() => {
             console.error('[NewTokenModal] Failed to copy token to clipboard');
         });
     };
 
-    const scopeGroupsToRender =
-        user?.role === 'ADMIN'
-            ? [...SCOPE_GROUPS, ADMIN_SCOPE_GROUP]
-            : SCOPE_GROUPS;
+    // Tomorrow UTC — the backend DTO rejects today (expiresAt: {gt: new Date()} at midnight).
+    // Computed once per modal open; a session kept open past midnight UTC will show a stale
+    // min date, but the backend validator will still reject any past date at submit time.
+    const tomorrowUtc = useMemo((): string => {
+        const now = new Date();
+        return new Date(Date.UTC(
+            now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1
+        )).toISOString().split('T')[0];
+    }, []);
+
+    const scopeGroupsToRender = useMemo(
+        () => user?.role === 'ADMIN' ? [...SCOPE_GROUPS, ADMIN_SCOPE_GROUP] : SCOPE_GROUPS,
+        [user?.role]
+    );
 
     return (
         <dialog
@@ -248,7 +270,7 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
                     {step === 'form' ? (
                         <form onSubmit={handleSubmit} noValidate aria-label="New API token form">
                             {apiError !== '' && (
-                                <p role="alert" style={{color: 'var(--color-danger)', fontSize: 'var(--font-size-sm)', margin: '0 0 0.75rem'}}>
+                                <p role="alert" className={styles.apiError}>
                                     {apiError}
                                 </p>
                             )}
@@ -279,7 +301,7 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
                                 )}
                             </div>
 
-                            <div className={styles.fieldGroup} style={{marginTop: '1rem'}}>
+                            <div className={styles.fieldGroup}>
                                 <p className={styles.label} id="scopes-label">
                                     Scopes
                                 </p>
@@ -321,9 +343,10 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
                                 </div>
                             </div>
 
-                            <div className={styles.fieldGroup} style={{marginTop: '1rem'}}>
+                            <div className={styles.fieldGroup}>
                                 <label htmlFor="token-expires" className={styles.label}>
-                                    Expiry date <span style={{color: 'var(--color-gray-400)', fontWeight: 400}}>(optional)</span>
+                                    Expiry date{' '}
+                                    <span className={styles.expiryOptional}>(optional)</span>
                                 </label>
                                 <input
                                     id="token-expires"
@@ -331,11 +354,11 @@ export const NewTokenModal = ({isOpen, onClose}: NewTokenModalProps): React.JSX.
                                     className={styles.input}
                                     value={expiresAt}
                                     onChange={(e): void => { setExpiresAt(e.target.value); }}
-                                    min={new Date().toISOString().split('T')[0]}
+                                    min={tomorrowUtc}
                                 />
                             </div>
 
-                            <div className={styles.actions} style={{marginTop: '1.25rem'}}>
+                            <div className={styles.actions}>
                                 <Button
                                     type="button"
                                     variant="secondary"

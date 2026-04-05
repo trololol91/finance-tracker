@@ -9,6 +9,7 @@ import {
     HttpCode,
     HttpStatus,
     UseGuards,
+    ParseUUIDPipe,
     Res
 } from '@nestjs/common';
 import type {Response} from 'express';
@@ -20,10 +21,10 @@ import {
     ApiBody,
     ApiBearerAuth
 } from '@nestjs/swagger';
-import {CategoriesService} from './categories.service.js';
-import {CreateCategoryDto} from './dto/create-category.dto.js';
-import {UpdateCategoryDto} from './dto/update-category.dto.js';
-import {CategoryResponseDto} from './dto/category-response.dto.js';
+import {CategoriesService} from '#categories/categories.service.js';
+import {CreateCategoryDto} from '#categories/dto/create-category.dto.js';
+import {UpdateCategoryDto} from '#categories/dto/update-category.dto.js';
+import {CategoryResponseDto} from '#categories/dto/category-response.dto.js';
 import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
 import {ScopesGuard} from '#auth/guards/scopes.guard.js';
 import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
@@ -70,7 +71,7 @@ export class CategoriesController {
     @ApiResponse({status: 404, description: 'Category not found'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async findOne(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser() currentUser: User
     ): Promise<CategoryResponseDto> {
         return this.categoriesService.findOne(currentUser.id, id);
@@ -120,7 +121,7 @@ export class CategoriesController {
     @ApiResponse({status: 404, description: 'Category not found'})
     @ApiResponse({status: 409, description: 'Duplicate name at this level'})
     public async update(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body() updateDto: UpdateCategoryDto,
         @CurrentUser() currentUser: User
     ): Promise<CategoryResponseDto> {
@@ -152,7 +153,7 @@ export class CategoriesController {
     @ApiResponse({status: 401, description: 'Unauthorized'})
     @ApiResponse({status: 404, description: 'Category not found'})
     public async remove(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser() currentUser: User,
         @Res({passthrough: true}) res: Response
     ): Promise<CategoryResponseDto | void> {

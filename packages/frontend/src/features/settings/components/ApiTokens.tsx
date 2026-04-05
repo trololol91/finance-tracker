@@ -1,4 +1,6 @@
-import React, {useState} from 'react';
+import React, {
+    useState, useCallback
+} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     useApiTokensControllerFindAll,
@@ -82,12 +84,14 @@ export const ApiTokens = (): React.JSX.Element => {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [revokingId, setRevokingId] = useState<string | null>(null);
+    const [revokeError, setRevokeError] = useState<string | null>(null);
 
     const {data: tokens, isLoading, isError} = useApiTokensControllerFindAll();
     const {mutate: revokeToken} = useApiTokensControllerRemove();
 
-    const handleRevoke = (id: string): void => {
+    const handleRevoke = useCallback((id: string): void => {
         setRevokingId(id);
+        setRevokeError(null);
         revokeToken(
             {id},
             {
@@ -98,13 +102,14 @@ export const ApiTokens = (): React.JSX.Element => {
                 },
                 onError: (): void => {
                     console.error('[ApiTokens] Failed to revoke token', id);
+                    setRevokeError('Failed to revoke token. Please try again.');
                 },
                 onSettled: (): void => {
                     setRevokingId(null);
                 }
             }
         );
-    };
+    }, [queryClient, revokeToken]);
 
     return (
         <section className={styles.section} aria-label="API tokens">
@@ -132,6 +137,12 @@ export const ApiTokens = (): React.JSX.Element => {
             {isError && (
                 <div className={styles.errorBox} role="alert">
                     Failed to load API tokens. Please refresh the page.
+                </div>
+            )}
+
+            {revokeError !== null && (
+                <div className={styles.errorBox} role="alert">
+                    {revokeError}
                 </div>
             )}
 

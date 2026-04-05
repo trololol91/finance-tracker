@@ -160,6 +160,24 @@ describe('ApiTokens', () => {
             );
         });
 
+        it('shows error banner when revoke mutation fails', async () => {
+            mockUseFindAll.mockReturnValue(makeFindAll({data: [sampleToken]}));
+            const user = userEvent.setup();
+            renderApiTokens();
+            await user.click(screen.getByRole('button', {name: /revoke token my integration/i}));
+            const callbacks = mockRevokeMutate.mock.calls[0][1] as {
+                onError: () => void;
+                onSettled: () => void;
+            };
+            callbacks.onError();
+            callbacks.onSettled();
+            await waitFor(() => {
+                expect(
+                    screen.getByRole('alert', {name: undefined})
+                ).toHaveTextContent(/failed to revoke token/i);
+            });
+        });
+
         it('invokes onSuccess callback after revoke', async () => {
             const mockInvalidate = vi.fn();
             const {useQueryClient} = await import('@tanstack/react-query');
@@ -172,11 +190,9 @@ describe('ApiTokens', () => {
             await user.click(screen.getByRole('button', {name: /revoke token my integration/i}));
             const callbacks = mockRevokeMutate.mock.calls[0][1] as {
                 onSuccess: () => void;
-                onError: () => void;
                 onSettled: () => void;
             };
             callbacks.onSuccess();
-            callbacks.onError();
             callbacks.onSettled();
             expect(mockInvalidate).toHaveBeenCalled();
         });

@@ -10,7 +10,8 @@ import {
     HttpCode,
     HttpStatus,
     UseGuards,
-    ParseIntPipe
+    ParseIntPipe,
+    ParseUUIDPipe
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -21,19 +22,19 @@ import {
     ApiQuery,
     ApiBearerAuth
 } from '@nestjs/swagger';
-import {TransactionsService} from './transactions.service.js';
-import {CreateTransactionDto} from './dto/create-transaction.dto.js';
-import {UpdateTransactionDto} from './dto/update-transaction.dto.js';
-import {TransactionFilterDto} from './dto/transaction-filter.dto.js';
-import {TransactionResponseDto} from './dto/transaction-response.dto.js';
-import {CreateTransactionResponseDto} from './dto/create-transaction-response.dto.js';
-import {TransactionTotalsResponseDto} from './dto/transaction-totals-response.dto.js';
-import {CategorizeSuggestionRequestDto} from './dto/categorize-suggestion-request.dto.js';
-import {CategorizeSuggestionResponseDto} from './dto/categorize-suggestion-response.dto.js';
-import {BulkCategorizeResponseDto} from './dto/bulk-categorize-response.dto.js';
-import {BulkCategorizeQueryDto} from './dto/bulk-categorize-query.dto.js';
-import {GetTotalsQueryDto} from './dto/get-totals-query.dto.js';
-import {PaginatedTransactionsResponseDto} from './dto/paginated-transactions-response.dto.js';
+import {TransactionsService} from '#transactions/transactions.service.js';
+import {CreateTransactionDto} from '#transactions/dto/create-transaction.dto.js';
+import {UpdateTransactionDto} from '#transactions/dto/update-transaction.dto.js';
+import {TransactionFilterDto} from '#transactions/dto/transaction-filter.dto.js';
+import {TransactionResponseDto} from '#transactions/dto/transaction-response.dto.js';
+import {CreateTransactionResponseDto} from '#transactions/dto/create-transaction-response.dto.js';
+import {TransactionTotalsResponseDto} from '#transactions/dto/transaction-totals-response.dto.js';
+import {CategorizeSuggestionRequestDto} from '#transactions/dto/categorize-suggestion-request.dto.js';
+import {CategorizeSuggestionResponseDto} from '#transactions/dto/categorize-suggestion-response.dto.js';
+import {BulkCategorizeResponseDto} from '#transactions/dto/bulk-categorize-response.dto.js';
+import {BulkCategorizeQueryDto} from '#transactions/dto/bulk-categorize-query.dto.js';
+import {GetTotalsQueryDto} from '#transactions/dto/get-totals-query.dto.js';
+import {PaginatedTransactionsResponseDto} from '#transactions/dto/paginated-transactions-response.dto.js';
 import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
 import {ScopesGuard} from '#auth/guards/scopes.guard.js';
 import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
@@ -217,7 +218,7 @@ export class TransactionsController {
     @ApiResponse({status: 404, description: 'Transaction not found'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async findOne(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser() currentUser: User
     ): Promise<TransactionResponseDto> {
         const transaction = await this.transactionsService.findOne(currentUser.id, id);
@@ -239,7 +240,7 @@ export class TransactionsController {
     @ApiResponse({status: 404, description: 'Transaction not found'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async toggleActive(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser() currentUser: User
     ): Promise<TransactionResponseDto> {
         const transaction = await this.transactionsService.toggleActive(currentUser.id, id);
@@ -263,7 +264,7 @@ export class TransactionsController {
     @ApiResponse({status: 404, description: 'Transaction not found'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async update(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body() updateDto: UpdateTransactionDto,
         @CurrentUser() currentUser: User
     ): Promise<TransactionResponseDto> {
@@ -287,7 +288,7 @@ export class TransactionsController {
     @ApiResponse({status: 404, description: 'Transaction not found'})
     @ApiResponse({status: 401, description: 'Unauthorized'})
     public async remove(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser() currentUser: User
     ): Promise<void> {
         await this.transactionsService.remove(currentUser.id, id);

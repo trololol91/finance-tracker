@@ -22,3 +22,8 @@ CREATE INDEX "api_tokens_user_id_idx" ON "api_tokens"("user_id");
 
 -- AddForeignKey
 ALTER TABLE "api_tokens" ADD CONSTRAINT "api_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Partial index for the ApiKeyStrategy auth lookup:
+-- WHERE deleted_at IS NULL covers the most common path (active tokens) and keeps
+-- the index small relative to the full token_hash unique index.
+CREATE INDEX "api_tokens_token_hash_active_idx" ON "api_tokens"("token_hash") WHERE "deleted_at" IS NULL;

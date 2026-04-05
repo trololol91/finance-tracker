@@ -260,7 +260,7 @@ For clients that follow the MCP spec directly:
 
 | Tool | Description |
 |---|---|
-| `list_transactions` | List transactions with filters: `startDate`, `endDate`, `categoryId[]`, `accountId[]`, `transactionType[]`, `search`, `limit`, `offset` |
+| `list_transactions` | List transactions with filters: `startDate`, `endDate`, `categoryId[]`, `accountId[]`, `transactionType[]`, `search`, `limit`, `page` |
 | `get_transaction_totals` | Income, expense and net totals for a given month |
 | `list_accounts` | All accounts for the authenticated user |
 | `list_categories` | All categories for the authenticated user |
@@ -280,3 +280,15 @@ For clients that follow the MCP spec directly:
 | `dashboard:read` | `get_dashboard_summary` |
 
 For read-only AI access, grant the four read scopes above. Add `transactions:write` only if you want the AI to be able to create transactions via `create_transaction`. The `admin` scope is never needed for MCP use.
+
+---
+
+## Security notes
+
+### Token revocation and HTTP sessions
+
+When using the **HTTP transport**, revoking an API token from Settings → API Tokens takes effect immediately for new connections. However, an already-established MCP session (created before the token was revoked) continues to work until it idles out — the server re-validates the token against the backend only when a new session is initialised, not on every tool call. Idle sessions time out after **30 minutes** of inactivity.
+
+**Implication:** if you revoke a token because you believe it was compromised, the attacker's open MCP sessions can continue for up to 30 minutes. To terminate them immediately, restart the MCP server process.
+
+The **stdio transport** is not affected — it validates the token at startup only, and the process lifespan is controlled by the client.

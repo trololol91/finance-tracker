@@ -75,6 +75,15 @@ describe('ApiTokensService', () => {
             ).rejects.toThrow(ForbiddenException);
         });
 
+        it('throws ForbiddenException when USER role requests admin alongside other scopes', async () => {
+            await expect(
+                service.create('user-1', 'USER', {
+                    name: 'Mixed',
+                    scopes: ['transactions:read', 'admin'] as never
+                })
+            ).rejects.toThrow(ForbiddenException);
+        });
+
         it('allows ADMIN role to create admin-scoped token', async () => {
             vi.mocked(mockPrisma.apiToken.create).mockResolvedValue({
                 id: 'tok-2',
@@ -96,7 +105,7 @@ describe('ApiTokensService', () => {
             expect(result.id).toBe('tok-2');
         });
 
-        it('parses expiresAt when provided', async () => {
+        it('parses expiresAt YYYY-MM-DD as UTC midnight', async () => {
             vi.mocked(mockPrisma.apiToken.create).mockResolvedValue({
                 id: 'tok-3',
                 name: 'Expiring',
@@ -113,38 +122,79 @@ describe('ApiTokensService', () => {
             await service.create('user-1', 'USER', {
                 name: 'Expiring',
                 scopes: ['accounts:read'] as const,
-                expiresAt: '2027-01-01T00:00:00Z'
+                expiresAt: '2027-01-01'
             });
 
             const createCall = vi.mocked(mockPrisma.apiToken.create).mock.calls[0][0];
-            expect(createCall.data.expiresAt).toBeInstanceOf(Date);
+            const expiresAt = createCall.data.expiresAt as Date;
+            expect(expiresAt).toBeInstanceOf(Date);
+            expect(expiresAt.getTime()).toBe(Date.UTC(2027, 0, 1));
+        });
+
+        it('parses expiresAt ISO timestamp using only the date portion', async () => {
+            vi.mocked(mockPrisma.apiToken.create).mockResolvedValue({
+                id: 'tok-4',
+                name: 'Expiring ISO',
+                scopes: ['accounts:read'],
+                lastUsedAt: null,
+                expiresAt: new Date('2027-06-15'),
+                createdAt: now,
+                updatedAt: now,
+                userId: 'user-1',
+                tokenHash: 'hash',
+                deletedAt: null
+            });
+
+            await service.create('user-1', 'USER', {
+                name: 'Expiring ISO',
+                scopes: ['accounts:read'] as const,
+                expiresAt: '2027-06-15T00:00:00.000Z'
+            });
+
+            const createCall = vi.mocked(mockPrisma.apiToken.create).mock.calls[0][0];
+            const expiresAt = createCall.data.expiresAt as Date;
+            expect(expiresAt).toBeInstanceOf(Date);
+            // Must use Date.UTC — not affected by local timezone of the test runner
+            expect(expiresAt.getTime()).toBe(Date.UTC(2027, 5, 15));
         });
     });
 
     describe('findAll', () => {
-        it('returns tokens without sensitive fields', async () => {
-            vi.mocked(mockPrisma.apiToken.findMany).mockResolvedValue([
-                {
-                    id: 'tok-1',
-                    name: 'My Token',
-                    scopes: ['transactions:read'],
-                    lastUsedAt: null,
-                    expiresAt: null,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    userId: 'user-1',
-                    tokenHash: 'secret-hash',
-                    deletedAt: null
-                }
-            ]);
+        it('returns tokens with only the safe fields selected', async () => {
+            const mockToken = {
+                id: 'tok-1',
+                name: 'My Token',
+                scopes: ['transactions:read'],
+                lastUsedAt: null,
+                expiresAt: null,
+                createdAt: new Date()
+            };
+            vi.mocked(mockPrisma.apiToken.findMany).mockResolvedValue(
+                [mockToken] as never
+            );
 
             const result = await service.findAll('user-1');
 
             expect(result).toHaveLength(1);
-            expect(result[0]).not.toHaveProperty('tokenHash');
-            expect(result[0]).not.toHaveProperty('deletedAt');
-            expect(result[0]).not.toHaveProperty('userId');
             expect(result[0]).toHaveProperty('id', 'tok-1');
+            expect(result[0]).toHaveProperty('name', 'My Token');
+
+            // Verify the Prisma query uses select (not include) to exclude sensitive fields
+            const findManyCall = vi.mocked(mockPrisma.apiToken.findMany).mock.calls[0]?.[0];
+            expect(findManyCall).toHaveProperty('select');
+            expect(findManyCall?.select).not.toHaveProperty('tokenHash');
+            expect(findManyCall?.select).not.toHaveProperty('userId');
+            expect(findManyCall?.select).not.toHaveProperty('deletedAt');
+        });
+
+        it('includes expired tokens so the UI can show their expired state', async () => {
+            vi.mocked(mockPrisma.apiToken.findMany).mockResolvedValue([] as never);
+
+            await service.findAll('user-1');
+
+            const findManyCall = vi.mocked(mockPrisma.apiToken.findMany).mock.calls[0]?.[0];
+            // The where clause should NOT filter by expiresAt — expired tokens are shown
+            expect(findManyCall?.where).not.toHaveProperty('OR');
         });
     });
 

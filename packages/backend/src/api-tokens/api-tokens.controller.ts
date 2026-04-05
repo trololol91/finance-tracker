@@ -1,5 +1,5 @@
 import {
-    Controller, Get, Post, Delete, Param, Body, HttpCode, UseGuards
+    Controller, Get, Post, Delete, Param, Body, HttpCode, HttpStatus, UseGuards, ParseUUIDPipe
 } from '@nestjs/common';
 import {
     ApiTags, ApiOperation, ApiBearerAuth
@@ -15,16 +15,20 @@ import type {User} from '#generated/prisma/client.js';
 
 @ApiTags('api-tokens')
 @Controller('api-tokens')
+// Intentionally JwtAuthGuard (not FlexibleAuthGuard): API tokens must not be able to
+// create or revoke other API tokens — that would allow privilege escalation via a
+// compromised or stolen token. Token management is restricted to browser sessions only.
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class ApiTokensController {
     constructor(private readonly apiTokensService: ApiTokensService) {}
 
     @Post()
+    @HttpCode(HttpStatus.CREATED)
     @ApiOperation({summary: 'Create a new API token'})
     public create(
         @Body() dto: CreateApiTokenDto,
-        @CurrentUser() user: User & {role: string}
+        @CurrentUser() user: User
     ): Promise<CreateApiTokenResponseDto> {
         return this.apiTokensService.create(user.id, user.role, dto);
     }
@@ -38,7 +42,7 @@ export class ApiTokensController {
     @Delete(':id')
     @HttpCode(204)
     @ApiOperation({summary: 'Revoke an API token'})
-    public remove(@Param('id') id: string, @CurrentUser() user: User): Promise<void> {
+    public remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User): Promise<void> {
         return this.apiTokensService.remove(user.id, id);
     }
 }

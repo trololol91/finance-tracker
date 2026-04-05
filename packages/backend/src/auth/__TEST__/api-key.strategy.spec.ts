@@ -14,19 +14,9 @@ const mockPrisma = {
 
 const baseUser = {
     id: 'user-1',
-    email: 'test@example.com',
-    passwordHash: 'hash',
-    firstName: 'Test',
-    lastName: 'User',
-    emailVerified: true,
-    isActive: true,
-    deletedAt: null,
-    timezone: 'UTC',
-    currency: 'USD',
     role: 'USER',
-    notifyEmail: true,
-    createdAt: new Date(),
-    updatedAt: new Date()
+    isActive: true,
+    deletedAt: null
 };
 
 describe('ApiKeyStrategy', () => {
@@ -61,7 +51,17 @@ describe('ApiKeyStrategy', () => {
 
             expect(result.apiTokenScopes).toEqual(['transactions:read']);
             expect(result.isApiKeyAuth).toBe(true);
-            expect(result.email).toBe('test@example.com');
+            expect(result.id).toBe('user-1');
+        });
+
+        it('throws UnauthorizedException when database throws', async () => {
+            vi.mocked(mockPrisma.apiToken.findFirst).mockRejectedValue(
+                new Error('Connection refused')
+            );
+
+            await expect(
+                strategy.validate(undefined, 'ft_sometoken')
+            ).rejects.toThrow(UnauthorizedException);
         });
 
         it('fires lastUsedAt update without awaiting', async () => {
@@ -80,6 +80,43 @@ describe('ApiKeyStrategy', () => {
                     data: expect.objectContaining({lastUsedAt: expect.any(Date)})
                 })
             );
+        });
+
+        it('throws UnauthorizedException when token is expired (findFirst returns null due to expiresAt filter)', async () => {
+            // Simulate the DB returning null because the expiresAt clause filtered out the token
+            vi.mocked(mockPrisma.apiToken.findFirst).mockResolvedValue(null);
+
+            await expect(
+                strategy.validate(undefined, 'ft_expiredtoken')
+            ).rejects.toThrow(UnauthorizedException);
+
+            // Confirm the query includes the expiresAt guard
+            const query = vi.mocked(mockPrisma.apiToken.findFirst).mock.calls[0][0];
+            expect((query as {where: {OR: unknown[]}}).where.OR).toBeDefined();
+        });
+
+        it('throws UnauthorizedException when user is deactivated (isActive: false)', async () => {
+            vi.mocked(mockPrisma.apiToken.findFirst).mockResolvedValue({
+                id: 'tok-1',
+                scopes: ['transactions:read'],
+                user: {...baseUser, isActive: false}
+            } as never);
+
+            await expect(
+                strategy.validate(undefined, 'ft_sometoken')
+            ).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('throws UnauthorizedException when user is soft-deleted (deletedAt set)', async () => {
+            vi.mocked(mockPrisma.apiToken.findFirst).mockResolvedValue({
+                id: 'tok-1',
+                scopes: ['transactions:read'],
+                user: {...baseUser, deletedAt: new Date('2025-01-01')}
+            } as never);
+
+            await expect(
+                strategy.validate(undefined, 'ft_sometoken')
+            ).rejects.toThrow(UnauthorizedException);
         });
 
         it('hashes the raw token before querying', async () => {

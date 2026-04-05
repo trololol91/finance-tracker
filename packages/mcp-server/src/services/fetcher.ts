@@ -19,7 +19,7 @@ export const mcpFetcher = async <T>(options: McpFetcherOptions): Promise<T> => {
         );
     }
 
-    const baseUrl = process.env.FINANCE_TRACKER_URL ?? 'http://localhost:3000';
+    const baseUrl = process.env.FINANCE_TRACKER_URL ?? 'http://localhost:3001';
 
     const url = new URL(options.url, baseUrl);
     if (options.params) {

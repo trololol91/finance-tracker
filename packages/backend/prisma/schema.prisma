@@ -315,5 +315,7 @@ model ApiToken {
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([userId])
+  // Partial index covering the auth lookup: tokenHash WHERE deletedAt IS NULL.
+  // Prisma doesn't support partial index syntax directly; add via a custom migration if needed.
   @@map("api_tokens")
 }

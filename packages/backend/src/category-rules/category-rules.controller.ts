@@ -7,7 +7,8 @@ import {
     Param,
     HttpCode,
     HttpStatus,
-    UseGuards
+    UseGuards,
+    ParseUUIDPipe
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -17,9 +18,9 @@ import {
     ApiBody,
     ApiBearerAuth
 } from '@nestjs/swagger';
-import {CategoryRulesService} from './category-rules.service.js';
-import {CreateCategoryRuleDto} from './dto/create-category-rule.dto.js';
-import {CategoryRuleResponseDto} from './dto/category-rule-response.dto.js';
+import {CategoryRulesService} from '#category-rules/category-rules.service.js';
+import {CreateCategoryRuleDto} from '#category-rules/dto/create-category-rule.dto.js';
+import {CategoryRuleResponseDto} from '#category-rules/dto/category-rule-response.dto.js';
 import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
 import {ScopesGuard} from '#auth/guards/scopes.guard.js';
 import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
@@ -68,7 +69,7 @@ export class CategoryRulesController {
     @ApiResponse({status: 204, description: 'Rule deleted'})
     @ApiResponse({status: 404, description: 'Rule not found'})
     public async remove(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser() user: User
     ): Promise<void> {
         return this.categoryRulesService.remove(user.id, id);

@@ -80,6 +80,9 @@ export class AuthController {
      * @returns User profile information
      * @throws {UnauthorizedException} If JWT token is invalid or missing
      */
+    // No @RequireScopes — this endpoint is intentionally accessible to any valid token
+    // (JWT or API key with any scope). It returns only the authenticated user's own profile
+    // and is used by the MCP server as a lightweight token-validation oracle.
     @Get('me')
     @UseGuards(FlexibleAuthGuard)
     @ApiBearerAuth('JWT-auth')

@@ -53,16 +53,16 @@ const TOOLS = [
                     type: 'number',
                     description: 'Max results per page (default 50, max 100).'
                 },
-                offset: {
+                page: {
                     type: 'number',
-                    description: 'Pagination offset.'
+                    description: 'Page number (1-based). Combine with limit to paginate results.'
                 }
             }
         }
     },
     {
         name: 'get_transaction_totals',
-        description: 'Get income, expense and net totals for a date range.',
+        description: 'Get income, expense and net totals for a given month.',
         inputSchema: {
             type: 'object' as const,
             properties: {
@@ -197,8 +197,8 @@ const handleToolCall = async (
                 if (typeof args.limit === 'number') {
                     params.limit = args.limit;
                 }
-                if (typeof args.offset === 'number') {
-                    params.offset = args.offset;
+                if (typeof args.page === 'number') {
+                    params.page = args.page;
                 }
                 result = await tokenStorage.run(token, () =>
                     mcpFetcher({url: '/transactions', method: 'GET', params})
@@ -207,7 +207,13 @@ const handleToolCall = async (
             }
 
             case 'get_transaction_totals': {
-                const month = args.month as string;
+                if (typeof args.month !== 'string' || !/^\d{4}-\d{2}$/.test(args.month)) {
+                    return {
+                        content: [{type: 'text', text: 'month must be in YYYY-MM format'}],
+                        isError: true
+                    };
+                }
+                const month = args.month;
                 const {startDate, endDate} = monthToDateRange(month);
                 result = await tokenStorage.run(token, () =>
                     mcpFetcher({
@@ -246,6 +252,11 @@ const handleToolCall = async (
 
             case 'create_transaction': {
                 // Derive a synthetic fitid from stable fields to prevent AI-driven duplicates.
+                // The schema declares date/amount/description as required strings/numbers, so the
+                // MCP framework will reject missing values before we get here. The '' fallback
+                // guards against unexpected non-string/non-number values from a misbehaving
+                // client — two such calls would collide in the dedup check rather than creating
+                // duplicates, which is the safer outcome.
                 const fitidDate = typeof args.date === 'string' ? args.date : '';
                 const fitidAmount = typeof args.amount === 'number' ? String(args.amount) : '';
                 const fitidDesc = typeof args.description === 'string' ? args.description : '';
@@ -319,7 +330,7 @@ const validateBearerToken = async (authHeader: string | undefined): Promise<stri
     const token = authHeader.slice('Bearer '.length).trim();
     if (!token) return null;
 
-    const baseUrl = process.env.FINANCE_TRACKER_URL ?? 'http://localhost:3000';
+    const baseUrl = process.env.FINANCE_TRACKER_URL ?? 'http://localhost:3001';
     try {
         const response = await fetch(`${baseUrl}/auth/me`, {
             headers: {Authorization: `Bearer ${token}`}
@@ -333,18 +344,38 @@ const validateBearerToken = async (authHeader: string | undefined): Promise<stri
 
 // ---- HTTP mode ----
 
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes idle
+
 interface SessionEntry {
     server: Server;
     transport: StreamableHTTPServerTransport;
+    tokenHash: string;
+    lastAccessedAt: number;
 }
+
+/**
+ * Extract and syntactically validate a Bearer token from the Authorization header.
+ * Does NOT call the backend — use validateBearerToken for full remote validation.
+ */
+const extractBearerToken = (authHeader: string | undefined): string | null => {
+    if (!authHeader?.startsWith('Bearer ')) return null;
+    const token = authHeader.slice('Bearer '.length).trim();
+    return token || null;
+};
 
 const handleMcpRequest = async (
     req: http.IncomingMessage,
     res: http.ServerResponse,
     sessions: Map<string, SessionEntry>
 ): Promise<void> => {
-    // Validate token on every MCP request (detects revocation mid-session)
-    const token = await validateBearerToken(req.headers.authorization);
+    // Extract token from header — full remote validation only happens for new sessions
+    // (init requests). Existing sessions are authorised by tokenHash comparison, which
+    // prevents hijacking while avoiding a round-trip to /auth/me on every tool call.
+    // Trade-off: a revoked token keeps working for existing sessions until they expire
+    // via the 30-minute TTL sweep or an explicit DELETE. Similarly, if a token's scopes
+    // were ever narrowed (no such endpoint exists today), the change would not take effect
+    // mid-session — restart the server to force immediate re-validation.
+    const token = extractBearerToken(req.headers.authorization);
     if (!token) {
         res.writeHead(401, {'Content-Type': 'application/json'});
         res.end(JSON.stringify({error: 'Unauthorized'}));
@@ -370,8 +401,21 @@ const handleMcpRequest = async (
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
         if (sessionId && sessions.has(sessionId)) {
-            // Existing session — route to its transport
-            const entry = sessions.get(sessionId)!;
+            // Existing session — verify token matches the one that created this session.
+            // Return the same 400 as "session not found" to avoid leaking session existence
+            // to a requester with a different (but valid) token.
+            const entry = sessions.get(sessionId)!; // sessions.has() checked above
+            const requestTokenHash = createHash('sha256').update(token).digest('hex');
+            if (requestTokenHash !== entry.tokenHash) {
+                res.writeHead(400, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify({
+                    jsonrpc: '2.0',
+                    error: {code: -32000, message: 'Bad Request: No valid session ID provided'},
+                    id: null
+                }));
+                return;
+            }
+            entry.lastAccessedAt = Date.now();
             await tokenStorage.run(token, () =>
                 entry.transport.handleRequest(req, res, parsedBody)
             );
@@ -379,12 +423,24 @@ const handleMcpRequest = async (
         }
 
         if (!sessionId && isInitializeRequest(parsedBody)) {
-            // New session
-            const newServer = createMcpServer(token);
+            // New session — validate token against the backend before accepting
+            const validToken = await validateBearerToken(req.headers.authorization);
+            if (!validToken) {
+                res.writeHead(401, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify({error: 'Unauthorized'}));
+                return;
+            }
+            const tokenHash = createHash('sha256').update(validToken).digest('hex');
+            const newServer = createMcpServer(validToken);
             const newTransport = new StreamableHTTPServerTransport({
                 sessionIdGenerator: (): string => randomUUID(),
                 onsessioninitialized: (newSessionId: string): void => {
-                    sessions.set(newSessionId, {server: newServer, transport: newTransport});
+                    sessions.set(newSessionId, {
+                        server: newServer,
+                        transport: newTransport,
+                        tokenHash,
+                        lastAccessedAt: Date.now()
+                    });
                 }
             });
 
@@ -396,7 +452,7 @@ const handleMcpRequest = async (
             };
 
             await newServer.connect(newTransport);
-            await tokenStorage.run(token, () =>
+            await tokenStorage.run(validToken, () =>
                 newTransport.handleRequest(req, res, parsedBody)
             );
             return;
@@ -417,11 +473,18 @@ const handleMcpRequest = async (
     if (req.method === 'GET') {
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
         if (!sessionId || !sessions.has(sessionId)) {
-            res.writeHead(400, {'Content-Type': 'text/plain'});
-            res.end('Invalid or missing session ID');
+            res.writeHead(400, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({error: 'Invalid or missing session ID'}));
             return;
         }
-        const entry = sessions.get(sessionId)!;
+        const entry = sessions.get(sessionId)!; // sessions.has() checked above
+        const requestTokenHash = createHash('sha256').update(token).digest('hex');
+        if (requestTokenHash !== entry.tokenHash) {
+            res.writeHead(400, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({error: 'Invalid or missing session ID'}));
+            return;
+        }
+        entry.lastAccessedAt = Date.now();
         await tokenStorage.run(token, () =>
             entry.transport.handleRequest(req, res)
         );
@@ -431,9 +494,15 @@ const handleMcpRequest = async (
     if (req.method === 'DELETE') {
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
         if (sessionId && sessions.has(sessionId)) {
-            const entry = sessions.get(sessionId)!;
+            const entry = sessions.get(sessionId)!; // sessions.has() checked above
+            const requestTokenHash = createHash('sha256').update(token).digest('hex');
+            if (requestTokenHash !== entry.tokenHash) {
+                res.writeHead(400, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify({error: 'Session not found'}));
+                return;
+            }
+            // Session cleanup is handled by the transport's onclose callback.
             await entry.transport.handleRequest(req, res);
-            sessions.delete(sessionId);
             return;
         }
         res.writeHead(404, {'Content-Type': 'application/json'});
@@ -448,6 +517,19 @@ const handleMcpRequest = async (
 const startHttpServer = async (): Promise<void> => {
     const port = parseInt(process.env.MCP_PORT ?? '3010', 10);
     const sessions = new Map<string, SessionEntry>();
+
+    // Evict sessions idle for longer than SESSION_TTL_MS. Clients that disconnect
+    // without sending DELETE would otherwise accumulate indefinitely.
+    // unref() so the sweep timer doesn't keep the process alive after all connections close.
+    setInterval((): void => {
+        const cutoff = Date.now() - SESSION_TTL_MS;
+        for (const [sid, entry] of sessions) {
+            if (entry.lastAccessedAt < cutoff) {
+                sessions.delete(sid);
+                entry.transport.close().catch(() => undefined);
+            }
+        }
+    }, SESSION_TTL_MS).unref();
 
     const httpServer = http.createServer((req, res) => {
         const url = req.url ?? '/';
@@ -472,6 +554,8 @@ const startHttpServer = async (): Promise<void> => {
     await new Promise<void>((resolve, reject) => {
         httpServer.on('error', reject);
         httpServer.listen(port, () => {
+            // Intentional console.error: in stdio mode stdout is the MCP channel,
+            // so all diagnostic output (including startup success) goes to stderr.
             console.error(`[mcp-server] HTTP transport listening on port ${port}`);
             resolve();
         });
@@ -484,6 +568,14 @@ const startStdioServer = async (): Promise<void> => {
     const token = process.env.FINANCE_TRACKER_API_TOKEN;
     if (!token) {
         console.error('[mcp-server] FINANCE_TRACKER_API_TOKEN is required in stdio mode');
+        process.exit(1);
+    }
+
+    // Validate the token against the backend at startup so misconfiguration fails
+    // immediately rather than silently at first tool call.
+    const validToken = await validateBearerToken(`Bearer ${token}`);
+    if (!validToken) {
+        console.error('[mcp-server] FINANCE_TRACKER_API_TOKEN is invalid or expired');
         process.exit(1);
     }
 

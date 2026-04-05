@@ -7,7 +7,7 @@ import {
 import {FlexibleAuthGuard} from '#auth/guards/flexible-auth.guard.js';
 import {ScopesGuard} from '#auth/guards/scopes.guard.js';
 import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
-import {AiCategorizationService} from './ai-categorization.service.js';
+import {AiCategorizationService} from '#ai-categorization/ai-categorization.service.js';
 
 interface AiStatusResponse {
     available: boolean;
@@ -16,7 +16,7 @@ interface AiStatusResponse {
 }
 
 @ApiTags('ai-categorization')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('ai-categorization')
 export class AiCategorizationController {

@@ -1,18 +1,24 @@
 import {
     describe, it, expect, beforeEach, vi
 } from 'vitest';
-import {ForbiddenException} from '@nestjs/common';
+import {
+    ForbiddenException, UnauthorizedException
+} from '@nestjs/common';
 import type {ExecutionContext} from '@nestjs/common';
 import type {Reflector} from '@nestjs/core';
 import {ScopesGuard} from '#auth/guards/scopes.guard.js';
-import {SCOPES_KEY} from '#auth/decorators/require-scopes.decorator.js';
 
-const makeContext = (_scopes: string[] | undefined, userScopes?: string[]): ExecutionContext => ({
+const makeContext = (
+    userScopes?: string[],
+    isApiKeyAuth = false
+): ExecutionContext => ({
     getHandler: vi.fn(),
     getClass: vi.fn(),
     switchToHttp: vi.fn().mockReturnValue({
         getRequest: vi.fn().mockReturnValue({
-            user: userScopes !== undefined ? {apiTokenScopes: userScopes} : undefined
+            user: userScopes !== undefined
+                ? {apiTokenScopes: userScopes, isApiKeyAuth}
+                : undefined
         })
     })
 }) as unknown as ExecutionContext;
@@ -28,44 +34,58 @@ describe('ScopesGuard', () => {
         guard = new ScopesGuard(reflector);
     });
 
-    it('allows access when no scopes are required', () => {
+    it('allows access when no scopes are required (empty array)', () => {
         vi.mocked(reflector.getAllAndOverride).mockReturnValue([]);
-        expect(guard.canActivate(makeContext([]))).toBe(true);
+        expect(guard.canActivate(makeContext())).toBe(true);
     });
 
-    it('denies access when user is missing', () => {
+    it('allows access when @RequireScopes is absent (reflector returns undefined)', () => {
+        vi.mocked(reflector.getAllAndOverride).mockReturnValue(undefined);
+        expect(guard.canActivate(makeContext())).toBe(true);
+    });
+
+    it('throws UnauthorizedException when user is missing', () => {
         vi.mocked(reflector.getAllAndOverride).mockReturnValue(['transactions:read']);
-        const ctx = makeContext(['transactions:read'], undefined);
-        // Override to have no user
-        vi.mocked(ctx.switchToHttp().getRequest).mockReturnValue({user: undefined});
-        expect(guard.canActivate(ctx)).toBe(false);
+        // no userScopes arg → user: undefined on the request
+        expect(() => guard.canActivate(makeContext()))
+            .toThrow(UnauthorizedException);
     });
 
     it('allows access for JWT user (wildcard scopes)', () => {
-        vi.mocked(reflector.getAllAndOverride).mockReturnValue(
-            [SCOPES_KEY, ['transactions:read']]
-        );
-        const ctx = makeContext(['transactions:read'], ['*']);
         vi.mocked(reflector.getAllAndOverride).mockReturnValue(['transactions:read']);
-        expect(guard.canActivate(ctx)).toBe(true);
+        expect(guard.canActivate(makeContext(['*']))).toBe(true);
     });
 
     it('allows access when API token has required scope', () => {
         vi.mocked(reflector.getAllAndOverride).mockReturnValue(['transactions:read']);
-        expect(guard.canActivate(makeContext(['transactions:read'], ['transactions:read']))).toBe(true);
+        expect(guard.canActivate(makeContext(['transactions:read'], true))).toBe(true);
     });
 
     it('throws ForbiddenException when scope is missing', () => {
         vi.mocked(reflector.getAllAndOverride).mockReturnValue(['transactions:write']);
         expect(() =>
-            guard.canActivate(makeContext(['transactions:write'], ['transactions:read']))
+            guard.canActivate(makeContext(['transactions:read'], true))
         ).toThrow(ForbiddenException);
     });
 
-    it('defaults to wildcard when user has no apiTokenScopes', () => {
+    it('defaults to wildcard when JWT user has no apiTokenScopes', () => {
         vi.mocked(reflector.getAllAndOverride).mockReturnValue(['transactions:read']);
-        const ctx = makeContext(['transactions:read']);
-        vi.mocked(ctx.switchToHttp().getRequest).mockReturnValue({user: {}});
+        const ctx = makeContext();
+        vi.mocked(ctx.switchToHttp().getRequest).mockReturnValue({user: {isApiKeyAuth: false}});
         expect(guard.canActivate(ctx)).toBe(true);
+    });
+
+    it('denies access when API key user has no apiTokenScopes', () => {
+        vi.mocked(reflector.getAllAndOverride).mockReturnValue(['transactions:read']);
+        const ctx = makeContext();
+        vi.mocked(ctx.switchToHttp().getRequest).mockReturnValue({user: {isApiKeyAuth: true}});
+        expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    });
+
+    it('denies access when isApiKeyAuth is undefined (unknown strategy)', () => {
+        vi.mocked(reflector.getAllAndOverride).mockReturnValue(['transactions:read']);
+        const ctx = makeContext();
+        vi.mocked(ctx.switchToHttp().getRequest).mockReturnValue({user: {isApiKeyAuth: undefined}});
+        expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
     });
 });

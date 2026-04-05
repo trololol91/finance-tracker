@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        package: [backend, frontend]
+        package: [backend, frontend, mcp-server]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,6 +38,10 @@ jobs:
       - name: Generate API client (frontend only)
         if: matrix.package == 'frontend'
         run: npm run generate:api -w packages/frontend
+
+      - name: Generate API client (mcp-server only)
+        if: matrix.package == 'mcp-server'
+        run: npm run generate:api -w packages/mcp-server
 
       - name: Typecheck
         run: npm run typecheck -w packages/${{ matrix.package }}

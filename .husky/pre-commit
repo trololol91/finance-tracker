@@ -2,9 +2,11 @@ STAGED=$(git diff --cached --name-only)
 
 backend_changed=false
 frontend_changed=false
+mcp_changed=false
 
-echo "$STAGED" | grep -q "^packages/backend/" && backend_changed=true
-echo "$STAGED" | grep -q "^packages/frontend/" && frontend_changed=true
+echo "$STAGED" | grep -q "^packages/backend/"    && backend_changed=true
+echo "$STAGED" | grep -q "^packages/frontend/"   && frontend_changed=true
+echo "$STAGED" | grep -q "^packages/mcp-server/" && mcp_changed=true
 
 if $backend_changed; then
   echo "[pre-commit] backend changes detected — running typecheck, lint, coverage"
@@ -19,9 +21,6 @@ if $frontend_changed; then
   npm run -w packages/frontend lint:eslint
   npm run -w packages/frontend test:coverage
 fi
-
-mcp_changed=false
-echo "$STAGED" | grep -q "^packages/mcp-server/" && mcp_changed=true
 
 if $mcp_changed; then
   echo "[pre-commit] mcp-server changes detected — running typecheck, lint, coverage"

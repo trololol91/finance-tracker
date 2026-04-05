@@ -172,6 +172,15 @@ describe('NewTokenModal', () => {
             expect(screen.getByText(/select at least one scope/i)).toBeInTheDocument();
         });
 
+        it('shows error when name exceeds 100 characters', async () => {
+            const user = userEvent.setup();
+            renderModal();
+            await user.type(screen.getByLabelText(/token name/i), 'a'.repeat(101));
+            await user.click(screen.getByLabelText('transactions:read'));
+            await user.click(screen.getByRole('button', {name: /generate token/i}));
+            expect(screen.getByText(/100 characters or fewer/i)).toBeInTheDocument();
+        });
+
         it('does not call mutate when validation fails', async () => {
             const user = userEvent.setup();
             renderModal();
@@ -366,6 +375,29 @@ describe('NewTokenModal', () => {
             await waitFor(() => {
                 expect(screen.getByRole('button', {name: /copy token/i})).toHaveTextContent('Copy');
             });
+        });
+
+        it('calls clipboard.writeText with the token value when copy is clicked', async () => {
+            // jsdom provides a native navigator.clipboard; spy on it directly
+            // rather than replacing the whole object, since Object.defineProperty
+            // cannot override jsdom's non-configurable getter on the prototype.
+            const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+                .mockResolvedValue(undefined);
+            const user = userEvent.setup();
+            renderModal();
+            await user.type(screen.getByLabelText(/token name/i), 'Copy Token');
+            await user.click(screen.getByLabelText('transactions:read'));
+            await user.click(screen.getByRole('button', {name: /generate token/i}));
+            let copyBtn: HTMLElement;
+            await waitFor(() => {
+                copyBtn = screen.getByRole('button', {name: 'Copy token to clipboard'});
+                expect(copyBtn).toBeInTheDocument();
+            });
+            act(() => { fireEvent.click(copyBtn!); });
+            await waitFor(() => {
+                expect(writeTextSpy).toHaveBeenCalledWith('ft_copytesttoken');
+            });
+            writeTextSpy.mockRestore();
         });
     });
 

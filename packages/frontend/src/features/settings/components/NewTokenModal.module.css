@@ -11,7 +11,7 @@
 }
 
 .modal::backdrop {
-    background: rgba(0, 0, 0, 0.45);
+    background: var(--color-overlay);
     backdrop-filter: blur(2px);
 }
 
@@ -35,7 +35,7 @@
 .title {
     margin: 0;
     font-size: var(--font-size-lg);
-    font-weight: 700;
+    font-weight: var(--font-weight-bold);
     color: var(--color-text-primary);
 }
 
@@ -92,7 +92,7 @@
 .input:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-100);
+    box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 .inputError {
@@ -103,6 +103,17 @@
     font-size: var(--font-size-xs);
     color: var(--color-danger);
     margin: 0;
+}
+
+.apiError {
+    font-size: var(--font-size-sm);
+    color: var(--color-danger);
+    margin: 0 0 0.75rem;
+}
+
+.expiryOptional {
+    color: var(--color-text-muted);
+    font-weight: 400;
 }
 
 /* ── Scope groups ────────────────────────── */
@@ -158,7 +169,7 @@
 .scopeLabel {
     font-size: var(--font-size-sm);
     color: var(--color-text-primary);
-    font-family: var(--font-mono, 'ui-monospace', monospace);
+    font-family: var(--font-mono);
 }
 
 /* ── Actions ─────────────────────────────── */
@@ -183,7 +194,7 @@
     align-items: flex-start;
     gap: 0.625rem;
     padding: 0.75rem 1rem;
-    background: var(--color-warning-100);
+    background: var(--color-warning-tint);
     border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
     border-radius: var(--radius-md);
     font-size: var(--font-size-sm);
@@ -207,7 +218,7 @@
 .tokenValue {
     flex: 1;
     padding: 0.625rem 0.75rem;
-    font-family: var(--font-mono, 'ui-monospace', monospace);
+    font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     color: var(--color-text-primary);
     background: var(--color-surface-alt);
@@ -235,14 +246,6 @@
 
 .copyBtn:hover {
     background: var(--color-surface-hover);
-}
-
-.copiedBadge {
-    font-size: var(--font-size-xs);
-    color: var(--color-success);
-    font-weight: var(--font-weight-medium);
-    align-self: center;
-    margin-left: auto;
 }
 
 /* ── Bottom-sheet on mobile ≤480px ──────── */

@@ -9,13 +9,13 @@ import {ScopesGuard} from '#auth/guards/scopes.guard.js';
 import {RequireScopes} from '#auth/decorators/require-scopes.decorator.js';
 import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import type {User} from '#generated/prisma/client.js';
-import {DashboardService} from './dashboard.service.js';
-import {MonthQueryDto} from './dto/month-query.dto.js';
-import {DashboardSummaryDto} from './dto/dashboard-summary.dto.js';
-import {SpendingByCategoryDto} from './dto/spending-by-category.dto.js';
+import {DashboardService} from '#dashboard/dashboard.service.js';
+import {MonthQueryDto} from '#dashboard/dto/month-query.dto.js';
+import {DashboardSummaryDto} from '#dashboard/dto/dashboard-summary.dto.js';
+import {SpendingByCategoryDto} from '#dashboard/dto/spending-by-category.dto.js';
 
 @ApiTags('dashboard')
-@ApiBearerAuth()
+@ApiBearerAuth('JWT-auth')
 @UseGuards(FlexibleAuthGuard, ScopesGuard)
 @Controller('dashboard')
 export class DashboardController {
