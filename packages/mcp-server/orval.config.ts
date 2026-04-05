@@ -3,7 +3,7 @@ import {defineConfig} from 'orval';
 export default defineConfig({
     financeTracker: {
         input: {
-            target: '../frontend/openapi.json',
+            target: './openapi.json',
         },
         output: {
             mode: 'tags-split',

@@ -19,7 +19,7 @@ export default [
             sourceType: 'module',
             parserOptions: {
                 projectService: {
-                    allowDefaultProject: ['*.ts', 'src/__TEST__/*.ts']
+                    allowDefaultProject: ['*.ts', 'scripts/*.ts', 'src/__TEST__/*.ts']
                 },
                 tsconfigRootDir: import.meta.dirname
             }

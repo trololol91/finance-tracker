@@ -7,7 +7,7 @@ import {
     useApiTokensControllerRemove,
     getApiTokensControllerFindAllQueryKey
 } from '@/api/api-tokens/api-tokens.js';
-import type {ApiTokenResponseDto} from '@/api/api-tokens/api-tokens.js';
+import type {ApiTokenResponseDto} from '@/api/model';
 import {NewTokenModal} from '@features/settings/components/NewTokenModal.js';
 import {Button} from '@components/common/Button/Button.js';
 import styles from '@features/settings/components/ApiTokens.module.css';

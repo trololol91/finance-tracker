@@ -15,7 +15,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {NewTokenModal} from '@features/settings/components/NewTokenModal.js';
-import type {CreateApiTokenResponseDto} from '@/api/api-tokens/api-tokens.js';
+import type {CreateApiTokenResponseDto} from '@/api/model';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 

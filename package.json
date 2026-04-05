@@ -10,17 +10,18 @@
   "scripts": {
     "backend": "npm run -w packages/backend",
     "frontend": "npm run -w packages/frontend",
+    "mcp-server": "npm run -w packages/mcp-server",
     "build:sdk": "npm run build -w packages/plugin-sdk",
     "build:scrapers": "npm run build -w packages/plugin-sdk && npm run build -w packages/scraper-cibc && npm run build -w packages/scraper-td-credit-card && npm run build -w packages/scraper-stub",
     "prepare": "husky",
-    "typecheck:all": "npm run -w packages/backend typecheck && npm run -w packages/frontend typecheck",
-    "lint:all": "npm run -w packages/backend lint:eslint && npm run -w packages/frontend lint:eslint",
+    "typecheck:all": "npm run -w packages/backend typecheck && npm run -w packages/frontend typecheck && npm run -w packages/mcp-server typecheck",
+    "lint:all": "npm run -w packages/backend lint:eslint && npm run -w packages/frontend lint:eslint && npm run -w packages/mcp-server lint:eslint",
     "test:all": "npm run -w packages/backend test && npm run -w packages/frontend test && npm run -w packages/mcp-server test",
     "test:coverage:all": "npm run -w packages/backend test:coverage && npm run -w packages/frontend test:coverage && npm run -w packages/mcp-server test:coverage",
     "export:transactions:cibc": "node tools/export/export-transactions-by-week-cibc.mjs",
     "export:transactions:td": "node tools/export/export-transactions-by-week-td.mjs",
     "generate:api": "npm run -w packages/frontend generate:api && npm run -w packages/mcp-server generate:api",
-    "generate:api:live": "npm run -w packages/frontend generate:api:live"
+    "generate:api:live": "npm run -w packages/frontend generate:api:live && npm run -w packages/mcp-server generate:api:live"
   },
   "author": "",
   "license": "ISC",

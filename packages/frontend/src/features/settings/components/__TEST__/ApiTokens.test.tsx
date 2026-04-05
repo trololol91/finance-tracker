@@ -13,7 +13,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import {ApiTokens} from '@features/settings/components/ApiTokens.js';
-import type {ApiTokenResponseDto} from '@/api/api-tokens/api-tokens.js';
+import type {ApiTokenResponseDto} from '@/api/model';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 

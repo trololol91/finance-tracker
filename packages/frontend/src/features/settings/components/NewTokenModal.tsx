@@ -11,7 +11,7 @@ import {
     useApiTokensControllerCreate,
     getApiTokensControllerFindAllQueryKey
 } from '@/api/api-tokens/api-tokens.js';
-import type {CreateApiTokenResponseDto} from '@/api/api-tokens/api-tokens.js';
+import type {CreateApiTokenResponseDto} from '@/api/model';
 import {Button} from '@components/common/Button/Button.js';
 import styles from '@features/settings/components/NewTokenModal.module.css';
 

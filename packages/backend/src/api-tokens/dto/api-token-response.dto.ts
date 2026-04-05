@@ -10,10 +10,10 @@ export class ApiTokenResponseDto {
     @ApiProperty({description: 'Granted scopes', type: [String]})
     scopes!: string[];
 
-    @ApiProperty({description: 'Last time this token was used', nullable: true})
+    @ApiProperty({description: 'Last time this token was used', nullable: true, type: String, format: 'date-time'})
     lastUsedAt!: Date | null;
 
-    @ApiProperty({description: 'Token expiry timestamp, null = never expires', nullable: true})
+    @ApiProperty({description: 'Token expiry timestamp, null = never expires', nullable: true, type: String, format: 'date-time'})
     expiresAt!: Date | null;
 
     @ApiProperty({description: 'Token creation timestamp'})

@@ -2,11 +2,11 @@ import {
     Controller, Get, Post, Delete, Param, Body, HttpCode, HttpStatus, UseGuards, ParseUUIDPipe
 } from '@nestjs/common';
 import {
-    ApiTags, ApiOperation, ApiBearerAuth
+    ApiTags, ApiOperation, ApiBearerAuth, ApiCreatedResponse, ApiOkResponse
 } from '@nestjs/swagger';
 import {ApiTokensService} from '#api-tokens/api-tokens.service.js';
 import {CreateApiTokenDto} from '#api-tokens/dto/create-api-token.dto.js';
-import type {
+import {
     CreateApiTokenResponseDto, ApiTokenResponseDto
 } from '#api-tokens/dto/api-token-response.dto.js';
 import {JwtAuthGuard} from '#auth/guards/jwt-auth.guard.js';
@@ -26,6 +26,7 @@ export class ApiTokensController {
     @Post()
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({summary: 'Create a new API token'})
+    @ApiCreatedResponse({type: CreateApiTokenResponseDto})
     public create(
         @Body() dto: CreateApiTokenDto,
         @CurrentUser() user: User
@@ -35,6 +36,7 @@ export class ApiTokensController {
 
     @Get()
     @ApiOperation({summary: 'List all API tokens for the current user'})
+    @ApiOkResponse({type: [ApiTokenResponseDto]})
     public findAll(@CurrentUser() user: User): Promise<ApiTokenResponseDto[]> {
         return this.apiTokensService.findAll(user.id);
     }
