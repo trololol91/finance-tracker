@@ -10,7 +10,7 @@
     "dev": "node --env-file=.env --import tsx/esm src/index.ts",
     "start": "node dist/index.js",
     "openapi:fetch": "tsx scripts/fetch-openapi.ts",
-    "generate:api": "orval --config orval.config.ts",
+    "generate:api": "orval --config orval.config.ts && node scripts/fix-api-imports.mjs",
     "generate:api:live": "npm run openapi:fetch && npm run generate:api",
     "lint": "eslint \"src/**/*.ts\" --fix",
     "lint:eslint": "eslint \"src/**/*.ts\" --fix",
