@@ -1,5 +1,7 @@
 import {NestFactory} from '@nestjs/core';
-import {ValidationPipe} from '@nestjs/common';
+import {
+    Logger, ValidationPipe
+} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {
     DocumentBuilder, SwaggerModule
@@ -64,8 +66,9 @@ const bootstrap = async (): Promise<void> => {
     const configService = app.get(ConfigService);
     const port = configService.get<number>('PORT') ?? 3001;
 
+    const logger = new Logger('Bootstrap');
     await app.listen(port);
-    console.log(`Application is running on: ${await app.getUrl()}`);
-    console.log(`Swagger documentation: ${await app.getUrl()}/docs`);
+    logger.log(`Application is running on: ${await app.getUrl()}`);
+    logger.log(`Swagger documentation: ${await app.getUrl()}/docs`);
 };
 void bootstrap();

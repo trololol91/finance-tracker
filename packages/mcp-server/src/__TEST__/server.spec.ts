@@ -174,13 +174,13 @@ describe('validateBearerToken', () => {
         expect(await validateBearerToken('Bearer valid-token')).toBe('valid-token');
     });
 
-    it('calls /auth/me with the Authorization header', async () => {
+    it('calls /api/auth/me with the Authorization header', async () => {
         vi.mocked(fetch).mockResolvedValueOnce(
             new Response(JSON.stringify({id: 'user-1'}), {status: 200})
         );
         await validateBearerToken('Bearer my-token');
         expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-            expect.stringContaining('/auth/me'),
+            expect.stringContaining('/api/auth/me'),
             expect.objectContaining({headers: {Authorization: 'Bearer my-token'}})
         );
     });

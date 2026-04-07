@@ -99,7 +99,7 @@ export const useSyncStream = (sessionId: string | null): UseSyncStreamResult => 
         const controller = new AbortController();
         abortRef.current = controller;
         const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) ?? '';
-        const url = `${env.API_BASE_URL}/sync-schedules/${sessionId}/stream`;
+        const url = `${env.API_BASE_URL}/api/sync-schedules/${sessionId}/stream`;
 
         // Synchronous pre-fetch init before await; only setEvent triggers the
         // react-hooks/set-state-in-effect rule — setIsConnected/setError do not.
