@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/": {
+    "/api": {
       "get": {
         "operationId": "AppController_getHello",
         "parameters": [],
@@ -15,7 +15,7 @@
         ]
       }
     },
-    "/health": {
+    "/api/health": {
       "get": {
         "operationId": "AppController_healthCheck",
         "parameters": [],
@@ -29,7 +29,7 @@
         ]
       }
     },
-    "/users": {
+    "/api/users": {
       "post": {
         "description": "Create a new user account with email and password",
         "operationId": "UsersController_create",
@@ -68,7 +68,7 @@
         ]
       }
     },
-    "/users/{id}": {
+    "/api/users/{id}": {
       "get": {
         "description": "Retrieve user profile information by user ID",
         "operationId": "UsersController_findOne",
@@ -211,7 +211,7 @@
         ]
       }
     },
-    "/admin/users": {
+    "/api/admin/users": {
       "get": {
         "operationId": "AdminUsersController_findAll",
         "parameters": [],
@@ -241,7 +241,7 @@
         ]
       }
     },
-    "/admin/users/{id}/role": {
+    "/api/admin/users/{id}/role": {
       "patch": {
         "operationId": "AdminUsersController_updateRole",
         "parameters": [
@@ -290,7 +290,7 @@
         ]
       }
     },
-    "/categories": {
+    "/api/categories": {
       "get": {
         "description": "Get all categories for the authenticated user, ordered by (parentId nulls first, name). Includes transactionCount. The `children` field is always an empty array on this endpoint — the list is flat by design. Does not filter by isActive.",
         "operationId": "CategoriesController_findAll",
@@ -372,7 +372,7 @@
         ]
       }
     },
-    "/categories/{id}": {
+    "/api/categories/{id}": {
       "get": {
         "description": "Get a specific category. Returns 404 if not found or belongs to another user.",
         "operationId": "CategoriesController_findOne",
@@ -522,7 +522,7 @@
         ]
       }
     },
-    "/auth/register": {
+    "/api/auth/register": {
       "post": {
         "description": "Create a new user account and receive a JWT token",
         "operationId": "AuthController_register",
@@ -561,7 +561,7 @@
         ]
       }
     },
-    "/auth/login": {
+    "/api/auth/login": {
       "post": {
         "description": "Authenticate with email and password to receive a JWT token",
         "operationId": "AuthController_login",
@@ -600,7 +600,7 @@
         ]
       }
     },
-    "/auth/setup-status": {
+    "/api/auth/setup-status": {
       "get": {
         "description": "Returns whether initial setup is required (no users exist)",
         "operationId": "AuthController_getSetupStatus",
@@ -616,7 +616,7 @@
         ]
       }
     },
-    "/auth/setup": {
+    "/api/auth/setup": {
       "post": {
         "description": "Creates the first admin user during initial setup",
         "operationId": "AuthController_setupAdmin",
@@ -645,7 +645,7 @@
         ]
       }
     },
-    "/auth/me": {
+    "/api/auth/me": {
       "get": {
         "description": "Retrieve the authenticated user's profile information",
         "operationId": "AuthController_getProfile",
@@ -676,7 +676,7 @@
         ]
       }
     },
-    "/transactions": {
+    "/api/transactions": {
       "post": {
         "description": "Create a new transaction for the authenticated user. originalDate is set from date and cannot be changed.",
         "operationId": "TransactionsController_create",
@@ -889,7 +889,7 @@
         ]
       }
     },
-    "/transactions/categorize-suggestion": {
+    "/api/transactions/categorize-suggestion": {
       "post": {
         "operationId": "TransactionsController_categorizeSuggestion",
         "parameters": [],
@@ -929,7 +929,7 @@
         ]
       }
     },
-    "/transactions/bulk-categorize": {
+    "/api/transactions/bulk-categorize": {
       "post": {
         "operationId": "TransactionsController_bulkCategorize",
         "parameters": [
@@ -989,7 +989,7 @@
         ]
       }
     },
-    "/transactions/totals": {
+    "/api/transactions/totals": {
       "get": {
         "description": "Get income, expense, and net totals for a date range. Only active transactions are included. Transfers are excluded from totals.",
         "operationId": "TransactionsController_getTotals",
@@ -1094,7 +1094,7 @@
         ]
       }
     },
-    "/transactions/totals/{year}/{month}": {
+    "/api/transactions/totals/{year}/{month}": {
       "get": {
         "description": "Convenience endpoint to get income, expense, and net totals for a full calendar month (1-based).",
         "operationId": "TransactionsController_getMonthlyTotals",
@@ -1146,7 +1146,7 @@
         ]
       }
     },
-    "/transactions/{id}": {
+    "/api/transactions/{id}": {
       "get": {
         "description": "Get a specific transaction. Returns 404 if not found or belongs to another user.",
         "operationId": "TransactionsController_findOne",
@@ -1280,7 +1280,7 @@
         ]
       }
     },
-    "/transactions/{id}/toggle-active": {
+    "/api/transactions/{id}/toggle-active": {
       "patch": {
         "description": "Flip the isActive flag on a transaction. Inactive transactions are excluded from totals.",
         "operationId": "TransactionsController_toggleActive",
@@ -1324,7 +1324,7 @@
         ]
       }
     },
-    "/category-rules": {
+    "/api/category-rules": {
       "get": {
         "operationId": "CategoryRulesController_findAll",
         "parameters": [],
@@ -1396,7 +1396,7 @@
         ]
       }
     },
-    "/category-rules/{id}": {
+    "/api/category-rules/{id}": {
       "delete": {
         "operationId": "CategoryRulesController_remove",
         "parameters": [
@@ -1428,7 +1428,7 @@
         ]
       }
     },
-    "/accounts": {
+    "/api/accounts": {
       "get": {
         "description": "Get all accounts for the authenticated user, ordered by name. Each account includes computed currentBalance and transactionCount.",
         "operationId": "AccountsController_findAll",
@@ -1507,7 +1507,7 @@
         ]
       }
     },
-    "/accounts/{id}": {
+    "/api/accounts/{id}": {
       "get": {
         "description": "Get a specific account. Returns 404 if not found or belongs to another user.",
         "operationId": "AccountsController_findOne",
@@ -1660,7 +1660,7 @@
         ]
       }
     },
-    "/scraper/import/upload": {
+    "/api/scraper/import/upload": {
       "post": {
         "description": "Upload a CSV file to import transactions. File size limit: 5 MB. Returns the created ImportJob with parse results.",
         "operationId": "ImportController_upload",
@@ -1721,7 +1721,7 @@
         ]
       }
     },
-    "/scraper/import": {
+    "/api/scraper/import": {
       "get": {
         "description": "Get all import jobs for the authenticated user, newest first.",
         "operationId": "ImportController_findAll",
@@ -1755,7 +1755,7 @@
         ]
       }
     },
-    "/scraper/import/{id}": {
+    "/api/scraper/import/{id}": {
       "get": {
         "description": "Get a specific import job. Returns 404 if not found or belongs to another user.",
         "operationId": "ImportController_findOne",
@@ -1802,7 +1802,7 @@
         ]
       }
     },
-    "/sync-schedules": {
+    "/api/sync-schedules": {
       "get": {
         "description": "Get all sync schedules for the authenticated user",
         "operationId": "SyncScheduleController_findAll",
@@ -1884,7 +1884,7 @@
         ]
       }
     },
-    "/sync-schedules/{id}": {
+    "/api/sync-schedules/{id}": {
       "get": {
         "operationId": "SyncScheduleController_findOne",
         "parameters": [
@@ -2017,7 +2017,7 @@
         ]
       }
     },
-    "/sync-schedules/{id}/run-now": {
+    "/api/sync-schedules/{id}/run-now": {
       "post": {
         "description": "Start an immediate sync for the given schedule. Returns a sessionId to subscribe to the SSE stream.",
         "operationId": "SyncJobController_runNow",
@@ -2067,7 +2067,7 @@
         ]
       }
     },
-    "/sync-schedules/{id}/stream": {
+    "/api/sync-schedules/{id}/stream": {
       "get": {
         "description": "Subscribe to real-time status events for a running sync job. The :id is the sessionId returned by POST /:scheduleId/run-now.",
         "operationId": "SyncJobController_stream",
@@ -2104,7 +2104,7 @@
         ]
       }
     },
-    "/sync-schedules/{id}/mfa-response": {
+    "/api/sync-schedules/{id}/mfa-response": {
       "post": {
         "description": "Submit the MFA code to a sync worker waiting for user input. Returns 400 if no MFA challenge is pending.",
         "operationId": "SyncJobController_mfaResponse",
@@ -2154,7 +2154,7 @@
         ]
       }
     },
-    "/sync-schedules/{id}/cancel-mfa": {
+    "/api/sync-schedules/{id}/cancel-mfa": {
       "post": {
         "description": "Terminates the waiting sync worker, marks the job as failed, and emits a failed SSE event. Safe to call even if the session has already ended (idempotent).",
         "operationId": "SyncJobController_cancelMfa",
@@ -2191,7 +2191,7 @@
         ]
       }
     },
-    "/scrapers": {
+    "/api/scrapers": {
       "get": {
         "description": "Returns metadata for all registered bank scrapers. Used by the frontend to populate the bank picker. No authentication required.",
         "operationId": "ScraperController_listScrapers",
@@ -2217,7 +2217,7 @@
         ]
       }
     },
-    "/admin/scrapers/reload": {
+    "/api/admin/scrapers/reload": {
       "post": {
         "description": "Re-scans SCRAPER_PLUGIN_DIR and registers any valid .js plugins found. Existing registrations with the same bankId are overwritten. Requires ADMIN role. No request body required.",
         "operationId": "ScraperAdminController_reload",
@@ -2251,7 +2251,7 @@
         ]
       }
     },
-    "/admin/scrapers/install": {
+    "/api/admin/scrapers/install": {
       "post": {
         "description": "Upload a .js plugin file. It is written to SCRAPER_PLUGIN_DIR and loadPlugins() is called so the new plugin is immediately available. The default export must satisfy the BankScraper interface. Requires ADMIN role. Only .js files up to 10 MB are accepted.",
         "operationId": "ScraperAdminController_install",
@@ -2309,7 +2309,7 @@
         ]
       }
     },
-    "/admin/scrapers/{bankId}/test": {
+    "/api/admin/scrapers/{bankId}/test": {
       "post": {
         "description": "Opens a Playwright browser, calls plugin.login() with the provided inputs, then calls plugin.scrapeTransactions() for the specified lookback period. Returns the raw RawTransaction[] with no database write. Requires ADMIN role. Returns 404 if bankId is not registered.",
         "operationId": "ScraperAdminController_testScraper",
@@ -2370,7 +2370,7 @@
         ]
       }
     },
-    "/push/subscribe": {
+    "/api/push/subscribe": {
       "post": {
         "operationId": "PushController_subscribe",
         "parameters": [],
@@ -2437,7 +2437,7 @@
         ]
       }
     },
-    "/dashboard/summary": {
+    "/api/dashboard/summary": {
       "get": {
         "operationId": "DashboardController_getSummary",
         "parameters": [
@@ -2475,7 +2475,7 @@
         ]
       }
     },
-    "/dashboard/spending-by-category": {
+    "/api/dashboard/spending-by-category": {
       "get": {
         "operationId": "DashboardController_getSpendingByCategory",
         "parameters": [
@@ -2513,7 +2513,7 @@
         ]
       }
     },
-    "/ai-categorization/status": {
+    "/api/ai-categorization/status": {
       "get": {
         "operationId": "AiCategorizationController_getStatus",
         "parameters": [],
@@ -2533,7 +2533,7 @@
         ]
       }
     },
-    "/api-tokens": {
+    "/api/api-tokens": {
       "post": {
         "operationId": "ApiTokensController_create",
         "parameters": [],
@@ -2598,7 +2598,7 @@
         ]
       }
     },
-    "/api-tokens/{id}": {
+    "/api/api-tokens/{id}": {
       "delete": {
         "operationId": "ApiTokensController_remove",
         "parameters": [

@@ -64,9 +64,9 @@ describe('transactionTools', () => {
         it('fetches transactions and returns enriched page', async () => {
             const tx = makeTx();
             mockFetchByPath({
-                '/transactions': {data: [tx], total: 1, page: 1, limit: 50},
-                '/accounts': [makeAccount('acc-1', 'Chequing')],
-                '/categories': [makeCategory('cat-1', 'Food')]
+                '/api/transactions': {data: [tx], total: 1, page: 1, limit: 50},
+                '/api/accounts': [makeAccount('acc-1', 'Chequing')],
+                '/api/categories': [makeCategory('cat-1', 'Food')]
             });
 
             const result = await listTransactions.handle('test-token', {}) as EnrichedPage;
@@ -80,9 +80,9 @@ describe('transactionTools', () => {
         it('does not include raw categoryId/accountId fields in enriched transactions', async () => {
             const tx = makeTx();
             mockFetchByPath({
-                '/transactions': {data: [tx], total: 1, page: 1, limit: 50},
-                '/accounts': [makeAccount('acc-1', 'Chequing')],
-                '/categories': [makeCategory('cat-1', 'Food')]
+                '/api/transactions': {data: [tx], total: 1, page: 1, limit: 50},
+                '/api/accounts': [makeAccount('acc-1', 'Chequing')],
+                '/api/categories': [makeCategory('cat-1', 'Food')]
             });
 
             const result = await listTransactions.handle('test-token', {}) as EnrichedPage;
@@ -93,9 +93,9 @@ describe('transactionTools', () => {
 
         it('passes startDate and endDate as query params', async () => {
             mockFetchByPath({
-                '/transactions': {data: [], total: 0, page: 1, limit: 50},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {data: [], total: 0, page: 1, limit: 50},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await listTransactions.handle('test-token', {
@@ -103,7 +103,7 @@ describe('transactionTools', () => {
                 endDate: '2025-01-31'
             });
 
-            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions')!;
+            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions')!;
             const params = new URL(txUrl).searchParams;
             expect(params.get('startDate')).toBe('2025-01-01');
             expect(params.get('endDate')).toBe('2025-01-31');
@@ -111,55 +111,55 @@ describe('transactionTools', () => {
 
         it('passes categoryId array as repeated query params', async () => {
             mockFetchByPath({
-                '/transactions': {data: [], total: 0, page: 1, limit: 50},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {data: [], total: 0, page: 1, limit: 50},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await listTransactions.handle('test-token', {
                 categoryId: ['cat-1', 'cat-2']
             });
 
-            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions')!;
+            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions')!;
             const params = new URL(txUrl).searchParams;
             expect(params.getAll('categoryId')).toEqual(['cat-1', 'cat-2']);
         });
 
         it('passes accountId array as repeated query params', async () => {
             mockFetchByPath({
-                '/transactions': {data: [], total: 0, page: 1, limit: 50},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {data: [], total: 0, page: 1, limit: 50},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await listTransactions.handle('test-token', {
                 accountId: ['acc-1', 'acc-2']
             });
 
-            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions')!;
+            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions')!;
             expect(new URL(txUrl).searchParams.getAll('accountId')).toEqual(['acc-1', 'acc-2']);
         });
 
         it('passes transactionType array as repeated query params', async () => {
             mockFetchByPath({
-                '/transactions': {data: [], total: 0, page: 1, limit: 50},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {data: [], total: 0, page: 1, limit: 50},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await listTransactions.handle('test-token', {
                 transactionType: ['income', 'expense']
             });
 
-            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions')!;
+            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions')!;
             expect(new URL(txUrl).searchParams.getAll('transactionType')).toEqual(['income', 'expense']);
         });
 
         it('passes search, limit, page query params', async () => {
             mockFetchByPath({
-                '/transactions': {data: [], total: 0, page: 2, limit: 10},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {data: [], total: 0, page: 2, limit: 10},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await listTransactions.handle('test-token', {
@@ -168,7 +168,7 @@ describe('transactionTools', () => {
                 page: 2
             });
 
-            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions')!;
+            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions')!;
             const params = new URL(txUrl).searchParams;
             expect(params.get('search')).toBe('coffee');
             expect(params.get('limit')).toBe('10');
@@ -177,14 +177,14 @@ describe('transactionTools', () => {
 
         it('omits optional filters when not provided', async () => {
             mockFetchByPath({
-                '/transactions': {data: [], total: 0, page: 1, limit: 50},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {data: [], total: 0, page: 1, limit: 50},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await listTransactions.handle('test-token', {});
 
-            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions')!;
+            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions')!;
             const params = new URL(txUrl).searchParams;
             expect(params.has('startDate')).toBe(false);
             expect(params.has('endDate')).toBe(false);
@@ -194,23 +194,23 @@ describe('transactionTools', () => {
 
         it('ignores empty categoryId array', async () => {
             mockFetchByPath({
-                '/transactions': {data: [], total: 0, page: 1, limit: 50},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {data: [], total: 0, page: 1, limit: 50},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await listTransactions.handle('test-token', {categoryId: []});
 
-            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions')!;
+            const txUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions')!;
             expect(new URL(txUrl).searchParams.has('categoryId')).toBe(false);
         });
 
         it('resolves child category names from nested categories', async () => {
             const tx = makeTx({categoryId: 'cat-1a'});
             mockFetchByPath({
-                '/transactions': {data: [tx], total: 1, page: 1, limit: 50},
-                '/accounts': [makeAccount('acc-1', 'Chequing')],
-                '/categories': [
+                '/api/transactions': {data: [tx], total: 1, page: 1, limit: 50},
+                '/api/accounts': [makeAccount('acc-1', 'Chequing')],
+                '/api/categories': [
                     makeCategory('cat-1', 'Food', [makeCategory('cat-1a', 'Restaurants')])
                 ]
             });
@@ -242,11 +242,11 @@ describe('transactionTools', () => {
 
         it('derives correct UTC startDate and endDate for a 31-day month', async () => {
             const totals = {totalIncome: 1000, totalExpenses: 500, netBalance: 500};
-            mockFetchByPath({'/transactions/totals': totals});
+            mockFetchByPath({'/api/transactions/totals': totals});
 
             await getTransactionTotals.handle('test-token', {month: '2025-03'});
 
-            const totalsUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions/totals')!;
+            const totalsUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions/totals')!;
             const params = new URL(totalsUrl).searchParams;
             expect(params.get('startDate')).toBe('2025-03-01T00:00:00.000Z');
             expect(params.get('endDate')).toBe('2025-03-31T23:59:59.999Z');
@@ -254,11 +254,11 @@ describe('transactionTools', () => {
 
         it('derives correct UTC startDate and endDate for February (non-leap year)', async () => {
             const totals = {totalIncome: 800, totalExpenses: 200, netBalance: 600};
-            mockFetchByPath({'/transactions/totals': totals});
+            mockFetchByPath({'/api/transactions/totals': totals});
 
             await getTransactionTotals.handle('test-token', {month: '2025-02'});
 
-            const totalsUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions/totals')!;
+            const totalsUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions/totals')!;
             const params = new URL(totalsUrl).searchParams;
             expect(params.get('startDate')).toBe('2025-02-01T00:00:00.000Z');
             expect(params.get('endDate')).toBe('2025-02-28T23:59:59.999Z');
@@ -266,11 +266,11 @@ describe('transactionTools', () => {
 
         it('derives correct UTC startDate and endDate for February (leap year)', async () => {
             const totals = {totalIncome: 800, totalExpenses: 200, netBalance: 600};
-            mockFetchByPath({'/transactions/totals': totals});
+            mockFetchByPath({'/api/transactions/totals': totals});
 
             await getTransactionTotals.handle('test-token', {month: '2024-02'});
 
-            const totalsUrl = capturedUrls.find(u => new URL(u).pathname === '/transactions/totals')!;
+            const totalsUrl = capturedUrls.find(u => new URL(u).pathname === '/api/transactions/totals')!;
             const params = new URL(totalsUrl).searchParams;
             expect(params.get('startDate')).toBe('2024-02-01T00:00:00.000Z');
             expect(params.get('endDate')).toBe('2024-02-29T23:59:59.999Z');
@@ -278,7 +278,7 @@ describe('transactionTools', () => {
 
         it('returns the totals object from the API', async () => {
             const totals = {totalIncome: 1500, totalExpenses: 700, netBalance: 800};
-            mockFetchByPath({'/transactions/totals': totals});
+            mockFetchByPath({'/api/transactions/totals': totals});
 
             const result = await getTransactionTotals.handle('test-token', {month: '2025-03'});
 
@@ -290,9 +290,9 @@ describe('transactionTools', () => {
         it('creates a transaction and returns an enriched result', async () => {
             const newTx = makeTx({id: 'tx-new', amount: 99, description: 'Dinner', accountId: 'acc-1', categoryId: 'cat-1'});
             mockFetchByPath({
-                '/transactions': {status: 'created', transaction: newTx},
-                '/accounts': [makeAccount('acc-1', 'Chequing')],
-                '/categories': [makeCategory('cat-1', 'Food')]
+                '/api/transactions': {status: 'created', transaction: newTx},
+                '/api/accounts': [makeAccount('acc-1', 'Chequing')],
+                '/api/categories': [makeCategory('cat-1', 'Food')]
             });
 
             const result = await createTransaction.handle('test-token', {
@@ -312,9 +312,9 @@ describe('transactionTools', () => {
         it('includes a fitid sha256 hash derived from date|amount|description|accountId', async () => {
             const newTx = makeTx();
             mockFetchByPath({
-                '/transactions': {status: 'created', transaction: newTx},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {status: 'created', transaction: newTx},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             const args = {
@@ -337,9 +337,9 @@ describe('transactionTools', () => {
         it('fitid uses empty string for missing optional accountId', async () => {
             const newTx = makeTx({accountId: null});
             mockFetchByPath({
-                '/transactions': {status: 'created', transaction: newTx},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {status: 'created', transaction: newTx},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             const args = {
@@ -362,9 +362,9 @@ describe('transactionTools', () => {
         it('sends optional fields when provided', async () => {
             const newTx = makeTx();
             mockFetchByPath({
-                '/transactions': {status: 'created', transaction: newTx},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {status: 'created', transaction: newTx},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await createTransaction.handle('test-token', {
@@ -388,9 +388,9 @@ describe('transactionTools', () => {
         it('omits optional fields when not provided', async () => {
             const newTx = makeTx({categoryId: null, accountId: null, notes: null});
             mockFetchByPath({
-                '/transactions': {status: 'created', transaction: newTx},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {status: 'created', transaction: newTx},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await createTransaction.handle('test-token', {
@@ -410,9 +410,9 @@ describe('transactionTools', () => {
         it('sends required fields in POST body', async () => {
             const newTx = makeTx();
             mockFetchByPath({
-                '/transactions': {status: 'created', transaction: newTx},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {status: 'created', transaction: newTx},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             await createTransaction.handle('test-token', {
@@ -432,9 +432,9 @@ describe('transactionTools', () => {
         it('returns enriched transaction with null names when IDs not in maps', async () => {
             const newTx = makeTx({categoryId: 'unknown-cat', accountId: 'unknown-acc'});
             mockFetchByPath({
-                '/transactions': {status: 'created', transaction: newTx},
-                '/accounts': [],
-                '/categories': []
+                '/api/transactions': {status: 'created', transaction: newTx},
+                '/api/accounts': [],
+                '/api/categories': []
             });
 
             const result = await createTransaction.handle('test-token', {

@@ -22,7 +22,7 @@ export const dashboardTools: ToolModule<DashboardSummaryDto>[] = [
                 params.month = args.month;
             }
             return tokenStorage.run(token, () =>
-                mcpFetcher<DashboardSummaryDto>({url: '/dashboard/summary', method: 'GET', params})
+                mcpFetcher<DashboardSummaryDto>({url: '/api/dashboard/summary', method: 'GET', params})
             );
         }
     }

@@ -22,7 +22,7 @@ describe('categoryTools', () => {
                 {id: 'cat-1', name: 'Food', children: []},
                 {id: 'cat-2', name: 'Transport', children: []}
             ];
-            mockFetchByPath({'/categories': categories});
+            mockFetchByPath({'/api/categories': categories});
 
             const result = await listCategories.handle('test-token', {});
 
@@ -38,11 +38,11 @@ describe('categoryTools', () => {
 
             await listCategories.handle('test-token', {});
 
-            expect(new URL(capturedUrl).pathname).toBe('/categories');
+            expect(new URL(capturedUrl).pathname).toBe('/api/categories');
         });
 
         it('returns empty array when no categories exist', async () => {
-            mockFetchByPath({'/categories': []});
+            mockFetchByPath({'/api/categories': []});
 
             const result = await listCategories.handle('test-token', {});
 
@@ -60,7 +60,7 @@ describe('categoryTools', () => {
                     ]
                 }
             ];
-            mockFetchByPath({'/categories': nestedCategories});
+            mockFetchByPath({'/api/categories': nestedCategories});
 
             const result = await listCategories.handle('test-token', {});
 

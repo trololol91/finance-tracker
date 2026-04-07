@@ -31,7 +31,7 @@ describe('dashboardTools', () => {
     describe('get_dashboard_summary', () => {
         it('returns the dashboard summary from the API', async () => {
             const summary = makeSummary();
-            mockFetchByPath({'/dashboard/summary': summary});
+            mockFetchByPath({'/api/dashboard/summary': summary});
 
             const result = await getDashboardSummary.handle('test-token', {});
 
@@ -47,7 +47,7 @@ describe('dashboardTools', () => {
 
             await getDashboardSummary.handle('test-token', {});
 
-            expect(new URL(capturedUrl).pathname).toBe('/dashboard/summary');
+            expect(new URL(capturedUrl).pathname).toBe('/api/dashboard/summary');
         });
 
         it('passes the month param when provided', async () => {
@@ -89,7 +89,7 @@ describe('dashboardTools', () => {
 
         it('returns summary with null savingsRate when income is zero', async () => {
             const summary = makeSummary({totalIncome: 0, netBalance: -500, savingsRate: null});
-            mockFetchByPath({'/dashboard/summary': summary});
+            mockFetchByPath({'/api/dashboard/summary': summary});
 
             const result = await getDashboardSummary.handle('test-token', {month: '2025-03'});
 

@@ -19,7 +19,7 @@ import {fileURLToPath} from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKEND_URL = process.env.API_URL ?? 'http://localhost:3001';
-const SPEC_URL = `${BACKEND_URL}/api-json`;
+const SPEC_URL = `${BACKEND_URL}/docs-json`;
 const OUTPUT_PATH = resolve(__dirname, '../openapi.json');
 
 console.log(`Fetching OpenAPI spec from ${SPEC_URL} …`);

@@ -84,7 +84,7 @@ services:
                 condition: service_healthy
         command: sh -c "cd packages/backend && npx prisma migrate deploy && exec node /usr/src/app/packages/backend/dist/main.js"
         healthcheck:
-            test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1"]
+            test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1"]
             interval: 30s
             timeout: 10s
             retries: 3

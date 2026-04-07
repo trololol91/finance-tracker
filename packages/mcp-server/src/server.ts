@@ -60,7 +60,7 @@ export const validateBearerToken = async (
 
     const baseUrl = process.env.FINANCE_TRACKER_URL ?? 'http://localhost:3001';
     try {
-        const response = await fetch(`${baseUrl}/auth/me`, {
+        const response = await fetch(`${baseUrl}/api/auth/me`, {
             headers: {Authorization: `Bearer ${token}`}
         });
         if (!response.ok) return null;

@@ -25,7 +25,7 @@ export default defineConfig({
             // Use `generate:api:file` to generate from the saved snapshot instead.
             target: './openapi.json'
             // Swap the line above for the one below when the backend is running:
-            // target: 'http://localhost:3001/api-json',
+            // target: 'http://localhost:3001/docs-json',
         },
         output: {
             target: './src/api',

@@ -12,7 +12,7 @@ export const categoryTools: ToolModule<CategoryResponseDto[]>[] = [
         },
         handle: async (token) =>
             tokenStorage.run(token, () =>
-                mcpFetcher<CategoryResponseDto[]>({url: '/categories', method: 'GET'})
+                mcpFetcher<CategoryResponseDto[]>({url: '/api/categories', method: 'GET'})
             )
     }
 ];

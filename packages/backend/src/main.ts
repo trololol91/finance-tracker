@@ -11,6 +11,10 @@ const bootstrap = async (): Promise<void> => {
     const app = await NestFactory.create(AppModule);
     useContainer(app.select(AppModule), {fallbackOnErrors: true});
 
+    // All controller routes are prefixed with /api so any reverse proxy
+    // (nginx, Cloudflare Tunnel, etc.) can forward without path stripping.
+    app.setGlobalPrefix('api');
+
     // Enable validation pipes globally
     app.useGlobalPipes(new ValidationPipe({
         whitelist: true,
@@ -42,7 +46,7 @@ const bootstrap = async (): Promise<void> => {
         .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document, {
+    SwaggerModule.setup('docs', app, document, {
         swaggerOptions: {
             persistAuthorization: true,
             tagsSorter: 'alpha',
@@ -62,6 +66,6 @@ const bootstrap = async (): Promise<void> => {
 
     await app.listen(port);
     console.log(`Application is running on: ${await app.getUrl()}`);
-    console.log(`Swagger documentation: ${await app.getUrl()}/api`);
+    console.log(`Swagger documentation: ${await app.getUrl()}/docs`);
 };
 void bootstrap();

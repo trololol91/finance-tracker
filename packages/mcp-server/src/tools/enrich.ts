@@ -53,10 +53,10 @@ export const fetchLookupMaps = async (token: string): Promise<LookupMaps> => {
     const fetch = (async (): Promise<LookupMaps> => {
         const [accounts, categories] = await Promise.all([
             tokenStorage.run(token, () =>
-                mcpFetcher<AccountResponseDto[]>({url: '/accounts', method: 'GET'})
+                mcpFetcher<AccountResponseDto[]>({url: '/api/accounts', method: 'GET'})
             ),
             tokenStorage.run(token, () =>
-                mcpFetcher<CategoryResponseDto[]>({url: '/categories', method: 'GET'})
+                mcpFetcher<CategoryResponseDto[]>({url: '/api/categories', method: 'GET'})
             )
         ]);
         const maps: LookupMaps = {

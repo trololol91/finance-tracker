@@ -12,7 +12,7 @@ export const accountTools: ToolModule<AccountResponseDto[]>[] = [
         },
         handle: async (token) =>
             tokenStorage.run(token, () =>
-                mcpFetcher<AccountResponseDto[]>({url: '/accounts', method: 'GET'})
+                mcpFetcher<AccountResponseDto[]>({url: '/api/accounts', method: 'GET'})
             )
     }
 ];

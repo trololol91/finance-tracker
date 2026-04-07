@@ -22,7 +22,7 @@ describe('accountTools', () => {
                 {id: 'acc-1', name: 'Chequing', type: 'chequing', balance: 1500, currency: 'CAD', isActive: true},
                 {id: 'acc-2', name: 'Savings', type: 'savings', balance: 5000, currency: 'CAD', isActive: true}
             ];
-            mockFetchByPath({'/accounts': accounts});
+            mockFetchByPath({'/api/accounts': accounts});
 
             const result = await listAccounts.handle('test-token', {});
 
@@ -38,11 +38,11 @@ describe('accountTools', () => {
 
             await listAccounts.handle('test-token', {});
 
-            expect(new URL(capturedUrl).pathname).toBe('/accounts');
+            expect(new URL(capturedUrl).pathname).toBe('/api/accounts');
         });
 
         it('returns empty array when no accounts exist', async () => {
-            mockFetchByPath({'/accounts': []});
+            mockFetchByPath({'/api/accounts': []});
 
             const result = await listAccounts.handle('test-token', {});
 

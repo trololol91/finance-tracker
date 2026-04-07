@@ -92,7 +92,7 @@ const listTransactions: ToolModule<EnrichedPage> = {
         }
         const [result, {accountsById, categoriesById}] = await Promise.all([
             tokenStorage.run(token, () =>
-                mcpFetcher<PaginatedTransactionsResponseDto>({url: '/transactions', method: 'GET', params})
+                mcpFetcher<PaginatedTransactionsResponseDto>({url: '/api/transactions', method: 'GET', params})
             ),
             fetchLookupMaps(token)
         ]);
@@ -123,7 +123,7 @@ const getTransactionTotals: ToolModule<TransactionTotalsResponseDto> = {
         const {startDate, endDate} = monthToDateRange(args.month);
         return tokenStorage.run(token, () =>
             mcpFetcher<TransactionTotalsResponseDto>({
-                url: '/transactions/totals',
+                url: '/api/transactions/totals',
                 method: 'GET',
                 params: {startDate, endDate}
             })
@@ -204,7 +204,7 @@ const createTransaction: ToolModule<EnrichedTransaction> = {
 
         const [result, {accountsById, categoriesById}] = await Promise.all([
             tokenStorage.run(token, () =>
-                mcpFetcher<CreateTransactionResponseDto>({url: '/transactions', method: 'POST', data})
+                mcpFetcher<CreateTransactionResponseDto>({url: '/api/transactions', method: 'POST', data})
             ),
             fetchLookupMaps(token)
         ]);

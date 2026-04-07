@@ -124,11 +124,11 @@ describe('fetchLookupMaps', () => {
 
     it('builds accountsById map from API response', async () => {
         mockFetchByPath({
-            '/accounts': [
+            '/api/accounts': [
                 {id: 'acc-1', name: 'Chequing'},
                 {id: 'acc-2', name: 'Savings'}
             ],
-            '/categories': []
+            '/api/categories': []
         });
 
         const {accountsById} = await fetchLookupMaps('test-token');
@@ -140,8 +140,8 @@ describe('fetchLookupMaps', () => {
 
     it('builds categoriesById map from API response', async () => {
         mockFetchByPath({
-            '/accounts': [],
-            '/categories': [
+            '/api/accounts': [],
+            '/api/categories': [
                 {id: 'cat-1', name: 'Food', children: []},
                 {id: 'cat-2', name: 'Transport', children: []}
             ]
@@ -155,8 +155,8 @@ describe('fetchLookupMaps', () => {
 
     it('flattens nested child categories into the map', async () => {
         mockFetchByPath({
-            '/accounts': [],
-            '/categories': [
+            '/api/accounts': [],
+            '/api/categories': [
                 {
                     id: 'cat-1',
                     name: 'Food',
@@ -184,7 +184,7 @@ describe('fetchLookupMaps', () => {
     });
 
     it('handles empty accounts and categories arrays', async () => {
-        mockFetchByPath({'/accounts': [], '/categories': []});
+        mockFetchByPath({'/api/accounts': [], '/api/categories': []});
 
         const {accountsById, categoriesById} = await fetchLookupMaps('test-token');
 
@@ -194,8 +194,8 @@ describe('fetchLookupMaps', () => {
 
     it('returns both maps in a single call', async () => {
         mockFetchByPath({
-            '/accounts': [{id: 'acc-1', name: 'Chequing'}],
-            '/categories': [{id: 'cat-1', name: 'Food', children: []}]
+            '/api/accounts': [{id: 'acc-1', name: 'Chequing'}],
+            '/api/categories': [{id: 'cat-1', name: 'Food', children: []}]
         });
 
         const result = await fetchLookupMaps('test-token');
