@@ -50,6 +50,40 @@ jobs:
           name: scraper-cibc
           path: packages/scraper-cibc/scraper-cibc-*.zip
 
+  build-scraper-td-bank-account:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin-sdk
+        run: npm run build -w packages/plugin-sdk
+
+      - name: Build scraper-td-bank-account
+        run: npm run build -w packages/scraper-td-bank-account
+
+      - name: Pack scraper-td-bank-account
+        working-directory: packages/scraper-td-bank-account
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          node ../../scripts/pack-plugin.mjs
+          mv scraper-td-bank-account-*.zip scraper-td-bank-account-${VERSION}.zip
+
+      - name: Upload scraper-td-bank-account artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-td-bank-account
+          path: packages/scraper-td-bank-account/scraper-td-bank-account-*.zip
+
   build-scraper-td-credit-card:
     needs: [ci]
     runs-on: ubuntu-latest
@@ -195,7 +229,7 @@ jobs:
             ${{ env.REGISTRY }}/finance-tracker-mcp-server:latest
 
   release:
-    needs: [build-scraper-cibc, build-scraper-td-credit-card, build-playwright, build-backend, build-frontend, build-mcp-server]
+    needs: [build-scraper-cibc, build-scraper-td-credit-card, build-scraper-td-bank-account, build-playwright, build-backend, build-frontend, build-mcp-server]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -235,4 +269,5 @@ jobs:
           files: |
             dist/scraper-cibc-${{ steps.version.outputs.VERSION }}.zip
             dist/scraper-td-credit-card-${{ steps.version.outputs.VERSION }}.zip
+            dist/scraper-td-bank-account-${{ steps.version.outputs.VERSION }}.zip
             docker-compose.release.yml
