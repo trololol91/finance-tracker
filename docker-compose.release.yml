@@ -11,8 +11,8 @@ version: '3.8'
 
 services:
     playwright-server:
-        # Updated automatically by scripts/publish.sh — do not edit by hand.
-        image: ghcr.io/trololol91/finance-tracker-playwright:latest
+        build:
+            context: docker/playwright-server
         container_name: finance-tracker-playwright
         restart: unless-stopped
         healthcheck:
