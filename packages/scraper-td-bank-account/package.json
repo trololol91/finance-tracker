@@ -1,0 +1,27 @@
+{
+  "name": "@finance-tracker/scraper-td-bank-account",
+  "version": "0.1.0",
+  "description": "TD chequing/savings account scraper plugin for finance-tracker",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "pack": "node ../../scripts/pack-plugin.mjs",
+    "scraper": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "playwright": "1.58.2"
+  },
+  "devDependencies": {
+    "@finance-tracker/plugin-sdk": "*",
+    "@types/node": "25.6.0",
+    "tsx": "4.19.3",
+    "typescript": "5.7.3",
+    "vitest": "4.0.15"
+  },
+  "engines": {
+    "node": "24.13.0"
+  }
+}
