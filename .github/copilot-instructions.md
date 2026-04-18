@@ -58,40 +58,38 @@ This is a finance tracker monorepo with:
 ### Committing Changes
 **INSTRUCTION**: When asked to commit changes, always:
 1. Stage all changes with `git add`
-2. Create comprehensive commit messages with:
-   - **Summary line**: Clear, concise description (imperative mood)
-   - **Type prefix**: feat/fix/test/docs/refactor/style/chore
-   - **Detailed body**: 
-     - What changed and why
-     - Breaking changes (if any)
-     - Technical details and implementation notes
-     - Files created/modified counts
-     - Test results if applicable
-   - **Format example**:
+2. Create commit messages following the Conventional Commits format actually used in this repo:
+   - **Summary line**: `type(scope): description` or `type: description` (imperative mood, lowercase)
+   - **Type prefix**: feat/fix/test/docs/refactor/style/chore/ci
+   - **Optional scope**: module or package name in parentheses, e.g. `feat(scrapers):`, `fix(frontend):`
+   - **Body** (when needed): short prose paragraph or `-` dash-bullet list describing what changed and why. No section headers.
+   - **Format examples**:
      ```
-     feat: add transaction categorization with AI
+     feat(scrapers): add TD chequing/savings account scraper
 
-     Implemented OpenAI integration for automatic transaction categorization
-     using GPT-4o-mini model with custom prompts.
+     New scraper plugin for TD bank deposit accounts using the
+     /ms/uainq/v1/accounts/{accountId}/transactions POST API.
+     Reuses request headers from the page-load intercept to satisfy
+     TD's microservice header requirements (TraceabilityID, etc.).
+     ```
+     ```
+     fix: address code review — SSE url prefix, Logger, test assertion
 
-     Changes:
-     - Created ai/categorization module with service and controller
-     - Added OpenAI client wrapper in integrations/
-     - Implemented prompt templates for category suggestions
-     - Added unit tests for categorization logic (15 tests passing)
-
-     Breaking Changes:
-     - Transaction entity now requires categoryId field
-
-     12 files changed, 456 insertions, 23 deletions
+     - useSyncStream: add /api prefix to SSE stream URL (was 404ing post-prefix change)
+     - main.ts: replace console.log with NestJS Logger
+     - mcp-server/tsconfig.json: broaden __TEST__ exclude to **/__TEST__
+     ```
+     ```
+     chore: update lockfile for scraper-td-bank-account
      ```
 
 ### Commit Message Guidelines
 - Use imperative mood ("add" not "added")
-- Be specific about what changed
-- Include file counts and test results
-- Document breaking changes clearly
-- Add context for future developers
+- Keep the summary line under 72 characters
+- Omit body entirely for trivial/obvious changes (single-line commit is fine)
+- No "Changes:", "Breaking Changes:", or "Files changed:" section headers
+- No file counts or test result summaries in the body
+- Add context for non-obvious decisions or migration notes
 
 ## Architecture Guidelines
 
