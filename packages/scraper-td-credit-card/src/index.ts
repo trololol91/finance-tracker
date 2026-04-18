@@ -5,10 +5,44 @@ import type {
     RawTransaction,
     ScrapeOptions
 } from '@finance-tracker/plugin-sdk';
-import type {Browser, Page} from 'playwright';
+import type {Browser, BrowserContext, Page} from 'playwright';
 
 let browser: Browser | undefined;
+let context: BrowserContext | undefined;
 let page: Page | undefined;
+
+const resolveCdpWsUrl = async (cdpUrl: string): Promise<string> => {
+    if (cdpUrl.startsWith('ws://') || cdpUrl.startsWith('wss://')) {
+        return cdpUrl;
+    }
+    const {get} = await import('node:http');
+    const parsed = new URL(cdpUrl);
+    return new Promise((resolve, reject) => {
+        get(
+            {
+                hostname: parsed.hostname,
+                port: parsed.port,
+                path: '/json/version',
+                headers: {Host: 'localhost'}
+            },
+            res => {
+                let data = '';
+                res.on('data', chunk => (data += chunk));
+                res.on('end', () => {
+                    try {
+                        const {webSocketDebuggerUrl} = JSON.parse(data) as {webSocketDebuggerUrl: string};
+                        const wsUrl = new URL(webSocketDebuggerUrl);
+                        wsUrl.hostname = parsed.hostname;
+                        wsUrl.port = parsed.port;
+                        resolve(wsUrl.toString());
+                    } catch {
+                        reject(new Error(`Failed to parse CDP response: ${data}`));
+                    }
+                });
+            }
+        ).on('error', reject);
+    });
+};
 
 const TRANSACTIONS_API = 'https://easyweb.td.com/waw/api/account/creditcard/transactions';
 
@@ -86,6 +120,13 @@ const tdCreditCardScraper: BankScraper = {
             type: 'text',
             required: true,
             hint: 'Account to scrape (e.g. "TD CASH BACK VISA INFINITE*")'
+        },
+        {
+            key: 'playwrightCdpUrl',
+            label: 'Chrome CDP URL',
+            type: 'text',
+            required: false,
+            hint: 'CDP endpoint of an existing Chrome instance (e.g. http://localhost:9222). Leave blank to use the configured Playwright server.'
         }
     ] satisfies PluginFieldDescriptor[],
 
@@ -94,11 +135,17 @@ const tdCreditCardScraper: BankScraper = {
         resolveMfa?: (prompt: string) => Promise<string>
     ): Promise<void> {
         const {chromium} = await import('playwright');
+        const cdpUrl = inputs.playwrightCdpUrl || process.env.PLAYWRIGHT_CDP_URL;
         const serverUrl = process.env.PLAYWRIGHT_SERVER_URL;
-        browser = await (serverUrl
-            ? chromium.connect(serverUrl)
-            : chromium.launch({headless: false}));
-        page = await browser.newPage();
+        browser = await (cdpUrl
+            ? chromium.connectOverCDP(await resolveCdpWsUrl(cdpUrl))
+            : serverUrl
+              ? chromium.connect(serverUrl)
+              : chromium.launch({headless: false}));
+        // When connecting over CDP, use the existing profile context (with saved cookies/sessions).
+        // browser.newPage() would open a new incognito context and lose all profile data.
+        context = cdpUrl ? browser.contexts()[0] : await browser.newContext();
+        page = await context.newPage();
 
         await page.goto('https://www.td.com/ca/en/personal-banking');
         await page.getByRole('link', { name: 'Login' }).first().click();
@@ -204,8 +251,14 @@ const tdCreditCardScraper: BankScraper = {
 
     async cleanup(): Promise<void> {
         await page?.close();
+        if (browser?.contexts().includes(context!)) {
+            // CDP-attached context — don't close it, just release our reference
+        } else {
+            await context?.close();
+        }
         await browser?.close();
         page = undefined;
+        context = undefined;
         browser = undefined;
     }
 };
