@@ -2,7 +2,7 @@ import React, {
     useState, useCallback, useRef, useEffect
 } from 'react';
 import {
-    useQueryClient, useMutation
+    useQueryClient
 } from '@tanstack/react-query';
 import {
     Plus, Wand2
@@ -19,36 +19,15 @@ import {useAiStatus} from '@features/transactions/hooks/useAiStatus.js';
 import {
     useTransactionsControllerRemove,
     useTransactionsControllerToggleActive,
+    useTransactionsControllerBulkCategorize,
     getTransactionsControllerFindAllQueryKey,
     getTransactionsControllerGetTotalsQueryKey
 } from '@/api/transactions/transactions.js';
-import {customInstance} from '@services/api/mutator.js';
 import {useCategoriesControllerFindAll} from '@/api/categories/categories.js';
 import {useAccountsControllerFindAll} from '@/api/accounts/accounts.js';
 import type {BulkCategorizeResponseDto} from '@/api/model/bulkCategorizeResponseDto.js';
 import type {TransactionResponseDto} from '@/api/model/transactionResponseDto.js';
 import '@pages/TransactionsPage.css';
-
-interface BulkCategorizeParams {
-    // BulkCategorizeQueryDto accepts a single accountId string, not an array.
-    // The UI disables the button when >1 account is selected (see handleBulkCategorize).
-    accountId?: string;
-    startDate?: string;
-    endDate?: string;
-}
-
-const bulkCategorizeWithFilters = (
-    params: BulkCategorizeParams
-): Promise<BulkCategorizeResponseDto> =>
-    customInstance<BulkCategorizeResponseDto>({
-        url: '/api/transactions/bulk-categorize',
-        method: 'POST',
-        params: {
-            ...(params.accountId ? {accountId: params.accountId} : {}),
-            ...(params.startDate ? {startDate: params.startDate} : {}),
-            ...(params.endDate ? {endDate: params.endDate} : {})
-        }
-    });
 
 export const TransactionsPage = (): React.JSX.Element => {
     const queryClient = useQueryClient();
@@ -92,13 +71,7 @@ export const TransactionsPage = (): React.JSX.Element => {
     const {mutate: removeTransaction} = useTransactionsControllerRemove();
     const {mutate: toggleActive} = useTransactionsControllerToggleActive();
 
-    const bulkCategorizeMutation = useMutation<
-        BulkCategorizeResponseDto,
-        Error,
-        BulkCategorizeParams
-    >({
-        mutationFn: bulkCategorizeWithFilters
-    });
+    const bulkCategorizeMutation = useTransactionsControllerBulkCategorize();
 
     const handleAddClick = useCallback((): void => {
         openCreate();
@@ -168,10 +141,14 @@ export const TransactionsPage = (): React.JSX.Element => {
         setBulkCategorizeMessage(null);
         bulkCategorizeMutation.mutate(
             {
-                // BulkCategorizeQueryDto accepts scalar accountId — pass only when one is selected
-                accountId: filters.accountId.length === 1 ? filters.accountId[0] : undefined,
-                startDate: filters.startDate || undefined,
-                endDate: filters.endDate || undefined
+                params: {
+                    // scalar accountId only — disabled when >1 account selected
+                    accountId: filters.accountId.length === 1
+                        ? filters.accountId[0]
+                        : undefined,
+                    startDate: filters.startDate || undefined,
+                    endDate: filters.endDate || undefined
+                }
             },
             {
                 onSuccess: (result: BulkCategorizeResponseDto): void => {

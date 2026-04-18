@@ -10,7 +10,9 @@ import {CurrentUser} from '#auth/decorators/current-user.decorator.js';
 import {CreateUserDto} from '#users/dto/create-user.dto.js';
 import {UserResponseDto} from '#users/dto/user-response.dto.js';
 import {LoginDto} from '#auth/dto/login.dto.js';
-import {AuthResponseDto} from '#auth/dto/auth-response.dto.js';
+import {
+    AuthResponseDto, SetupStatusResponseDto
+} from '#auth/dto/auth-response.dto.js';
 import type {AuthResponse} from '#auth/dto/auth-response.dto.js';
 import type {User} from '#generated/prisma/client.js';
 
@@ -59,7 +61,7 @@ export class AuthController {
     @Get('setup-status')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({summary: 'Get setup status', description: 'Returns whether initial setup is required (no users exist)'})
-    @ApiResponse({status: 200, description: 'Setup status returned'})
+    @ApiResponse({status: 200, description: 'Setup status returned', type: SetupStatusResponseDto})
     public getSetupStatus(): Promise<{required: boolean}> {
         return this.authService.getSetupStatus();
     }
@@ -68,7 +70,7 @@ export class AuthController {
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({summary: 'Create first admin account', description: 'Creates the first admin user during initial setup'})
     @ApiBody({type: CreateUserDto})
-    @ApiResponse({status: 201, description: 'Admin account created'})
+    @ApiResponse({status: 201, description: 'Admin account created', type: AuthResponseDto})
     @ApiResponse({status: 409, description: 'Setup already complete'})
     public setupAdmin(@Body() createUserDto: CreateUserDto): Promise<AuthResponse> {
         return this.authService.setupAdmin(createUserDto);

@@ -18,7 +18,9 @@ import {authStorage} from '@services/storage/authStorage.js';
 import {
     authControllerLogin,
     authControllerRegister,
-    authControllerGetProfile
+    authControllerGetProfile,
+    authControllerGetSetupStatus,
+    authControllerSetupAdmin
 } from '@/api/auth/auth.js';
 import type {User} from '@features/auth/types/auth.types.js';
 import type {UserResponseDto} from '@/api/model/userResponseDto.js';
@@ -43,15 +45,10 @@ vi.mock('@services/storage/authStorage.js', () => ({
 vi.mock('@/api/auth/auth.js', () => ({
     authControllerLogin: vi.fn(),
     authControllerRegister: vi.fn(),
-    authControllerGetProfile: vi.fn()
+    authControllerGetProfile: vi.fn(),
+    authControllerGetSetupStatus: vi.fn(),
+    authControllerSetupAdmin: vi.fn()
 }));
-
-// Mock customInstance used for /auth/setup-status and /auth/setup calls
-vi.mock('@services/api/mutator.js', () => ({
-    customInstance: vi.fn().mockResolvedValue({required: false})
-}));
-
-import {customInstance} from '@services/api/mutator.js';
 
 describe('AuthProvider', () => {
     const mockUser: User = {
@@ -103,6 +100,8 @@ describe('AuthProvider', () => {
         vi.mocked(authStorage.getToken).mockReturnValue(null);
         // Default: profile endpoint resolves (overridden per-test as needed)
         vi.mocked(authControllerGetProfile).mockResolvedValue(mockProfileResponse);
+        // Default: setup not required
+        vi.mocked(authControllerGetSetupStatus).mockResolvedValue({required: false});
     });
 
     describe('initialization', () => {
@@ -791,9 +790,12 @@ describe('AuthProvider', () => {
         describe('completeSetup method', () => {
             it('creates admin, saves token, fetches profile and sets auth state', async () => {
                 vi.mocked(authStorage.getToken).mockReturnValue(null);
-                vi.mocked(customInstance)
-                    .mockResolvedValueOnce({required: false}) // setup-status on init
-                    .mockResolvedValueOnce({accessToken: mockToken, user: {}}); // POST /auth/setup
+                vi.mocked(authControllerGetSetupStatus).mockResolvedValue({required: true});
+                vi.mocked(authControllerSetupAdmin)
+                    .mockResolvedValue({
+                        accessToken: mockToken,
+                        user: {id: '1', email: 'admin@test.com', firstName: 'Admin', lastName: 'User'}
+                    });
                 vi.mocked(authControllerGetProfile).mockResolvedValue(mockProfileResponse);
 
                 const TestComponent = (): React.JSX.Element => {

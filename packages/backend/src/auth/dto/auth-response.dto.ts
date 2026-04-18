@@ -62,3 +62,8 @@ export class AuthResponseDto implements AuthResponse {
     })
     public user!: AuthUserDto;
 }
+
+export class SetupStatusResponseDto {
+    @ApiProperty({description: 'Whether initial admin setup is required', example: true})
+    public required!: boolean;
+}

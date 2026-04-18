@@ -17,7 +17,8 @@ import {
     getTransactionsControllerFindAllQueryKey,
     getTransactionsControllerGetTotalsQueryKey,
     useTransactionsControllerRemove,
-    useTransactionsControllerToggleActive
+    useTransactionsControllerToggleActive,
+    useTransactionsControllerBulkCategorize
 } from '@/api/transactions/transactions.js';
 import {
     useTransactionFilters,
@@ -226,10 +227,14 @@ const mockRemoveMutate = vi.fn(
 const mockToggleMutate = vi.fn(
     (_args: unknown, opts: MutateOpts) => { opts.onSuccess(); }
 );
+const mockBulkCategorizeMutate = vi.fn(
+    (_args: unknown, opts: MutateOpts) => { opts.onSuccess(); }
+);
 
 vi.mock('@/api/transactions/transactions.js', () => ({
     useTransactionsControllerRemove: vi.fn(() => ({mutate: mockRemoveMutate})),
     useTransactionsControllerToggleActive: vi.fn(() => ({mutate: mockToggleMutate})),
+    useTransactionsControllerBulkCategorize: vi.fn(() => ({mutate: mockBulkCategorizeMutate})),
     getTransactionsControllerFindAllQueryKey: vi.fn(
         (params?: unknown) => ['/transactions', params]
     ),
@@ -248,6 +253,7 @@ vi.mock('@/api/accounts/accounts.js', () => ({
 
 type RemoveReturn = ReturnType<typeof useTransactionsControllerRemove>;
 type ToggleReturn = ReturnType<typeof useTransactionsControllerToggleActive>;
+type BulkCategorizeReturn = ReturnType<typeof useTransactionsControllerBulkCategorize>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -300,11 +306,17 @@ describe('TransactionsPage', () => {
         vi.mocked(mockToggleMutate).mockImplementation(
             (_args, opts) => { opts.onSuccess(); }
         );
+        vi.mocked(mockBulkCategorizeMutate).mockImplementation(
+            (_args, opts) => { opts.onSuccess(); }
+        );
         vi.mocked(useTransactionsControllerRemove).mockReturnValue(
             {mutate: mockRemoveMutate} as unknown as RemoveReturn
         );
         vi.mocked(useTransactionsControllerToggleActive).mockReturnValue(
             {mutate: mockToggleMutate} as unknown as ToggleReturn
+        );
+        vi.mocked(useTransactionsControllerBulkCategorize).mockReturnValue(
+            {mutate: mockBulkCategorizeMutate} as unknown as BulkCategorizeReturn
         );
         vi.mocked(useTransactionFilters).mockReturnValue({
             ...defaultFilterState,

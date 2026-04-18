@@ -607,7 +607,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Setup status returned"
+            "description": "Setup status returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Get setup status",
@@ -633,7 +640,14 @@
         },
         "responses": {
           "201": {
-            "description": "Admin account created"
+            "description": "Admin account created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
           },
           "409": {
             "description": "Setup already complete"
@@ -2519,7 +2533,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "AI status returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiStatusResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3160,6 +3181,19 @@
         "required": [
           "email",
           "password"
+        ]
+      },
+      "SetupStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "required": {
+            "type": "boolean",
+            "description": "Whether initial admin setup is required",
+            "example": true
+          }
+        },
+        "required": [
+          "required"
         ]
       },
       "CreateTransactionDto": {
@@ -4562,6 +4596,31 @@
         "required": [
           "month",
           "items"
+        ]
+      },
+      "AiStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "Whether AI categorization is available",
+            "example": true
+          },
+          "provider": {
+            "type": "string",
+            "description": "AI provider name",
+            "example": "openai"
+          },
+          "model": {
+            "type": "string",
+            "description": "AI model identifier",
+            "example": "gpt-4o-mini"
+          }
+        },
+        "required": [
+          "available",
+          "provider",
+          "model"
         ]
       },
       "CreateApiTokenDto": {
