@@ -131,9 +131,14 @@ export class ScraperPluginLoader implements OnModuleInit {
     /**
      * Wraps the dynamic import() call so unit tests can spy on it without
      * touching the real filesystem or Node module cache.
+     *
+     * A cache-busting query string is appended so that reloading a plugin
+     * after an on-disk update bypasses the Node.js ESM module cache, which
+     * would otherwise return the stale cached module for the same URL.
      * @internal
      */
     protected loadModule(href: string): Promise<Record<string, unknown>> {
-        return import(href) as Promise<Record<string, unknown>>;
+        const bustUrl = `${href}?t=${Date.now()}`;
+        return import(bustUrl) as Promise<Record<string, unknown>>;
     }
 }
