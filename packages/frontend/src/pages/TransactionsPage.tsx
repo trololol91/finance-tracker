@@ -41,7 +41,7 @@ const bulkCategorizeWithFilters = (
     params: BulkCategorizeParams
 ): Promise<BulkCategorizeResponseDto> =>
     customInstance<BulkCategorizeResponseDto>({
-        url: '/transactions/bulk-categorize',
+        url: '/api/transactions/bulk-categorize',
         method: 'POST',
         params: {
             ...(params.accountId ? {accountId: params.accountId} : {}),

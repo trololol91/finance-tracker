@@ -23,7 +23,7 @@ export const useAiStatus = (): UseAiStatusReturn => {
     const {data, isLoading} = useQuery<AiStatusResponse>({
         queryKey: ['ai-status'],
         queryFn: () => customInstance<AiStatusResponse>({
-            url: '/ai-categorization/status',
+            url: '/api/ai-categorization/status',
             method: 'GET'
         }),
         staleTime: 5 * 60 * 1000, // 5 minutes

@@ -120,7 +120,7 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
             try {
                 const [authResult, statusResult] = await Promise.allSettled([
                     initializeAuth(setToken, setUser),
-                    customInstance<{required: boolean}>({url: '/auth/setup-status', method: 'GET'})
+                    customInstance<{required: boolean}>({url: '/api/auth/setup-status', method: 'GET'})
                 ]);
 
                 if (statusResult.status === 'fulfilled') {
@@ -180,7 +180,7 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
 
     const completeSetup = useCallback(async (data: CreateUserDto): Promise<void> => {
         const response = await customInstance<{accessToken: string}>({
-            url: '/auth/setup',
+            url: '/api/auth/setup',
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             data
