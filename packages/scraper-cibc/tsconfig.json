@@ -5,6 +5,7 @@
     "declaration": true,
     "declarationMap": true,
     "target": "ES2023",
+    "rootDir": "./src",
     "outDir": "./dist",
     "strict": true,
     "noUnusedLocals": true,
@@ -12,5 +13,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ]
 }
