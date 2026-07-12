@@ -27,8 +27,13 @@ import type {ConfigService} from '@nestjs/config';
 const workerHandlers = vi.hoisted(() => ({
     message: undefined as ((msg: unknown) => void) | undefined,
     error: undefined as ((err: Error) => void) | undefined,
+    exit: undefined as ((code: number) => void) | undefined,
     terminate: vi.fn(),
-    lastWorkerData: undefined as unknown
+    lastWorkerData: undefined as unknown,
+    // When true, the mock's 'exit' listener is captured but not auto-fired —
+    // tests that need to control exit timing (e.g. cancelMfa's grace-period
+    // race) set this and call workerHandlers.exit?.(0) themselves.
+    suppressAutoExit: false
 }));
 
 vi.mock('worker_threads', () => ({
@@ -42,7 +47,10 @@ vi.mock('worker_threads', () => ({
             } else if (event === 'error') {
                 workerHandlers.error = handler as (err: Error) => void;
             } else if (event === 'exit') {
-                (handler as (code: number) => void)(0);
+                workerHandlers.exit = handler as (code: number) => void;
+                if (!workerHandlers.suppressAutoExit) {
+                    (handler as (code: number) => void)(0);
+                }
             }
         }
         public postMessage(_msg: unknown): void { /* no-op */ }
@@ -102,13 +110,16 @@ describe('ScraperService', () => {
     let cryptoService: CryptoService;
     let sessionStore: SyncSessionStore;
     let pushService: PushService;
+    let configService: ConfigService;
     let mockRegistry: {getPluginPath: ReturnType<typeof vi.fn>};
 
     beforeEach(() => {
         workerHandlers.message = undefined;
         workerHandlers.error = undefined;
+        workerHandlers.exit = undefined;
         workerHandlers.terminate.mockReset();
         workerHandlers.lastWorkerData = undefined;
+        workerHandlers.suppressAutoExit = false;
 
         prisma = {
             syncSchedule: {
@@ -138,7 +149,7 @@ describe('ScraperService', () => {
         pushService = {
             sendNotification: vi.fn().mockResolvedValue(undefined)
         } as unknown as PushService;
-        const configService = {
+        configService = {
             get: vi.fn().mockImplementation((key: string) =>
                 key === 'CORS_ORIGIN' ? 'http://localhost:3002' : undefined
             )
@@ -828,6 +839,32 @@ describe('ScraperService', () => {
 
             expect(sessionStore.hasSession(sessionId)).toBe(false);
         });
+
+        it('should not terminate the worker if it exits gracefully within the grace period', async () => {
+            workerHandlers.suppressAutoExit = true;
+            const {sessionId} = await service.sync('user-1', 'sched-1');
+            await yieldToEventLoop();
+
+            const cancelPromise = service.cancelMfa(sessionId);
+            // Simulate the worker's finally-block cleanup finishing and the thread
+            // exiting on its own, before the grace-period delay elapses.
+            workerHandlers.exit?.(0);
+            await cancelPromise;
+
+            expect(workerHandlers.terminate).not.toHaveBeenCalled();
+        });
+
+        it('should terminate the worker if it does not exit within the grace period', async () => {
+            workerHandlers.suppressAutoExit = true;
+            const {sessionId} = await service.sync('user-1', 'sched-1');
+            await yieldToEventLoop();
+
+            // Worker never fires 'exit' — cancelMfa should fall back to terminate()
+            // once the real grace period elapses.
+            await service.cancelMfa(sessionId);
+
+            expect(workerHandlers.terminate).toHaveBeenCalledTimes(1);
+        }, 6000);
 
         it('should not throw when called with a non-existent session', async () => {
             vi.mocked(prisma.syncJob.findUnique).mockResolvedValue(null);

@@ -7,6 +7,7 @@ import {ConfigService} from '@nestjs/config';
 import {Worker} from 'worker_threads';
 import {join} from 'path';
 import {fileURLToPath} from 'url';
+import {setTimeout as delay} from 'node:timers/promises';
 import type {MessageEvent} from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
 import {PushService} from '#push/push.service.js';
@@ -45,8 +46,12 @@ export interface SyncResult {
 export class ScraperService {
     private readonly logger = new Logger(ScraperService.name);
     private readonly activeWorkers = new Map<string, Worker>();
+    /** Resolves once the worker for a session has exited (populated in `runWorker`). */
+    private readonly workerExitPromises = new Map<string, Promise<void>>();
     /** Default timeout per sync run: 5 minutes. */
     private static readonly WORKER_TIMEOUT_MS = 5 * 60 * 1000;
+    /** Grace period for a worker to exit on its own (running cleanup) before hard-terminating. */
+    private static readonly MFA_CANCEL_GRACE_MS = 3000;
 
     // eslint-disable-next-line max-params
     constructor(
@@ -110,13 +115,38 @@ export class ScraperService {
         if (worker) {
             // postMessage throws ERR_WORKER_NOT_RUNNING if the thread already exited
             try { worker.postMessage({type: 'mfa_cancel'}); } catch { /* already exited */ }
-            worker.terminate().catch((err: unknown) => {
-                this.logger.warn(
-                    `worker.terminate() failed for session ${sessionId}: ` +
-                    (err instanceof Error ? err.message : String(err))
-                );
-            });
             this.activeWorkers.delete(sessionId);
+
+            // Give the worker a chance to exit on its own — the mfa_cancel message
+            // rejects its pending login(), which runs cleanup() (closes the browser)
+            // before the thread exits. Only hard-terminate if that doesn't happen in
+            // time (e.g. the worker is stuck elsewhere and isn't listening for the
+            // cancel message).
+            const exitPromise = this.workerExitPromises.get(sessionId);
+            const waitForExit = async (): Promise<boolean> => {
+                await exitPromise;
+                return true;
+            };
+            const waitForGraceTimeout = async (): Promise<boolean> => {
+                // ref: false — a lost race shouldn't keep the process alive
+                await delay(ScraperService.MFA_CANCEL_GRACE_MS, undefined, {ref: false});
+                return false;
+            };
+            const exitedGracefully = exitPromise
+                ? await Promise.race([waitForExit(), waitForGraceTimeout()])
+                : false;
+
+            if (!exitedGracefully) {
+                try {
+                    await worker.terminate();
+                } catch (err: unknown) {
+                    this.logger.warn(
+                        `worker.terminate() failed for session ${sessionId}: ` +
+                        (err instanceof Error ? err.message : String(err))
+                    );
+                }
+            }
+            this.workerExitPromises.delete(sessionId);
         }
 
         const errorMessage = CANCEL_ERROR_MESSAGE;
@@ -153,6 +183,20 @@ export class ScraperService {
     // ---------------------------------------------------------------------------
     // Private — worker lifecycle
     // ---------------------------------------------------------------------------
+
+    /**
+     * Bridges a worker's 'exit' event into a promise cancelMfa can await —
+     * it needs to know when the worker actually exits, but shouldn't register
+     * a second 'exit' listener on the same worker. Returns the resolver to be
+     * called from that 'exit' handler.
+     */
+    private trackWorkerExit(sessionId: string): () => void {
+        let resolveExit: (() => void) | undefined;
+        this.workerExitPromises.set(sessionId, new Promise<void>(resolve => {
+            resolveExit = resolve;
+        }));
+        return () => resolveExit?.();
+    }
 
     private async runWorker(
         sessionId: string,
@@ -209,6 +253,7 @@ export class ScraperService {
             /* v8 ignore next 5 */
             const worker = new Worker(workerPath, {workerData: workerInput});
             this.activeWorkers.set(sessionId, worker);
+            const resolveExit = this.trackWorkerExit(sessionId);
             const timeout = setTimeout(() => {
                 this.cancelMfa(sessionId).catch((err: unknown) => {
                     this.logger.error(
@@ -226,13 +271,16 @@ export class ScraperService {
             worker.on('error', (err: Error) => {
                 clearTimeout(timeout);
                 this.activeWorkers.delete(sessionId);
+                this.workerExitPromises.delete(sessionId);
                 void this.handleWorkerError(sessionId, jobId, schedule, err);
             });
 
-            /* v8 ignore next 5 */
+            /* v8 ignore next 7 */
             worker.on('exit', (code: number | null) => {
                 clearTimeout(timeout);
                 this.activeWorkers.delete(sessionId);
+                this.workerExitPromises.delete(sessionId);
+                resolveExit();
                 if (code !== 0 && code !== null) {
                     this.logger.warn(
                         `Scraper worker exited with code ${String(code)} for job ${jobId}`
