@@ -178,6 +178,20 @@ describe('scraper.worker.ts (Phase 8)', () => {
         expect(statusIndex).toBeLessThan(resultIndex);
     });
 
+    it('posts a running status message after login and before scrapeTransactions starts', async () => {
+        await importWorker();
+
+        const calls = mockState.postMessage.mock.calls;
+        const runningIndex = calls.findIndex(
+            ([m]) => (m as {type: string, status?: string}).type === 'status' &&
+                (m as {status?: string}).status === SyncJobStatus.running
+        );
+        const resultIndex = calls.findIndex(([m]) => (m as {type: string}).type === 'result');
+
+        expect(runningIndex).toBeGreaterThanOrEqual(0);
+        expect(runningIndex).toBeLessThan(resultIndex);
+    });
+
     // TC-W-11 (migrated from Phase 7)
     it('includes the bankId in the loggingIn status message', async () => {
         await importWorker();

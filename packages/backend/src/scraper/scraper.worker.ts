@@ -61,6 +61,12 @@ try {
 
     await scraper.login(input.inputs, resolver);
 
+    parentPort.postMessage({
+        type: 'status',
+        status: SyncJobStatus.running,
+        message: 'Fetching transactions...'
+    });
+
     const transactions: RawTransaction[] = await scraper.scrapeTransactions(
         input.inputs, 
         {
