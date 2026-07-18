@@ -143,7 +143,7 @@ export const ProfilePage = (): React.JSX.Element => {
                 <DeleteAccountModal
                     isOpen={showDeleteModal}
                     userId={authUser.id}
-                    onSuccess={() => { logout(); }}
+                    onSuccess={() => { void logout(); }}
                     onClose={() => { setShowDeleteModal(false); }}
                 />
             )}

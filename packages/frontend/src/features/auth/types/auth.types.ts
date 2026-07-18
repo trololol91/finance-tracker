@@ -32,9 +32,9 @@ export interface AuthContextType {
     /** Non-null when auth initialisation failed due to a network error (not a 401). */
     authError: string | null;
     setupRequired: boolean;
-    login: (email: string, password: string) => Promise<void>;
+    login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
     register: (data: CreateUserDto) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     updateUser: (user: User) => void;
     completeSetup: (data: CreateUserDto) => Promise<void>;
 }

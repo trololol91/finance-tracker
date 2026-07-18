@@ -7,11 +7,15 @@ import {
     DocumentBuilder, SwaggerModule
 } from '@nestjs/swagger';
 import {useContainer} from 'class-validator';
+import cookieParser from 'cookie-parser';
 import {AppModule} from './app.module.js';
 
 const bootstrap = async (): Promise<void> => {
     const app = await NestFactory.create(AppModule);
     useContainer(app.select(AppModule), {fallbackOnErrors: true});
+
+    // Parses the httpOnly refresh_token cookie for POST /auth/refresh and /auth/logout.
+    app.use(cookieParser());
 
     // All controller routes are prefixed with /api so any reverse proxy
     // (nginx, Cloudflare Tunnel, etc.) can forward without path stripping.

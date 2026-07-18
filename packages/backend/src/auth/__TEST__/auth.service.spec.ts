@@ -10,12 +10,12 @@ import {
 } from '@nestjs/common';
 import type {JwtService} from '@nestjs/jwt';
 import {AuthService} from '#auth/auth.service.js';
+import type {AuthResult} from '#auth/auth.service.js';
+import type {RefreshTokensService} from '#auth/refresh-tokens.service.js';
 import type {UsersService} from '#users/users.service.js';
 import type {User} from '#generated/prisma/client.js';
 import type {CreateUserDto} from '#users/dto/create-user.dto.js';
-import type {
-    AuthResponse, JwtPayload
-} from '#auth/dto/auth-response.dto.js';
+import type {JwtPayload} from '#auth/dto/auth-response.dto.js';
 import * as bcrypt from 'bcrypt';
 
 vi.mock('bcrypt');
@@ -24,6 +24,7 @@ describe('AuthService', () => {
     let service: AuthService;
     let usersService: UsersService;
     let jwtService: JwtService;
+    let refreshTokensService: RefreshTokensService;
 
     const mockUser: User = {
         id: '123e4567-e89b-12d3-a456-426614174000',
@@ -42,6 +43,12 @@ describe('AuthService', () => {
         updatedAt: new Date('2024-01-01')
     };
 
+    const mockIssuedRefreshToken = {
+        rawToken: 'raw-refresh-token',
+        expiresAt: new Date('2024-02-01'),
+        rememberMe: false
+    };
+
     beforeEach(() => {
         usersService = {
             create: vi.fn(),
@@ -55,7 +62,13 @@ describe('AuthService', () => {
             sign: vi.fn()
         } as unknown as JwtService;
 
-        service = new AuthService(usersService, jwtService);
+        refreshTokensService = {
+            issue: vi.fn().mockResolvedValue(mockIssuedRefreshToken),
+            validateAndRotate: vi.fn(),
+            revoke: vi.fn()
+        } as unknown as RefreshTokensService;
+
+        service = new AuthService(usersService, jwtService, refreshTokensService);
         vi.clearAllMocks();
     });
 
@@ -72,14 +85,15 @@ describe('AuthService', () => {
             vi.mocked(usersService.create).mockResolvedValue(mockUser);
             vi.mocked(jwtService.sign).mockReturnValue(mockToken);
 
-            const result: AuthResponse = await service.register(createUserDto);
+            const result: AuthResult = await service.register(createUserDto);
 
             expect(usersService.create).toHaveBeenCalledWith(createUserDto);
             expect(jwtService.sign).toHaveBeenCalledWith({
                 sub: mockUser.id,
                 email: mockUser.email
             });
-            expect(result).toEqual({
+            expect(refreshTokensService.issue).toHaveBeenCalledWith(mockUser.id, false);
+            expect(result.authResponse).toEqual({
                 accessToken: mockToken,
                 user: {
                     id: mockUser.id,
@@ -88,6 +102,7 @@ describe('AuthService', () => {
                     lastName: mockUser.lastName
                 }
             });
+            expect(result.refreshToken).toEqual(mockIssuedRefreshToken);
         });
 
         it('should not include sensitive fields in response', async () => {
@@ -95,11 +110,11 @@ describe('AuthService', () => {
             vi.mocked(usersService.create).mockResolvedValue(mockUser);
             vi.mocked(jwtService.sign).mockReturnValue(mockToken);
 
-            const result: AuthResponse = await service.register(createUserDto);
+            const result: AuthResult = await service.register(createUserDto);
 
-            expect(result.user).not.toHaveProperty('passwordHash');
-            expect(result.user).not.toHaveProperty('deletedAt');
-            expect(result.user).not.toHaveProperty('isActive');
+            expect(result.authResponse.user).not.toHaveProperty('passwordHash');
+            expect(result.authResponse.user).not.toHaveProperty('deletedAt');
+            expect(result.authResponse.user).not.toHaveProperty('isActive');
         });
     });
 
@@ -113,7 +128,7 @@ describe('AuthService', () => {
             vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
             vi.mocked(jwtService.sign).mockReturnValue(mockToken);
 
-            const result: AuthResponse = await service.login(email, password);
+            const result: AuthResult = await service.login(email, password, false);
 
             expect(usersService.findByEmail).toHaveBeenCalledWith(email);
             expect(bcrypt.compare).toHaveBeenCalledWith(password, mockUser.passwordHash);
@@ -121,7 +136,8 @@ describe('AuthService', () => {
                 sub: mockUser.id,
                 email: mockUser.email
             });
-            expect(result).toEqual({
+            expect(refreshTokensService.issue).toHaveBeenCalledWith(mockUser.id, false);
+            expect(result.authResponse).toEqual({
                 accessToken: mockToken,
                 user: {
                     id: mockUser.id,
@@ -132,13 +148,23 @@ describe('AuthService', () => {
             });
         });
 
+        it('should issue a persistent refresh token when rememberMe is true', async () => {
+            vi.mocked(usersService.findByEmail).mockResolvedValue(mockUser);
+            vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+            vi.mocked(jwtService.sign).mockReturnValue('jwt.token.here');
+
+            await service.login(email, password, true);
+
+            expect(refreshTokensService.issue).toHaveBeenCalledWith(mockUser.id, true);
+        });
+
         it('should throw UnauthorizedException if user not found', async () => {
             vi.mocked(usersService.findByEmail).mockResolvedValue(null);
 
-            await expect(service.login(email, password)).rejects.toThrow(
+            await expect(service.login(email, password, false)).rejects.toThrow(
                 UnauthorizedException
             );
-            await expect(service.login(email, password)).rejects.toThrow(
+            await expect(service.login(email, password, false)).rejects.toThrow(
                 'Invalid credentials'
             );
             expect(usersService.findByEmail).toHaveBeenCalledWith(email);
@@ -148,10 +174,10 @@ describe('AuthService', () => {
             vi.mocked(usersService.findByEmail).mockResolvedValue(mockUser);
             vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
-            await expect(service.login(email, password)).rejects.toThrow(
+            await expect(service.login(email, password, false)).rejects.toThrow(
                 UnauthorizedException
             );
-            await expect(service.login(email, password)).rejects.toThrow(
+            await expect(service.login(email, password, false)).rejects.toThrow(
                 'Invalid credentials'
             );
             expect(bcrypt.compare).toHaveBeenCalledWith(password, mockUser.passwordHash);
@@ -163,10 +189,10 @@ describe('AuthService', () => {
             vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
             vi.mocked(jwtService.sign).mockReturnValue(mockToken);
 
-            const result: AuthResponse = await service.login(email, password);
+            const result: AuthResult = await service.login(email, password, false);
 
-            expect(result.user).not.toHaveProperty('passwordHash');
-            expect(result.user).not.toHaveProperty('deletedAt');
+            expect(result.authResponse.user).not.toHaveProperty('passwordHash');
+            expect(result.authResponse.user).not.toHaveProperty('deletedAt');
         });
     });
 
@@ -286,7 +312,7 @@ describe('AuthService', () => {
             expect(usersService.hasUsers).toHaveBeenCalled();
             expect(usersService.create).toHaveBeenCalledWith(createUserDto);
             expect(usersService.promoteToAdmin).toHaveBeenCalledWith(mockUser.id);
-            expect(result).toEqual({
+            expect(result.authResponse).toEqual({
                 accessToken: mockToken,
                 user: {
                     id: mockUser.id,
@@ -303,6 +329,50 @@ describe('AuthService', () => {
             await expect(service.setupAdmin(createUserDto)).rejects.toThrow(ConflictException);
             await expect(service.setupAdmin(createUserDto)).rejects.toThrow('Setup already complete');
             expect(usersService.create).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('refresh', () => {
+        it('should throw UnauthorizedException when no cookie is present', async () => {
+            await expect(service.refresh(undefined)).rejects.toThrow(UnauthorizedException);
+            expect(refreshTokensService.validateAndRotate).not.toHaveBeenCalled();
+        });
+
+        it('should throw UnauthorizedException when the refresh token is invalid or expired', async () => {
+            vi.mocked(refreshTokensService.validateAndRotate).mockResolvedValue(null);
+
+            await expect(service.refresh('stale-token')).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should return a new access token and rotated refresh token on success', async () => {
+            vi.mocked(refreshTokensService.validateAndRotate).mockResolvedValue({
+                rawToken: 'new-raw-token',
+                expiresAt: new Date('2024-03-01'),
+                rememberMe: true,
+                userId: mockUser.id
+            });
+            vi.mocked(usersService.findOne).mockResolvedValue(mockUser);
+            vi.mocked(jwtService.sign).mockReturnValue('new.jwt.token');
+
+            const result = await service.refresh('old-raw-token');
+
+            expect(usersService.findOne).toHaveBeenCalledWith(mockUser.id, mockUser.id);
+            expect(result.authResponse.accessToken).toBe('new.jwt.token');
+            expect(result.refreshToken.rawToken).toBe('new-raw-token');
+        });
+    });
+
+    describe('logout', () => {
+        it('should do nothing when no cookie is present', async () => {
+            await service.logout(undefined);
+
+            expect(refreshTokensService.revoke).not.toHaveBeenCalled();
+        });
+
+        it('should revoke the refresh token when present', async () => {
+            await service.logout('raw-token');
+
+            expect(refreshTokensService.revoke).toHaveBeenCalledWith('raw-token');
         });
     });
 

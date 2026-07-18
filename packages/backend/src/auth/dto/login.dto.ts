@@ -1,5 +1,5 @@
 import {
-    IsEmail, IsString, MinLength
+    IsEmail, IsString, MinLength, IsOptional, IsBoolean
 } from 'class-validator';
 import {ApiProperty} from '@nestjs/swagger';
 
@@ -30,4 +30,19 @@ export class LoginDto {
     @IsString()
     @MinLength(8)
     public password!: string;
+
+    /**
+     * Keep the session signed in across browser restarts via a persistent refresh cookie.
+     * Defaults to false (session-only) when omitted.
+     * @example true
+     */
+    @ApiProperty({
+        description: 'Keep the session signed in across browser restarts',
+        example: true,
+        required: false,
+        default: false
+    })
+    @IsOptional()
+    @IsBoolean()
+    public rememberMe?: boolean;
 }

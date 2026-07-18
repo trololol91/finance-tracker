@@ -659,6 +659,58 @@
         ]
       }
     },
+    "/api/auth/refresh": {
+      "post": {
+        "description": "Exchange a valid refresh token cookie for a new access token",
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired refresh token"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Refresh access token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Revoke the current refresh token and clear its cookie",
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Logged out"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Log out",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/me": {
       "get": {
         "description": "Retrieve the authenticated user's profile information",
@@ -3176,6 +3228,12 @@
             "description": "User password (minimum 8 characters)",
             "example": "StrongPass123!",
             "minLength": 8
+          },
+          "rememberMe": {
+            "type": "boolean",
+            "description": "Keep the session signed in across browser restarts",
+            "example": true,
+            "default": false
           }
         },
         "required": [

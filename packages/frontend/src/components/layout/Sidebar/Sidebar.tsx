@@ -161,7 +161,7 @@ export const Sidebar = (): React.JSX.Element => {
                     <button
                         type="button"
                         className={styles.logoutBtn}
-                        onClick={logout}
+                        onClick={() => { void logout(); }}
                         aria-label="Log out"
                     >
                         <LogOut size={14} aria-hidden="true" />

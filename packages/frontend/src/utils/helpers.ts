@@ -3,6 +3,15 @@ export const helpers = {
         return new Promise((resolve) => setTimeout(resolve, ms));
     },
 
+    /**
+     * Guards against open-redirect: only a same-origin relative path
+     * (single leading slash, not `//` or `/\`) is considered safe to
+     * navigate to from a query param or router state.
+     */
+    isSafeRedirectPath: (path: string): boolean => {
+        return /^\/(?!\/|\\)/.test(path);
+    },
+
     debounce: <T extends (...args: unknown[]) => void>(
         func: T,
         wait: number

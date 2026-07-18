@@ -3,15 +3,36 @@ import type {
     AxiosInstance, AxiosRequestConfig, AxiosResponse
 } from 'axios';
 import {env} from '@config/env';
-import {STORAGE_KEYS} from '@config/constants';
+import {
+    STORAGE_KEYS, APP_ROUTES
+} from '@config/constants';
+
+/**
+ * Calls POST /auth/refresh directly via a bare axios request — never through
+ * `this.client`, since that would re-enter this file's own response
+ * interceptor and recurse. The httpOnly refresh_token cookie is attached
+ * automatically by the browser via withCredentials.
+ */
+const requestNewAccessToken = async (): Promise<string> => {
+    const response = await axios.post<{accessToken: string}>(
+        `${env.API_BASE_URL}/api/auth/refresh`,
+        undefined,
+        {withCredentials: true}
+    );
+    return response.data.accessToken;
+};
 
 class ApiClient {
     private client: AxiosInstance;
+    // Shared across all concurrent 401s so simultaneous requests trigger one
+    // refresh instead of a stampede of POST /auth/refresh calls.
+    private refreshPromise: Promise<string> | null = null;
 
     constructor() {
         this.client = axios.create({
             baseURL: env.API_BASE_URL,
             timeout: env.API_TIMEOUT,
+            withCredentials: true,
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -65,12 +86,39 @@ class ApiClient {
         // Response interceptor - Handle errors
         this.client.interceptors.response.use(
             (response) => response,
-            (error) => {
+            async (error: unknown) => {
                 if (axios.isAxiosError(error) && error.response?.status === 401) {
-                    // Clear auth data and redirect to login
+                    const originalRequest =
+                        error.config as (AxiosRequestConfig & {_retry?: boolean}) | undefined;
+                    const isRefreshCall = originalRequest?.url?.includes('/auth/refresh') ?? false;
+
+                    if (originalRequest && !originalRequest._retry && !isRefreshCall) {
+                        originalRequest._retry = true;
+                        try {
+                            this.refreshPromise ??= requestNewAccessToken();
+                            const newAccessToken = await this.refreshPromise;
+                            this.refreshPromise = null;
+
+                            localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, newAccessToken);
+                            originalRequest.headers = {
+                                ...originalRequest.headers,
+                                Authorization: `Bearer ${newAccessToken}`
+                            };
+                            return await this.client.request(originalRequest);
+                        } catch {
+                            this.refreshPromise = null;
+                            // Refresh token is also missing/expired — fall through to logout below.
+                        }
+                    }
+
+                    // Clear auth data and redirect to login, preserving the current
+                    // path so the user lands back where they were after logging in.
                     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
                     localStorage.removeItem(STORAGE_KEYS.USER);
-                    window.location.href = '/login';
+                    const returnTo = window.location.pathname + window.location.search;
+                    window.location.href = returnTo && returnTo !== APP_ROUTES.LOGIN
+                        ? `${APP_ROUTES.LOGIN}?redirect=${encodeURIComponent(returnTo)}`
+                        : APP_ROUTES.LOGIN;
                 }
                 return Promise.reject(new Error(String(error)));
             }

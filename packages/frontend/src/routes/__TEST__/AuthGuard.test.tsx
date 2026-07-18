@@ -5,7 +5,8 @@ import {
 import {
     MemoryRouter,
     Route,
-    Routes
+    Routes,
+    useLocation
 } from 'react-router-dom';
 import {
     describe,
@@ -147,6 +148,30 @@ describe('AuthGuard', () => {
             renderAuthGuard();
 
             expect(screen.queryByTestId('protected-page')).not.toBeInTheDocument();
+        });
+
+        it('preserves the origin location as router state on the redirect', () => {
+            const LoginPageWithState = () => {
+                const location = useLocation();
+                const from = (location.state as {from?: {pathname: string}} | null)?.from;
+                return <div data-testid="login-page">{from?.pathname ?? 'no-from'}</div>;
+            };
+
+            render(
+                <MemoryRouter initialEntries={['/dashboard']}>
+                    <Routes>
+                        <Route path={APP_ROUTES.LOGIN} element={<LoginPageWithState />} />
+                        <Route element={<AuthGuard />}>
+                            <Route
+                                path="/dashboard"
+                                element={<div data-testid="protected-page">Protected content</div>}
+                            />
+                        </Route>
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            expect(screen.getByTestId('login-page')).toHaveTextContent('/dashboard');
         });
     });
 

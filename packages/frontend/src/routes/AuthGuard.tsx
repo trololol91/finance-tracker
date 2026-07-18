@@ -1,7 +1,8 @@
 import React from 'react';
 import {
     Navigate,
-    Outlet
+    Outlet,
+    useLocation
 } from 'react-router-dom';
 import {useAuth} from '@features/auth/hooks/useAuth.js';
 import {Loading} from '@components/common/Loading/Loading.js';
@@ -14,6 +15,7 @@ import {APP_ROUTES} from '@config/constants';
  */
 export const AuthGuard = (): React.JSX.Element => {
     const {isAuthenticated, isLoading, setupRequired} = useAuth();
+    const location = useLocation();
 
     if (isLoading) {
         return <Loading size="large" />;
@@ -24,7 +26,9 @@ export const AuthGuard = (): React.JSX.Element => {
     }
 
     if (!isAuthenticated) {
-        return <Navigate to={APP_ROUTES.LOGIN} replace />;
+        // Preserve where the user was headed (e.g. a deep link from a push
+        // notification) so LoginForm can send them back after signing in.
+        return <Navigate to={APP_ROUTES.LOGIN} replace state={{from: location}} />;
     }
 
     return <Outlet />;

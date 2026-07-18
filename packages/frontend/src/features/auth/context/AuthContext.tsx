@@ -17,7 +17,8 @@ import {
     authControllerRegister,
     authControllerGetProfile,
     authControllerGetSetupStatus,
-    authControllerSetupAdmin
+    authControllerSetupAdmin,
+    authControllerLogout
 } from '@/api/auth/auth.js';
 import {authStorage} from '@services/storage/authStorage.js';
 
@@ -146,8 +147,10 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
         void init();
     }, []);
 
-    const login = useCallback(async (email: string, password: string): Promise<void> => {
-        const response = await authControllerLogin({email, password});
+    const login = useCallback(async (
+        email: string, password: string, rememberMe = false
+    ): Promise<void> => {
+        const response = await authControllerLogin({email, password, rememberMe});
         // Save token before calling getProfile so the request interceptor
         // includes the Authorization header.
         authStorage.saveToken(response.accessToken);
@@ -168,7 +171,14 @@ export const AuthProvider = ({children}: AuthProviderProps): React.JSX.Element =
         setUser(authUser);
     }, []);
 
-    const logout = useCallback((): void => {
+    const logout = useCallback(async (): Promise<void> => {
+        try {
+            // Best-effort — revokes the server-side refresh token and clears its
+            // cookie. The cookie may already be gone (e.g. expired), which is fine.
+            await authControllerLogout();
+        } catch (err: unknown) {
+            console.error('[AuthContext] Logout request failed:', err);
+        }
         authStorage.clearAuth();
         setToken(null);
         setUser(null);

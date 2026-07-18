@@ -13,6 +13,8 @@ export const envValidationSchema = Joi.object({
 
     // Auth
     JWT_SECRET: Joi.string().min(32).required(),
+    JWT_EXPIRES_IN: Joi.string().default('15m'),
+    JWT_REFRESH_EXPIRES_IN: Joi.string().default('30d'),
 
     // Encryption — 64-char hex string = 32-byte AES-256 key
     CREDENTIALS_ENCRYPTION_KEY: Joi.string().hex().length(64).required(),

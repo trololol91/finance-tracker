@@ -1,9 +1,11 @@
 import React, {useState} from 'react';
 import {
     useNavigate,
+    useLocation,
     Link
 } from 'react-router-dom';
 import {useAuth} from '@features/auth/hooks/useAuth.js';
+import {resolveRedirectTarget} from '@features/auth/utils/resolveRedirectTarget.js';
 import {Button} from '@components/common/Button/Button.js';
 import {Input} from '@components/common/Input/Input.js';
 import {validators} from '@utils/validators.js';
@@ -65,6 +67,7 @@ const validate = (form: FormState): FormErrors => {
 
 export const LoginForm = (): React.JSX.Element => {
     const navigate = useNavigate();
+    const location = useLocation();
     const {login} = useAuth();
 
     const [form, setForm] = useState<FormState>({
@@ -104,8 +107,8 @@ export const LoginForm = (): React.JSX.Element => {
 
         setIsSubmitting(true);
         try {
-            await login(form.email, form.password);
-            void navigate(APP_ROUTES.DASHBOARD, {replace: true});
+            await login(form.email, form.password, form.rememberMe);
+            void navigate(resolveRedirectTarget(location), {replace: true});
         } catch (error) {
             setApiError(
                 getApiErrorMessage(

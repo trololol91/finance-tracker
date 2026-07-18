@@ -607,7 +607,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Setup status returned"
+            "description": "Setup status returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Get setup status",
@@ -633,13 +640,72 @@
         },
         "responses": {
           "201": {
-            "description": "Admin account created"
+            "description": "Admin account created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
           },
           "409": {
             "description": "Setup already complete"
           }
         },
         "summary": "Create first admin account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "description": "Exchange a valid refresh token cookie for a new access token",
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired refresh token"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Refresh access token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Revoke the current refresh token and clear its cookie",
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Logged out"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Log out",
         "tags": [
           "auth"
         ]
@@ -2519,7 +2585,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "AI status returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiStatusResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3155,11 +3228,30 @@
             "description": "User password (minimum 8 characters)",
             "example": "StrongPass123!",
             "minLength": 8
+          },
+          "rememberMe": {
+            "type": "boolean",
+            "description": "Keep the session signed in across browser restarts",
+            "example": true,
+            "default": false
           }
         },
         "required": [
           "email",
           "password"
+        ]
+      },
+      "SetupStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "required": {
+            "type": "boolean",
+            "description": "Whether initial admin setup is required",
+            "example": true
+          }
+        },
+        "required": [
+          "required"
         ]
       },
       "CreateTransactionDto": {
@@ -4562,6 +4654,31 @@
         "required": [
           "month",
           "items"
+        ]
+      },
+      "AiStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "Whether AI categorization is available",
+            "example": true
+          },
+          "provider": {
+            "type": "string",
+            "description": "AI provider name",
+            "example": "openai"
+          },
+          "model": {
+            "type": "string",
+            "description": "AI model identifier",
+            "example": "gpt-4o-mini"
+          }
+        },
+        "required": [
+          "available",
+          "provider",
+          "model"
         ]
       },
       "CreateApiTokenDto": {

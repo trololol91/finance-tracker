@@ -48,6 +48,10 @@ const renderPublicRoute = (initialEntry = '/login'): ReturnType<typeof render> =
                     element={<div data-testid="dashboard-page">Dashboard</div>}
                 />
                 <Route
+                    path="/transactions"
+                    element={<div data-testid="transactions-page">Transactions</div>}
+                />
+                <Route
                     path={APP_ROUTES.SETUP}
                     element={<div data-testid="setup-page">Setup</div>}
                 />
@@ -91,6 +95,19 @@ describe('PublicRoute', () => {
 
             expect(screen.getByTestId('dashboard-page')).toBeInTheDocument();
             expect(screen.queryByTestId('login-page')).not.toBeInTheDocument();
+        });
+
+        it('redirects to the ?redirect= target instead, when present', () => {
+            renderPublicRoute('/login?redirect=%2Ftransactions');
+
+            expect(screen.getByTestId('transactions-page')).toBeInTheDocument();
+            expect(screen.queryByTestId('dashboard-page')).not.toBeInTheDocument();
+        });
+
+        it('falls back to dashboard for an unsafe ?redirect= value', () => {
+            renderPublicRoute('/login?redirect=%2F%2Fevil.com');
+
+            expect(screen.getByTestId('dashboard-page')).toBeInTheDocument();
         });
     });
 

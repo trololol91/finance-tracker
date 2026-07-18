@@ -147,7 +147,7 @@ describe('useAuth', () => {
             authError: null,
             login: () => Promise.resolve(),
             register: () => Promise.resolve(),
-            logout: () => {},
+            logout: () => Promise.resolve(),
             updateUser: () => {},
             setupRequired: false,
             completeSetup: () => Promise.resolve()

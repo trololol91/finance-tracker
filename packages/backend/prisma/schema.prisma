@@ -87,6 +87,7 @@ model User {
   syncJobs       SyncJob[]
   categoryRules  CategoryRule[]
   apiTokens      ApiToken[]
+  refreshTokens  RefreshToken[]
 
   // Notification preferences for scraper MFA alerts
   notifyEmail    Boolean  @default(true)  @map("notify_email")
@@ -318,4 +319,20 @@ model ApiToken {
   // Partial index covering the auth lookup: tokenHash WHERE deletedAt IS NULL.
   // Prisma doesn't support partial index syntax directly; add via a custom migration if needed.
   @@map("api_tokens")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  rememberMe Boolean   @map("remember_me")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

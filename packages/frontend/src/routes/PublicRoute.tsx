@@ -1,6 +1,10 @@
-import {Navigate} from 'react-router-dom';
+import {
+    Navigate,
+    useLocation
+} from 'react-router-dom';
 import type {ReactNode} from 'react';
 import {useAuth} from '@features/auth/hooks/useAuth.js';
+import {resolveRedirectTarget} from '@features/auth/utils/resolveRedirectTarget.js';
 import {Loading} from '@components/common/Loading/Loading.js';
 import {APP_ROUTES} from '@config/constants';
 
@@ -10,6 +14,7 @@ interface PublicRouteProps {
 
 export const PublicRoute = ({children}: PublicRouteProps): React.JSX.Element => {
     const {isAuthenticated, isLoading, setupRequired} = useAuth();
+    const location = useLocation();
 
     if (isLoading) {
         return <Loading size="large" />;
@@ -20,7 +25,9 @@ export const PublicRoute = ({children}: PublicRouteProps): React.JSX.Element => 
     }
 
     if (isAuthenticated) {
-        return <Navigate to={APP_ROUTES.DASHBOARD} replace />;
+        // Same target LoginForm computes after submit, so the two don't race
+        // to different destinations when login flips isAuthenticated to true.
+        return <Navigate to={resolveRedirectTarget(location)} replace />;
     }
 
     return <>{children}</>;

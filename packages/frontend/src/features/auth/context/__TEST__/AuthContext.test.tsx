@@ -20,7 +20,8 @@ import {
     authControllerRegister,
     authControllerGetProfile,
     authControllerGetSetupStatus,
-    authControllerSetupAdmin
+    authControllerSetupAdmin,
+    authControllerLogout
 } from '@/api/auth/auth.js';
 import type {User} from '@features/auth/types/auth.types.js';
 import type {UserResponseDto} from '@/api/model/userResponseDto.js';
@@ -47,7 +48,8 @@ vi.mock('@/api/auth/auth.js', () => ({
     authControllerRegister: vi.fn(),
     authControllerGetProfile: vi.fn(),
     authControllerGetSetupStatus: vi.fn(),
-    authControllerSetupAdmin: vi.fn()
+    authControllerSetupAdmin: vi.fn(),
+    authControllerLogout: vi.fn()
 }));
 
 describe('AuthProvider', () => {
@@ -102,6 +104,8 @@ describe('AuthProvider', () => {
         vi.mocked(authControllerGetProfile).mockResolvedValue(mockProfileResponse);
         // Default: setup not required
         vi.mocked(authControllerGetSetupStatus).mockResolvedValue({required: false});
+        // Default: logout call succeeds
+        vi.mocked(authControllerLogout).mockResolvedValue(undefined);
     });
 
     describe('initialization', () => {
@@ -274,7 +278,8 @@ describe('AuthProvider', () => {
 
             expect(authControllerLogin).toHaveBeenCalledWith({
                 email: 'test@example.com',
-                password: 'password123'
+                password: 'password123',
+                rememberMe: false
             });
             expect(authStorage.saveToken).toHaveBeenCalledWith(mockToken);
             expect(authControllerGetProfile).toHaveBeenCalled();
@@ -439,7 +444,7 @@ describe('AuthProvider', () => {
                 const context = React.useContext(AuthContext);
                 return (
                     <div>
-                        <button onClick={context?.logout}>Logout</button>
+                        <button onClick={() => { void context?.logout(); }}>Logout</button>
                         <span data-testid="authenticated">
                             {context?.isAuthenticated.toString()}
                         </span>

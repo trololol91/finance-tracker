@@ -5,8 +5,14 @@ import {
     beforeEach,
     vi
 } from 'vitest';
+import type {
+    Request, Response
+} from 'express';
 import {AuthController} from '#auth/auth.controller.js';
-import type {AuthService} from '#auth/auth.service.js';
+import type {
+    AuthService, AuthResult
+} from '#auth/auth.service.js';
+import type {ConfigService} from '@nestjs/config';
 import type {User} from '#generated/prisma/client.js';
 import type {CreateUserDto} from '#users/dto/create-user.dto.js';
 import type {UserResponseDto} from '#users/dto/user-response.dto.js';
@@ -16,6 +22,8 @@ import type {LoginDto} from '#auth/dto/login.dto.js';
 describe('AuthController', () => {
     let controller: AuthController;
     let service: AuthService;
+    let config: ConfigService;
+    let res: Response;
 
     const mockUser: User = {
         id: '123e4567-e89b-12d3-a456-426614174000',
@@ -44,15 +52,38 @@ describe('AuthController', () => {
         }
     };
 
+    const mockAuthResult: AuthResult = {
+        authResponse: mockAuthResponse,
+        refreshToken: {
+            rawToken: 'raw-refresh-token',
+            expiresAt: new Date('2024-02-01'),
+            rememberMe: false
+        }
+    };
+
+    const mockRequest = (cookies: Record<string, string> = {}): Request =>
+        ({cookies} as unknown as Request);
+
     beforeEach(() => {
         service = {
             register: vi.fn(),
             login: vi.fn(),
             getSetupStatus: vi.fn(),
-            setupAdmin: vi.fn()
+            setupAdmin: vi.fn(),
+            refresh: vi.fn(),
+            logout: vi.fn()
         } as unknown as AuthService;
 
-        controller = new AuthController(service);
+        config = {
+            get: vi.fn().mockReturnValue('development')
+        } as unknown as ConfigService;
+
+        res = {
+            cookie: vi.fn(),
+            clearCookie: vi.fn()
+        } as unknown as Response;
+
+        controller = new AuthController(service, config);
         vi.clearAllMocks();
     });
 
@@ -64,30 +95,25 @@ describe('AuthController', () => {
             lastName: 'Smith'
         };
 
-        it('should register a new user and return auth response', async () => {
-            vi.mocked(service.register).mockResolvedValue(mockAuthResponse);
+        it('should register a new user, set the refresh cookie, and return auth response', async () => {
+            vi.mocked(service.register).mockResolvedValue(mockAuthResult);
 
-            const result: AuthResponse = await controller.register(createUserDto);
+            const result: AuthResponse = await controller.register(createUserDto, res);
 
             expect(service.register).toHaveBeenCalledWith(createUserDto);
             expect(result).toEqual(mockAuthResponse);
-        });
-
-        it('should return access token in response', async () => {
-            vi.mocked(service.register).mockResolvedValue(mockAuthResponse);
-
-            const result: AuthResponse = await controller.register(createUserDto);
-
-            expect(result).toHaveProperty('accessToken');
-            expect(result.accessToken).toBe('jwt.token.here');
+            expect(res.cookie).toHaveBeenCalledWith(
+                'refresh_token',
+                'raw-refresh-token',
+                expect.objectContaining({httpOnly: true, path: '/api/auth'})
+            );
         });
 
         it('should return user info in response', async () => {
-            vi.mocked(service.register).mockResolvedValue(mockAuthResponse);
+            vi.mocked(service.register).mockResolvedValue(mockAuthResult);
 
-            const result: AuthResponse = await controller.register(createUserDto);
+            const result: AuthResponse = await controller.register(createUserDto, res);
 
-            expect(result).toHaveProperty('user');
             expect(result.user).toEqual({
                 id: mockUser.id,
                 email: mockUser.email,
@@ -103,30 +129,55 @@ describe('AuthController', () => {
             password: 'password123'
         };
 
-        it('should authenticate user and return auth response', async () => {
-            vi.mocked(service.login).mockResolvedValue(mockAuthResponse);
+        it('should authenticate user, default rememberMe to false, and return auth response', async () => {
+            vi.mocked(service.login).mockResolvedValue(mockAuthResult);
 
-            const result: AuthResponse = await controller.login(loginDto);
+            const result: AuthResponse = await controller.login(loginDto, res);
 
-            expect(service.login).toHaveBeenCalledWith(loginDto.email, loginDto.password);
+            expect(service.login).toHaveBeenCalledWith(loginDto.email, loginDto.password, false);
             expect(result).toEqual(mockAuthResponse);
         });
 
-        it('should return access token in response', async () => {
-            vi.mocked(service.login).mockResolvedValue(mockAuthResponse);
+        it('should pass rememberMe through to the service', async () => {
+            vi.mocked(service.login).mockResolvedValue(mockAuthResult);
 
-            const result: AuthResponse = await controller.login(loginDto);
+            await controller.login({...loginDto, rememberMe: true}, res);
 
-            expect(result).toHaveProperty('accessToken');
-            expect(result.accessToken).toBe('jwt.token.here');
+            expect(service.login).toHaveBeenCalledWith(loginDto.email, loginDto.password, true);
+        });
+
+        it('should set a persistent cookie (with expires) when rememberMe is true', async () => {
+            vi.mocked(service.login).mockResolvedValue({
+                ...mockAuthResult,
+                refreshToken: {...mockAuthResult.refreshToken, rememberMe: true}
+            });
+
+            await controller.login({...loginDto, rememberMe: true}, res);
+
+            expect(res.cookie).toHaveBeenCalledWith(
+                'refresh_token',
+                'raw-refresh-token',
+                expect.objectContaining({expires: mockAuthResult.refreshToken.expiresAt})
+            );
+        });
+
+        it('should set a session cookie (no expires) when rememberMe is false', async () => {
+            vi.mocked(service.login).mockResolvedValue(mockAuthResult);
+
+            await controller.login(loginDto, res);
+
+            expect(res.cookie).toHaveBeenCalledWith(
+                'refresh_token',
+                'raw-refresh-token',
+                expect.not.objectContaining({expires: expect.anything()})
+            );
         });
 
         it('should return user info in response', async () => {
-            vi.mocked(service.login).mockResolvedValue(mockAuthResponse);
+            vi.mocked(service.login).mockResolvedValue(mockAuthResult);
 
-            const result: AuthResponse = await controller.login(loginDto);
+            const result: AuthResponse = await controller.login(loginDto, res);
 
-            expect(result).toHaveProperty('user');
             expect(result.user).toEqual({
                 id: mockUser.id,
                 email: mockUser.email,
@@ -148,14 +199,52 @@ describe('AuthController', () => {
     });
 
     describe('setupAdmin', () => {
-        it('calls service.setupAdmin and returns auth response', async () => {
-            vi.mocked(service.setupAdmin).mockResolvedValue(mockAuthResponse);
+        it('calls service.setupAdmin, sets the refresh cookie, and returns auth response', async () => {
+            vi.mocked(service.setupAdmin).mockResolvedValue(mockAuthResult);
             const dto = {email: 'admin@example.com', password: 'secure', firstName: 'Admin', lastName: 'User'};
 
-            const result = await controller.setupAdmin(dto as never);
+            const result = await controller.setupAdmin(dto as never, res);
 
             expect(service.setupAdmin).toHaveBeenCalledWith(dto);
             expect(result).toBe(mockAuthResponse);
+            expect(res.cookie).toHaveBeenCalled();
+        });
+    });
+
+    describe('refresh', () => {
+        it('should read the refresh_token cookie, rotate it, and return a new access token', async () => {
+            vi.mocked(service.refresh).mockResolvedValue(mockAuthResult);
+            const req = mockRequest({refresh_token: 'old-raw-token'});
+
+            const result = await controller.refresh(req, res);
+
+            expect(service.refresh).toHaveBeenCalledWith('old-raw-token');
+            expect(result).toEqual(mockAuthResponse);
+            expect(res.cookie).toHaveBeenCalledWith(
+                'refresh_token',
+                'raw-refresh-token',
+                expect.objectContaining({httpOnly: true, path: '/api/auth'})
+            );
+        });
+
+        it('should pass undefined to the service when no cookie is present', async () => {
+            vi.mocked(service.refresh).mockResolvedValue(mockAuthResult);
+            const req = mockRequest();
+
+            await controller.refresh(req, res);
+
+            expect(service.refresh).toHaveBeenCalledWith(undefined);
+        });
+    });
+
+    describe('logout', () => {
+        it('should revoke the refresh token and clear the cookie', async () => {
+            const req = mockRequest({refresh_token: 'raw-token'});
+
+            await controller.logout(req, res);
+
+            expect(service.logout).toHaveBeenCalledWith('raw-token');
+            expect(res.clearCookie).toHaveBeenCalledWith('refresh_token', {path: '/api/auth'});
         });
     });
 
