@@ -75,6 +75,10 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
+        if (!user.isActive) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
         return user;
     }
 
@@ -123,7 +127,18 @@ export class AuthService {
             throw new UnauthorizedException('Invalid or expired refresh token');
         }
 
-        const user = await this.usersService.findOne(rotated.userId, rotated.userId);
+        let user: User;
+        try {
+            user = await this.usersService.findOne(rotated.userId, rotated.userId);
+        } catch {
+            // Covers a since-deleted user (findOne throws NotFoundException) —
+            // normalize to the same 401 every other "session no longer valid" case uses.
+            throw new UnauthorizedException('Invalid or expired refresh token');
+        }
+
+        if (!user.isActive) {
+            throw new UnauthorizedException('Invalid or expired refresh token');
+        }
 
         return {
             authResponse: this.toAuthResponse(user),

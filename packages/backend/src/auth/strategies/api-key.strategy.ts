@@ -3,10 +3,10 @@ import {
 } from '@nestjs/common';
 import {PassportStrategy} from '@nestjs/passport';
 import {PrismaService} from '#database/prisma.service.js';
+import {hashToken} from '#common/hash-token.js';
 import type {
     User, UserRole
 } from '#generated/prisma/client.js';
-import * as crypto from 'crypto';
 
 // Passport's built-in strategies (e.g. passport-local, passport-jwt) extend a real
 // Passport `Strategy` class that exposes `this.fail()` and `this.success()` callbacks.
@@ -47,7 +47,7 @@ export class ApiKeyStrategy extends PassportStrategy(ApiKeyBaseStrategy, 'api-ke
         _req: unknown,
         rawToken: string
     ): Promise<Pick<User, 'id' | 'role' | 'isActive' | 'deletedAt'> & {apiTokenScopes: string[], isApiKeyAuth: true}> {
-        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const tokenHash = hashToken(rawToken);
 
         let apiToken: {
             id: string;

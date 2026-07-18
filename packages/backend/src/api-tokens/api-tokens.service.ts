@@ -2,6 +2,7 @@ import {
     Injectable, ForbiddenException, NotFoundException, BadRequestException
 } from '@nestjs/common';
 import {PrismaService} from '#database/prisma.service.js';
+import {hashToken} from '#common/hash-token.js';
 import type {User} from '#generated/prisma/client.js';
 import type {CreateApiTokenDto} from '#api-tokens/dto/create-api-token.dto.js';
 import type {
@@ -37,7 +38,7 @@ export class ApiTokensService {
         }
 
         const rawToken = 'ft_' + crypto.randomBytes(32).toString('hex');
-        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const tokenHash = hashToken(rawToken);
 
         const apiToken = await this.prisma.apiToken.create({
             data: {

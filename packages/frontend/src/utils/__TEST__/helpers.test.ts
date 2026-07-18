@@ -13,6 +13,38 @@ describe('helpers', () => {
         });
     });
 
+    describe('isSafeRedirectPath', () => {
+        it('accepts a plain relative path', () => {
+            expect(helpers.isSafeRedirectPath('/transactions')).toBe(true);
+        });
+
+        it('rejects a protocol-relative path (//host)', () => {
+            expect(helpers.isSafeRedirectPath('//evil.com')).toBe(false);
+        });
+
+        it('rejects a backslash-prefixed path (/\\host)', () => {
+            expect(helpers.isSafeRedirectPath('/\\evil.com')).toBe(false);
+        });
+
+        it('rejects a path not starting with a slash', () => {
+            expect(helpers.isSafeRedirectPath('evil.com')).toBe(false);
+        });
+
+        it('rejects a path containing a control character (tab), which browsers strip during URL parsing', () => {
+            // "/\t/evil.com" would otherwise pass the leading-slash check, but a
+            // browser normalizes it to "//evil.com" (cross-origin) once navigated to.
+            expect(helpers.isSafeRedirectPath('/\t/evil.com')).toBe(false);
+        });
+
+        it('rejects a path containing a newline', () => {
+            expect(helpers.isSafeRedirectPath('/\n/evil.com')).toBe(false);
+        });
+
+        it('rejects a path containing a carriage return', () => {
+            expect(helpers.isSafeRedirectPath('/\r/evil.com')).toBe(false);
+        });
+    });
+
     describe('debounce', () => {
         it('debounces function calls', async () => {
             const fn = vi.fn();

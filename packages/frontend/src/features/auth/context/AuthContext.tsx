@@ -21,6 +21,7 @@ import {
     authControllerLogout
 } from '@/api/auth/auth.js';
 import {authStorage} from '@services/storage/authStorage.js';
+import {requestNewAccessToken} from '@services/api/client.js';
 
 /**
  * Authentication Context
@@ -85,7 +86,9 @@ const fetchCurrentUser = async (): Promise<User> => {
 
 /**
  * Validate the stored token against the backend and populate auth state.
- * If the token is missing, does nothing.
+ * If no access token is cached, attempts a silent restore from the
+ * refresh_token cookie alone (e.g. localStorage was cleared independently
+ * of cookies) before giving up. Does nothing if neither is available.
  * Throws AuthExpiredError if the token is invalid/expired.
  * Throws NetworkError if the backend is unreachable.
  */
@@ -93,9 +96,16 @@ const initializeAuth = async (
     setToken: React.Dispatch<React.SetStateAction<string | null>>,
     setUser: React.Dispatch<React.SetStateAction<User | null>>
 ): Promise<void> => {
-    const storedToken = authStorage.getToken(); // may throw — propagates to caller
+    let storedToken = authStorage.getToken(); // may throw — propagates to caller
+
     if (!storedToken) {
-        return;
+        try {
+            storedToken = await requestNewAccessToken();
+            authStorage.saveToken(storedToken);
+        } catch {
+            // No valid refresh cookie either — genuinely logged out.
+            return;
+        }
     }
 
     // Token exists — validate with backend to get fresh profile data.

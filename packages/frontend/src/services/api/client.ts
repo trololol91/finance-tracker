@@ -4,7 +4,7 @@ import type {
 } from 'axios';
 import {env} from '@config/env';
 import {
-    STORAGE_KEYS, APP_ROUTES
+    STORAGE_KEYS, APP_ROUTES, API_ROUTES
 } from '@config/constants';
 
 /**
@@ -12,8 +12,12 @@ import {
  * `this.client`, since that would re-enter this file's own response
  * interceptor and recurse. The httpOnly refresh_token cookie is attached
  * automatically by the browser via withCredentials.
+ *
+ * Exported so AuthContext can attempt a silent session restore on mount even
+ * when no access token is cached in localStorage (e.g. it was cleared
+ * independently of the refresh cookie).
  */
-const requestNewAccessToken = async (): Promise<string> => {
+export const requestNewAccessToken = async (): Promise<string> => {
     const response = await axios.post<{accessToken: string}>(
         `${env.API_BASE_URL}/api/auth/refresh`,
         undefined,
@@ -21,6 +25,22 @@ const requestNewAccessToken = async (): Promise<string> => {
     );
     return response.data.accessToken;
 };
+
+/**
+ * Endpoints that manage their own 401s (wrong credentials, expired/invalid
+ * refresh token) — a 401 from any of these must never trigger the silent
+ * refresh-and-retry flow or the auth-expired hard redirect below. Without
+ * this, a wrong-password login attempt would trigger a spurious background
+ * refresh call before the caller ever sees the error, and could even rotate
+ * an unrelated session's refresh token on a shared browser.
+ */
+const AUTH_FLOW_PATHS: readonly string[] = [
+    API_ROUTES.AUTH.LOGIN,
+    API_ROUTES.AUTH.REGISTER,
+    API_ROUTES.AUTH.SETUP,
+    API_ROUTES.AUTH.REFRESH,
+    API_ROUTES.AUTH.LOGOUT
+];
 
 class ApiClient {
     private client: AxiosInstance;
@@ -90,9 +110,18 @@ class ApiClient {
                 if (axios.isAxiosError(error) && error.response?.status === 401) {
                     const originalRequest =
                         error.config as (AxiosRequestConfig & {_retry?: boolean}) | undefined;
-                    const isRefreshCall = originalRequest?.url?.includes('/auth/refresh') ?? false;
+                    const isAuthFlowCall = AUTH_FLOW_PATHS.some(
+                        (path) => originalRequest?.url?.endsWith(path) ?? false
+                    );
 
-                    if (originalRequest && !originalRequest._retry && !isRefreshCall) {
+                    // Login/register/setup/refresh/logout own their 401s — let the
+                    // caller handle the rejection directly, no interceptor side effects.
+                    // `error` is already an Error (AxiosError) here, so reject with it as-is.
+                    if (isAuthFlowCall) {
+                        return Promise.reject(error);
+                    }
+
+                    if (originalRequest && !originalRequest._retry) {
                         originalRequest._retry = true;
                         try {
                             this.refreshPromise ??= requestNewAccessToken();

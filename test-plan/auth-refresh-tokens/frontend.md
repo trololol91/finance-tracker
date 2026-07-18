@@ -76,6 +76,12 @@
 - **Steps**: Navigate to `/login?redirect=%2F%2Fevil.com` (a `//`-prefixed value, which browsers can treat as protocol-relative), log in (or, if already authenticated, just load the URL)
 - **Expected**: Lands on `/dashboard` — the open-redirect guard (`helpers.isSafeRedirectPath`) rejects anything not starting with a single `/`
 
+#### TC-09b: Control-character redirect bypass falls back to the dashboard
+- **Type**: Security — regression for a gap found in code review
+- **Steps**: Navigate to `/login?redirect=%2F%09%2Fevil.com` (a tab character between the leading slash and the rest — decodes to `/\t/evil.com`, which the *original* guard's `//`/`/\` check didn't catch since the second character is a tab, not `/` or `\`; browsers strip tabs/newlines during URL parsing, which can resolve the path to a cross-origin `//evil.com`)
+- **Expected**: Lands on `/dashboard`, not `evil.com` — the hardened guard now rejects any control character anywhere in the path, not just `/` or `\` immediately after the leading slash
+- **Covered by**: `packages/frontend/src/utils/__TEST__/helpers.test.ts` (unit-level; this TC is the manual/browser-level confirmation)
+
 #### TC-10: Logout revokes the session server-side
 - **Type**: Regression
 - **Steps**: Log in, click "Log out" in the sidebar
@@ -85,6 +91,22 @@
 - **Type**: Edge Case
 - **Steps**: Stop the backend (or block `/api/auth/logout` via network throttling/mock), then click "Log out"
 - **Expected**: Local state still clears and the user still lands on `/login` — a failed logout call must not trap the user in a logged-in-looking state
+
+#### TC-12: Wrong-password login does not trigger a spurious silent refresh
+- **Type**: Regression — regression for a real bug found in code review
+- **Steps**: On `/login`, submit an existing email with the wrong password
+- **Expected**: Stays on `/login`; inline "Email or password is incorrect." message shown; form values preserved (no full-page reload). Network log shows `POST /auth/login → 401` with **no** `POST /auth/refresh` call anywhere near it.
+- **Why this matters**: the interceptor originally treated a 401 from `/auth/login` itself like an expired-session 401 — it would fire a background refresh attempt *before* the login error ever reached the form. Best case that's wasted work; worst case (a stale-but-valid refresh cookie from an earlier session on a shared/kiosk browser) it could silently rotate an unrelated session's token as a side effect of someone else's typo'd password.
+
+#### TC-13: Silent session restore works even with an empty localStorage
+- **Type**: Regression — regression for a real bug found in code review
+- **Steps**: Log in (with "Remember me"), then via evaluate run `localStorage.clear()` (not just corrupting the token — removing it entirely), then reload the current page
+- **Expected**: Session restores silently, page loads normally, `localStorage.auth_token` is repopulated with a fresh token. Previously, `initializeAuth` returned immediately whenever no access token was cached, without ever attempting the cookie-based refresh — so a valid "remember me" cookie was ignored if `localStorage` alone was ever cleared (privacy extension, Safari ITP, manual devtools clear).
+
+#### TC-14: Logout with an already-expired access token doesn't trigger an extra rotation first
+- **Type**: Regression
+- **Steps**: Log in, corrupt `localStorage.auth_token` (simulating an expired access token) without touching the cookie, then click "Log out"
+- **Expected**: Network log shows a single `POST /auth/logout → 204`, with no `POST /auth/refresh` call immediately preceding it — logout should revoke directly, not silently refresh-and-rotate first as an unwanted side effect of an already-stale access token.
 
 ---
 

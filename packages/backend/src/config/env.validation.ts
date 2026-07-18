@@ -11,10 +11,11 @@ export const envValidationSchema = Joi.object({
     // Database
     DATABASE_URL: Joi.string().required(),
 
-    // Auth
+    // Auth — duration format: an integer followed by one of s/m/h/d
+    // (e.g. "15m", "30d"). Must match RefreshTokensService's parseDurationMs.
     JWT_SECRET: Joi.string().min(32).required(),
-    JWT_EXPIRES_IN: Joi.string().default('15m'),
-    JWT_REFRESH_EXPIRES_IN: Joi.string().default('30d'),
+    JWT_EXPIRES_IN: Joi.string().pattern(/^\d+[smhd]$/).default('15m'),
+    JWT_REFRESH_EXPIRES_IN: Joi.string().pattern(/^\d+[smhd]$/).default('30d'),
 
     // Encryption — 64-char hex string = 32-byte AES-256 key
     CREDENTIALS_ENCRYPTION_KEY: Joi.string().hex().length(64).required(),

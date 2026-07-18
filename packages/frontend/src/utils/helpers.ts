@@ -5,11 +5,17 @@ export const helpers = {
 
     /**
      * Guards against open-redirect: only a same-origin relative path
-     * (single leading slash, not `//` or `/\`) is considered safe to
-     * navigate to from a query param or router state.
+     * (single leading slash, not `//` or `/\`, and free of control
+     * characters) is considered safe to navigate to from a query param or
+     * router state. Control characters (tabs, newlines, etc.) are rejected
+     * outright — browsers strip them during URL parsing, so a value like
+     * "/\t/evil.com" would otherwise pass the leading-slash check here but
+     * resolve to a cross-origin "//evil.com" once actually navigated to.
      */
     isSafeRedirectPath: (path: string): boolean => {
-        return /^\/(?!\/|\\)/.test(path);
+        if (!/^\/(?!\/|\\)/.test(path)) return false;
+        // eslint-disable-next-line no-control-regex -- rejecting control chars, not matching them
+        return !/[\x00-\x1F\x7F]/.test(path);
     },
 
     debounce: <T extends (...args: unknown[]) => void>(

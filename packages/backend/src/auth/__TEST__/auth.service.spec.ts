@@ -6,7 +6,7 @@ import {
     vi
 } from 'vitest';
 import {
-    UnauthorizedException, ConflictException
+    UnauthorizedException, ConflictException, NotFoundException
 } from '@nestjs/common';
 import type {JwtService} from '@nestjs/jwt';
 import {AuthService} from '#auth/auth.service.js';
@@ -183,6 +183,16 @@ describe('AuthService', () => {
             expect(bcrypt.compare).toHaveBeenCalledWith(password, mockUser.passwordHash);
         });
 
+        it('should throw UnauthorizedException if the user is deactivated', async () => {
+            vi.mocked(usersService.findByEmail).mockResolvedValue({...mockUser, isActive: false});
+            vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+            await expect(service.login(email, password, false)).rejects.toThrow(
+                UnauthorizedException
+            );
+            expect(refreshTokensService.issue).not.toHaveBeenCalled();
+        });
+
         it('should not include sensitive fields in response', async () => {
             const mockToken = 'jwt.token.here';
             vi.mocked(usersService.findByEmail).mockResolvedValue(mockUser);
@@ -225,6 +235,18 @@ describe('AuthService', () => {
         it('should throw UnauthorizedException if password is incorrect', async () => {
             vi.mocked(usersService.findByEmail).mockResolvedValue(mockUser);
             vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+            await expect(service.validateUser(email, password)).rejects.toThrow(
+                UnauthorizedException
+            );
+            await expect(service.validateUser(email, password)).rejects.toThrow(
+                'Invalid credentials'
+            );
+        });
+
+        it('should throw UnauthorizedException if the user is deactivated', async () => {
+            vi.mocked(usersService.findByEmail).mockResolvedValue({...mockUser, isActive: false});
+            vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
 
             await expect(service.validateUser(email, password)).rejects.toThrow(
                 UnauthorizedException
@@ -359,6 +381,30 @@ describe('AuthService', () => {
             expect(usersService.findOne).toHaveBeenCalledWith(mockUser.id, mockUser.id);
             expect(result.authResponse.accessToken).toBe('new.jwt.token');
             expect(result.refreshToken.rawToken).toBe('new-raw-token');
+        });
+
+        it('should throw UnauthorizedException when the user has been deactivated', async () => {
+            vi.mocked(refreshTokensService.validateAndRotate).mockResolvedValue({
+                rawToken: 'new-raw-token',
+                expiresAt: new Date('2024-03-01'),
+                rememberMe: true,
+                userId: mockUser.id
+            });
+            vi.mocked(usersService.findOne).mockResolvedValue({...mockUser, isActive: false});
+
+            await expect(service.refresh('old-raw-token')).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should throw UnauthorizedException (not NotFoundException) when the user has been deleted', async () => {
+            vi.mocked(refreshTokensService.validateAndRotate).mockResolvedValue({
+                rawToken: 'new-raw-token',
+                expiresAt: new Date('2024-03-01'),
+                rememberMe: true,
+                userId: mockUser.id
+            });
+            vi.mocked(usersService.findOne).mockRejectedValue(new NotFoundException('User not found'));
+
+            await expect(service.refresh('old-raw-token')).rejects.toThrow(UnauthorizedException);
         });
     });
 

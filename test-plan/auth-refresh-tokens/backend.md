@@ -74,7 +74,8 @@ Replaces the flat 7-day JWT with a short-lived access token (15m, `JWT_EXPIRES_I
 #### TC-07: Reuse of just-rotated (old) token within the 30s grace period
 - **Type**: Regression — covers the multi-tab race this grace period exists for
 - **Steps**: Login → refresh once (rotates token A → B) → immediately call `/auth/refresh` again using **token A**
-- **Expected status**: 200 (accepted — within grace window, issues yet another fresh token)
+- **Expected status**: 200 — and the response's `Set-Cookie` value for the second call must be **identical** to the first call's, i.e. token B again, not a third token C
+- **Why the identical-token check matters**: an earlier implementation minted a brand-new token on every grace-period replay instead of returning the one already-issued replacement — harmless for exactly two racing tabs, but with no rate limiting anywhere in the backend, N rapid replays of the same stale token within the window produced N independently-valid, orphaned sessions (a real amplification: a single leaked token could be replayed repeatedly within 30s to mint many long-lived sessions). Fixed by caching each rotation's result in-memory keyed by the old token's hash, so replays within the window converge on the one cached replacement instead of each minting a new row.
 - **Note**: must run in a single shell session; shell variables holding the raw token do not survive across separate tool/process invocations
 
 #### TC-08: Reuse of old token *outside* the grace period
@@ -128,6 +129,28 @@ Replaces the flat 7-day JWT with a short-lived access token (15m, `JWT_EXPIRES_I
 #### TC-18: 401/400 responses — no internal stack leak
 - **Type**: Security
 - **Description**: All new-endpoint error responses must contain only `{message, error, statusCode}` — no stack traces, Prisma errors, or token hashes
+
+#### TC-19: POST /auth/login — deactivated user is rejected
+- **Type**: Security — regression for a gap found in code review
+- **Steps**: Set a test user's `isActive` to `false` directly in the DB, then attempt login with correct credentials
+- **Expected status**: 401, same `{"message":"Invalid credentials"}` shape as wrong-password (does not leak that the account exists but is deactivated)
+- **Cookie assertion**: no `Set-Cookie` header — no refresh token is issued
+
+#### TC-20: POST /auth/refresh — deactivated user's still-valid refresh token is rejected
+- **Type**: Security — regression for a gap found in code review
+- **Steps**: Login while active (capture the refresh cookie) → deactivate the user (`isActive: false`) → call `/auth/refresh` with that still-unexpired cookie
+- **Expected status**: 401 — a deactivated account must not be able to keep silently refreshing on a cookie obtained before deactivation. Without this check, "remember me" turns a fixed access-token expiry into an indefinitely-renewable window for a deactivated account, bounded only by 30 days of inactivity.
+
+#### TC-21: POST /auth/refresh — soft-deleted user returns 401, not 404
+- **Type**: Regression — regression for a gap found in code review
+- **Steps**: Login (capture the refresh cookie) → soft-delete the user (`deletedAt` set) → call `/auth/refresh` with that cookie
+- **Expected status**: 401 (previously returned 404, inconsistent with every other "session no longer valid" case in the app and with the endpoint's own documented contract)
+
+#### TC-22: Misconfigured JWT_EXPIRES_IN / JWT_REFRESH_EXPIRES_IN fails at startup, not at request time
+- **Type**: Regression — not curl-testable against an already-running server; verify separately
+- **Steps**: Set `JWT_REFRESH_EXPIRES_IN` to an unsupported format (e.g. `1w`, `2y`, `"30 days"`) in `.env`, then attempt to start the backend (`npm run start:dev`)
+- **Expected**: App fails to start with a clear Joi validation error naming the bad env var, instead of starting fine and only surfacing a generic 500 the first time a `rememberMe: true` login is attempted
+- **Covered by**: `packages/backend/src/config/__TEST__/env.validation.spec.ts` (unit-level; this TC is the manual/startup-level confirmation)
 
 ---
 

@@ -15,6 +15,7 @@ import {
     AuthContext
 } from '@features/auth/context/AuthContext.js';
 import {authStorage} from '@services/storage/authStorage.js';
+import {requestNewAccessToken} from '@services/api/client.js';
 import {
     authControllerLogin,
     authControllerRegister,
@@ -50,6 +51,11 @@ vi.mock('@/api/auth/auth.js', () => ({
     authControllerGetSetupStatus: vi.fn(),
     authControllerSetupAdmin: vi.fn(),
     authControllerLogout: vi.fn()
+}));
+
+// Mock the raw cookie-based refresh call used for silent session restore
+vi.mock('@services/api/client.js', () => ({
+    requestNewAccessToken: vi.fn()
 }));
 
 describe('AuthProvider', () => {
@@ -106,6 +112,8 @@ describe('AuthProvider', () => {
         vi.mocked(authControllerGetSetupStatus).mockResolvedValue({required: false});
         // Default: logout call succeeds
         vi.mocked(authControllerLogout).mockResolvedValue(undefined);
+        // Default: no refresh cookie either (matches "no stored session" default above)
+        vi.mocked(requestNewAccessToken).mockRejectedValue(new Error('no refresh cookie'));
     });
 
     describe('initialization', () => {
@@ -193,6 +201,40 @@ describe('AuthProvider', () => {
             });
 
             expect(screen.getByTestId('user')).toHaveTextContent('no-user');
+        });
+
+        it('silently restores the session via the refresh cookie when no token is cached', async () => {
+            vi.mocked(authStorage.getToken).mockReturnValue(null);
+            vi.mocked(requestNewAccessToken).mockResolvedValue(mockToken);
+            // authControllerGetProfile mock already set in beforeEach
+
+            const TestComponent = (): React.JSX.Element => {
+                const context = React.useContext(AuthContext);
+                return (
+                    <div>
+                        <span data-testid="authenticated">
+                            {context?.isAuthenticated.toString()}
+                        </span>
+                        <span data-testid="email">
+                            {context?.user?.email ?? 'no-user'}
+                        </span>
+                    </div>
+                );
+            };
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+            });
+
+            expect(screen.getByTestId('email')).toHaveTextContent('test@example.com');
+            expect(requestNewAccessToken).toHaveBeenCalledOnce();
+            expect(authStorage.saveToken).toHaveBeenCalledWith(mockToken);
         });
 
         it('handles errors during initialization', async () => {

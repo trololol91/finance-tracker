@@ -1,8 +1,8 @@
 import {
     describe, it, expect, beforeEach, afterEach, vi
 } from 'vitest';
-import * as crypto from 'crypto';
 import {RefreshTokensService} from '#auth/refresh-tokens.service.js';
+import {hashToken as hashOf} from '#common/hash-token.js';
 import type {PrismaService} from '#database/prisma.service.js';
 import type {ConfigService} from '@nestjs/config';
 
@@ -14,9 +14,6 @@ const mockPrisma = {
         deleteMany: vi.fn()
     }
 } as unknown as PrismaService;
-
-const hashOf = (rawToken: string): string =>
-    crypto.createHash('sha256').update(rawToken).digest('hex');
 
 describe('RefreshTokensService', () => {
     let service: RefreshTokensService;
@@ -117,38 +114,58 @@ describe('RefreshTokensService', () => {
             expect(result?.rawToken).not.toBe(rawToken);
         });
 
-        it('allows reuse within the rotation grace period without re-revoking', async () => {
-            const revokedAt = new Date(now.getTime() - 10 * 1000); // 10s ago
+        it('returns the SAME rotated token on replay within the grace period, without a second DB rotation', async () => {
             vi.mocked(mockPrisma.refreshToken.findUnique).mockResolvedValue({
                 userId: 'user-1',
                 tokenHash,
-                rememberMe: false,
+                rememberMe: true,
                 expiresAt: new Date('2026-02-01T00:00:00.000Z'),
-                revokedAt
+                revokedAt: null
             } as never);
+            vi.mocked(mockPrisma.refreshToken.update).mockResolvedValue({} as never);
             vi.mocked(mockPrisma.refreshToken.create).mockResolvedValue({} as never);
 
-            const result = await service.validateAndRotate(rawToken);
+            const first = await service.validateAndRotate(rawToken);
 
-            expect(mockPrisma.refreshToken.update).not.toHaveBeenCalled();
-            expect(result).not.toBeNull();
+            vi.setSystemTime(new Date(now.getTime() + 10 * 1000)); // 10s later, within grace
+            const second = await service.validateAndRotate(rawToken);
+
+            // Same tab-race token, not a second independently-minted one — this is
+            // what prevents N racing tabs from ending up with N valid sessions.
+            expect(second).toEqual(first);
+            expect(mockPrisma.refreshToken.findUnique).toHaveBeenCalledTimes(1);
+            expect(mockPrisma.refreshToken.create).toHaveBeenCalledTimes(1);
         });
 
         it('rejects reuse outside the rotation grace period', async () => {
-            // 60s ago, past the 30s grace window
-            const revokedAt = new Date(now.getTime() - 60 * 1000);
             vi.mocked(mockPrisma.refreshToken.findUnique).mockResolvedValue({
                 userId: 'user-1',
                 tokenHash,
-                rememberMe: false,
+                rememberMe: true,
                 expiresAt: new Date('2026-02-01T00:00:00.000Z'),
-                revokedAt
+                revokedAt: null
+            } as never);
+            vi.mocked(mockPrisma.refreshToken.update).mockResolvedValue({} as never);
+            vi.mocked(mockPrisma.refreshToken.create).mockResolvedValue({} as never);
+
+            await service.validateAndRotate(rawToken); // fresh use, populates the cache
+
+            // 60s later, past the 30s grace window
+            vi.setSystemTime(new Date(now.getTime() + 60 * 1000));
+
+            // Cache entry has expired, so this falls through to the DB, which by
+            // now reflects the earlier rotation as revoked.
+            vi.mocked(mockPrisma.refreshToken.findUnique).mockResolvedValue({
+                userId: 'user-1',
+                tokenHash,
+                rememberMe: true,
+                expiresAt: new Date('2026-02-01T00:00:00.000Z'),
+                revokedAt: now
             } as never);
 
             const result = await service.validateAndRotate(rawToken);
 
             expect(result).toBeNull();
-            expect(mockPrisma.refreshToken.create).not.toHaveBeenCalled();
         });
     });
 
