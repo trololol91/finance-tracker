@@ -10,68 +10,67 @@
         "target": "ES2023",
         "sourceMap": true,
         "rootDir": "./src",
-        "baseUrl": "./src",
         "outDir": "./dist",
         "paths": {
             "#root/*": [
-                "./*"
+                "./src/*"
             ],
             "#common/*": [
-                "./common/*"
+                "./src/common/*"
             ],
             "#config/*": [
-                "./config/*"
+                "./src/config/*"
             ],
             "#database/*": [
-                "./database/*"
+                "./src/database/*"
             ],
             "#auth/*": [
-                "./auth/*"
+                "./src/auth/*"
             ],
             "#users/*": [
-                "./users/*"
+                "./src/users/*"
             ],
             "#transactions/*": [
-                "./transactions/*"
+                "./src/transactions/*"
             ],
             "#categories/*": [
-                "./categories/*"
+                "./src/categories/*"
             ],
             "#accounts/*": [
-                "./accounts/*"
+                "./src/accounts/*"
             ],
             "#budgets/*": [
-                "./budgets/*"
+                "./src/budgets/*"
             ],
             "#reports/*": [
-                "./reports/*"
+                "./src/reports/*"
             ],
             "#scraper/*": [
-                "./scraper/*"
+                "./src/scraper/*"
             ],
             "#ai/*": [
-                "./ai/*"
+                "./src/ai/*"
             ],
             "#integrations/*": [
-                "./integrations/*"
+                "./src/integrations/*"
             ],
             "#push/*": [
-                "./push/*"
+                "./src/push/*"
             ],
             "#generated/*": [
-                "./generated/*"
+                "./src/generated/*"
             ],
             "#dashboard/*": [
-                "./dashboard/*"
+                "./src/dashboard/*"
             ],
             "#ai-categorization/*": [
-                "./ai-categorization/*"
+                "./src/ai-categorization/*"
             ],
             "#category-rules/*": [
-                "./category-rules/*"
+                "./src/category-rules/*"
             ],
             "#api-tokens/*": [
-                "./api-tokens/*"
+                "./src/api-tokens/*"
             ]
         },
         "incremental": true,
