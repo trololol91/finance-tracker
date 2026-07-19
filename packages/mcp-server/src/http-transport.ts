@@ -1,6 +1,7 @@
 import http from 'node:http';
 import {randomUUID, createHash} from 'node:crypto';
 
+import express from 'express';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {isInitializeRequest} from '@modelcontextprotocol/sdk/types.js';
 import type {Server} from '@modelcontextprotocol/sdk/server/index.js';
@@ -8,7 +9,7 @@ import type {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {tokenStorage} from './services/fetcher.js';
 import {createMcpServer, validateBearerToken} from './server.js';
 
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes idle
+export const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes idle
 
 interface SessionEntry {
     server: Server;
@@ -110,14 +111,24 @@ const handleMcpRequest = async (
                 }
             });
 
+            await newServer.connect(newTransport);
+
+            // Must be assigned AFTER connect(), not before: Server.connect()
+            // (via the SDK's Protocol base class) unconditionally overwrites
+            // transport.onclose with its own internal handler, silently
+            // discarding anything assigned earlier. Chaining here (rather
+            // than clobbering back) preserves the SDK's own cleanup while
+            // still freeing the session on close — verified live that a
+            // pre-connect() assignment here never fires on a real DELETE,
+            // so a "deleted" session was still fully usable afterward.
+            const sdkOnClose = newTransport.onclose;
             newTransport.onclose = (): void => {
+                sdkOnClose?.call(newTransport);
                 const sid = newTransport.sessionId;
                 if (sid) {
                     sessions.delete(sid);
                 }
             };
-
-            await newServer.connect(newTransport);
             await tokenStorage.run(validToken, () =>
                 newTransport.handleRequest(req, res, parsedBody)
             );
@@ -178,8 +189,12 @@ const handleMcpRequest = async (
     res.end(JSON.stringify({error: 'Method Not Allowed'}));
 };
 
-export const startHttpServer = async (): Promise<void> => {
-    const port = parseInt(process.env.MCP_PORT ?? '3010', 10);
+/**
+ * Builds the Express app (routing, session store, TTL sweep) without binding
+ * to a port. Split out from startHttpServer so tests can drive it directly
+ * (e.g. via supertest) without a real network listener.
+ */
+export const createHttpApp = (): express.Express => {
     const sessions = new Map<string, SessionEntry>();
 
     // Evict sessions idle for longer than SESSION_TTL_MS. Clients that disconnect
@@ -195,33 +210,80 @@ export const startHttpServer = async (): Promise<void> => {
         }
     }, SESSION_TTL_MS).unref();
 
-    const httpServer = http.createServer((req, res) => {
-        const url = req.url ?? '/';
+    const app = express();
+    // Don't advertise the framework on every response.
+    app.disable('x-powered-by');
+    // Express's default path matching is case-insensitive; the previous raw
+    // node:http implementation compared `url` with a case-sensitive `===`/
+    // `startsWith`, so restore that here to avoid silently widening the
+    // routing surface (e.g. `/MCP` or `/HEALTH` reaching a handler that used
+    // to 404 them).
+    app.set('case sensitive routing', true);
 
-        // Health check — no auth required
-        if (req.method === 'GET' && url === '/health') {
-            res.writeHead(200, {'Content-Type': 'application/json'});
-            res.end(JSON.stringify({status: 'ok'}));
-            return;
-        }
+    // Health check — no auth required
+    app.get('/health', (_req, res) => {
+        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({status: 'ok'}));
+    });
 
-        // MCP routes
-        if (url.startsWith('/mcp')) {
-            void handleMcpRequest(req, res, sessions);
-            return;
-        }
+    // MCP routes — mounted (not an exact route) so every path under /mcp
+    // reaches the handler. Note this is NOT identical to the previous raw
+    // node:http `url.startsWith('/mcp')` check: Express's mount matching
+    // requires a path-segment boundary, so `/mcpfoo` no longer matches (it
+    // used to reach handleMcpRequest and get a 401; it now 404s from the
+    // catch-all below instead) — a deliberately tighter, more conventional
+    // routing surface, not a bug to restore.
+    // No body-parsing middleware here deliberately: handleMcpRequest reads the
+    // raw request stream itself, same as it did before this file used Express.
+    // No explicit .catch(next) needed: Express 5 automatically forwards a
+    // rejected promise from an async handler to the error-handling middleware.
+    app.use('/mcp', async (req, res) => {
+        await handleMcpRequest(req, res, sessions);
+    });
 
+    app.use((_req, res) => {
         res.writeHead(404, {'Content-Type': 'application/json'});
         res.end(JSON.stringify({error: 'Not Found'}));
     });
 
-    await new Promise<void>((resolve, reject) => {
+    // Terminal error handler (must be last, and must take 4 params for Express
+    // to treat it as an error handler) — catches rejections from
+    // handleMcpRequest forwarded via `.catch(next)` above, so a thrown error
+    // becomes a scoped 500 instead of an unhandled promise rejection that
+    // would otherwise crash the whole process and every other active session.
+    // Express detects error-handling middleware by checking the function
+    // declares exactly 4 parameters (fn.length === 4); dropping the unused
+    // `_next` would silently stop this from being recognized as an error
+    // handler and it would fall through to Express's own default handler.
+    const handleUncaughtError: express.ErrorRequestHandler = (err, _req, res, _next) => {
+        console.error('[mcp-server] Unhandled error handling /mcp request:', err);
+        if (!res.headersSent) {
+            res.writeHead(500, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({error: 'Internal Server Error'}));
+        }
+    };
+    app.use(handleUncaughtError);
+
+    return app;
+};
+
+export const startHttpServer = async (): Promise<http.Server> => {
+    const port = parseInt(process.env.MCP_PORT ?? '3010', 10);
+    const app = createHttpApp();
+    // Deliberately NOT app.listen(port, cb) here: verified that Express's
+    // app.listen() callback can fire *before* a bind failure is detected —
+    // wrapping http.createServer(app) explicitly and listening on that server
+    // directly is what actually guarantees the callback only fires on a
+    // successful bind, so a rejection here reliably means the bind failed.
+    const httpServer = http.createServer(app);
+
+    return new Promise<http.Server>((resolve, reject) => {
         httpServer.on('error', reject);
         httpServer.listen(port, () => {
             // Intentional console.error: in stdio mode stdout is the MCP channel,
             // so all diagnostic output (including startup success) goes to stderr.
             console.error(`[mcp-server] HTTP transport listening on port ${port}`);
-            resolve();
+            resolve(httpServer);
         });
     });
 };

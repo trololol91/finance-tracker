@@ -19,7 +19,12 @@ export default [
             sourceType: 'module',
             parserOptions: {
                 projectService: {
-                    allowDefaultProject: ['*.ts', 'scripts/*.ts', 'src/__TEST__/*.ts', 'src/tools/__TEST__/*.ts']
+                    allowDefaultProject: ['*.ts', 'scripts/*.ts', 'src/__TEST__/*.ts', 'src/tools/__TEST__/*.ts'],
+                    // Currently matches 12 files (2 root *.ts, 1 script, 4 in
+                    // src/__TEST__, 5 in src/tools/__TEST__); 20 leaves some
+                    // headroom for new spec files before this needs bumping
+                    // again.
+                    maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 20
                 },
                 tsconfigRootDir: import.meta.dirname
             }
