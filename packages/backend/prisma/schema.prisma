@@ -88,6 +88,7 @@ model User {
   categoryRules  CategoryRule[]
   apiTokens      ApiToken[]
   refreshTokens  RefreshToken[]
+  oauthAuthorizationCodes OAuthAuthorizationCode[]
 
   // Notification preferences for scraper MFA alerts
   notifyEmail    Boolean  @default(true)  @map("notify_email")
@@ -335,4 +336,39 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model OAuthClient {
+  id                      String    @id @default(uuid()) @db.Uuid
+  clientId                String    @unique @map("client_id")
+  clientName              String    @map("client_name")
+  redirectUris            String[]  @map("redirect_uris")
+  tokenEndpointAuthMethod String    @default("none") @map("token_endpoint_auth_method")
+  grantTypes              String[]  @default(["authorization_code"]) @map("grant_types")
+  deletedAt               DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  authorizationCodes OAuthAuthorizationCode[]
+
+  @@map("oauth_clients")
+}
+
+model OAuthAuthorizationCode {
+  id                  String   @id @default(uuid()) @db.Uuid
+  codeHash            String   @unique @map("code_hash")
+  clientId            String   @map("client_id")
+  userId              String   @map("user_id") @db.Uuid
+  redirectUri         String   @map("redirect_uri")
+  scopes              String[]
+  codeChallenge       String   @map("code_challenge")
+  codeChallengeMethod String   @default("S256") @map("code_challenge_method")
+  expiresAt           DateTime @map("expires_at") @db.Timestamptz
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client OAuthClient @relation(fields: [clientId], references: [clientId])
+
+  @@index([userId])
+  @@map("oauth_authorization_codes")
 }

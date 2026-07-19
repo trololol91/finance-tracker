@@ -6,7 +6,10 @@ import {envValidationSchema} from '#config/env.validation.js';
 const baseEnv = {
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
     JWT_SECRET: 'a'.repeat(32),
-    CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(64)
+    CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(64),
+    PUBLIC_API_BASE_URL: 'https://finance-api.example.com',
+    OAUTH_STATIC_CLIENT_ID: 'claude-ai',
+    OAUTH_STATIC_REDIRECT_URIS: 'https://claude.ai/api/mcp/auth_callback'
 };
 
 describe('envValidationSchema', () => {
@@ -37,5 +40,26 @@ describe('envValidationSchema', () => {
                 expect(error).toBeDefined();
             }
         );
+    });
+
+    describe('OAuth authorization server vars', () => {
+        it.each(['PUBLIC_API_BASE_URL', 'OAUTH_STATIC_CLIENT_ID', 'OAUTH_STATIC_REDIRECT_URIS'])(
+            'requires %s at startup', (key) => {
+                const env = {...baseEnv};
+                delete (env as Record<string, unknown>)[key];
+
+                const {error} = envValidationSchema.validate(env);
+
+                expect(error).toBeDefined();
+            }
+        );
+
+        it('requires PUBLIC_API_BASE_URL to be an absolute URL', () => {
+            const {error} = envValidationSchema.validate({
+                ...baseEnv, PUBLIC_API_BASE_URL: 'not-a-url'
+            });
+
+            expect(error).toBeDefined();
+        });
     });
 });

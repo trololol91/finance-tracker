@@ -26,7 +26,8 @@
     "#dashboard/*": "./dist/dashboard/*",
     "#ai-categorization/*": "./dist/ai-categorization/*",
     "#category-rules/*": "./dist/category-rules/*",
-    "#api-tokens/*": "./dist/api-tokens/*"
+    "#api-tokens/*": "./dist/api-tokens/*",
+    "#oauth/*": "./dist/oauth/*"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -71,6 +72,7 @@
     "@nestjs/platform-express": "11.0.1",
     "@nestjs/schedule": "6.1.1",
     "@nestjs/swagger": "11.2.6",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/adapter-pg": "7.4.0",
     "@prisma/client": "7.4.0",
     "@types/papaparse": "5.5.2",

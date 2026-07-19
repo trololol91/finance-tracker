@@ -4,10 +4,14 @@ import {randomUUID, createHash} from 'node:crypto';
 import express from 'express';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {isInitializeRequest} from '@modelcontextprotocol/sdk/types.js';
+import {
+    mcpAuthMetadataRouter, getOAuthProtectedResourceMetadataUrl
+} from '@modelcontextprotocol/sdk/server/auth/router.js';
 import type {Server} from '@modelcontextprotocol/sdk/server/index.js';
 
 import {tokenStorage} from './services/fetcher.js';
 import {createMcpServer, validateBearerToken} from './server.js';
+import {buildAuthorizationServerMetadata} from './oauth-metadata.js';
 
 export const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes idle
 
@@ -31,7 +35,8 @@ const extractBearerToken = (authHeader: string | undefined): string | null => {
 const handleMcpRequest = async (
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    sessions: Map<string, SessionEntry>
+    sessions: Map<string, SessionEntry>,
+    resourceMetadataUrl: string
 ): Promise<void> => {
     // Extract token from header — full remote validation only happens for new sessions
     // (init requests). Existing sessions are authorised by tokenHash comparison, which
@@ -42,7 +47,13 @@ const handleMcpRequest = async (
     // mid-session — restart the server to force immediate re-validation.
     const token = extractBearerToken(req.headers.authorization);
     if (!token) {
-        res.writeHead(401, {'Content-Type': 'application/json'});
+        // WWW-Authenticate points OAuth-aware clients (e.g. Claude) at the
+        // protected-resource metadata document, which in turn names the
+        // backend as the trusted authorization server (RFC 9728).
+        res.writeHead(401, {
+            'Content-Type': 'application/json',
+            'WWW-Authenticate': `Bearer resource_metadata="${resourceMetadataUrl}"`
+        });
         res.end(JSON.stringify({error: 'Unauthorized'}));
         return;
     }
@@ -93,7 +104,10 @@ const handleMcpRequest = async (
             // New session — validate token against the backend before accepting
             const validToken = await validateBearerToken(req.headers.authorization);
             if (!validToken) {
-                res.writeHead(401, {'Content-Type': 'application/json'});
+                res.writeHead(401, {
+                    'Content-Type': 'application/json',
+                    'WWW-Authenticate': `Bearer resource_metadata="${resourceMetadataUrl}"`
+                });
                 res.end(JSON.stringify({error: 'Unauthorized'}));
                 return;
             }
@@ -197,6 +211,22 @@ const handleMcpRequest = async (
 export const createHttpApp = (): express.Express => {
     const sessions = new Map<string, SessionEntry>();
 
+    // The backend's externally-reachable URL, used as the OAuth issuer
+    // identifier (see oauth-metadata.ts) — deliberately NOT
+    // FINANCE_TRACKER_URL (mcp-server's internal service-to-service URL for
+    // calling the backend's REST API, e.g. http://backend:3001 in Docker).
+    // The SDK's mcpAuthMetadataRouter rejects any issuer that isn't HTTPS or
+    // literally localhost, so using the internal URL here crashes mcp-server
+    // at startup under a Docker deployment.
+    const backendUrl = process.env.PUBLIC_API_BASE_URL
+        ?? process.env.FINANCE_TRACKER_URL
+        ?? 'http://localhost:3001';
+    // This server's own externally-reachable URL — distinct from backendUrl
+    // above (that's mcp-server -> backend; this is client -> mcp-server).
+    const mcpPublicUrl = process.env.MCP_PUBLIC_URL ?? 'http://localhost:3010';
+    const resourceServerUrl = new URL('/mcp', mcpPublicUrl);
+    const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(resourceServerUrl);
+
     // Evict sessions idle for longer than SESSION_TTL_MS. Clients that disconnect
     // without sending DELETE would otherwise accumulate indefinitely.
     // unref() so the sweep timer doesn't keep the process alive after all connections close.
@@ -226,6 +256,16 @@ export const createHttpApp = (): express.Express => {
         res.end(JSON.stringify({status: 'ok'}));
     });
 
+    // OAuth discovery (RFC 9728 protected-resource metadata at both the
+    // path-suffixed and, on a client's 4xx fallback, bare well-known paths;
+    // RFC 8414 authorization-server metadata mirrored from the backend) —
+    // must be mounted before the catch-all 404 and terminal error handler
+    // below, same as every other route.
+    app.use(mcpAuthMetadataRouter({
+        oauthMetadata: buildAuthorizationServerMetadata(backendUrl),
+        resourceServerUrl
+    }));
+
     // MCP routes — mounted (not an exact route) so every path under /mcp
     // reaches the handler. Note this is NOT identical to the previous raw
     // node:http `url.startsWith('/mcp')` check: Express's mount matching
@@ -238,7 +278,7 @@ export const createHttpApp = (): express.Express => {
     // No explicit .catch(next) needed: Express 5 automatically forwards a
     // rejected promise from an async handler to the error-handling middleware.
     app.use('/mcp', async (req, res) => {
-        await handleMcpRequest(req, res, sessions);
+        await handleMcpRequest(req, res, sessions, resourceMetadataUrl);
     });
 
     app.use((_req, res) => {

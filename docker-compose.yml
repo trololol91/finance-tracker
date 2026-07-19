@@ -52,6 +52,14 @@ services:
             - JWT_SECRET=${JWT_SECRET}
             - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
             - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3002}
+            - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL:-http://localhost:3001}
+            # Both required (env.validation.ts rejects an empty string the same
+            # as a missing var) — these placeholder defaults exist only so an
+            # in-place upgrade that hasn't added them to .env yet still boots,
+            # not because they're usable as-is. Override with the real values
+            # from .env.example before actually connecting Claude.
+            - OAUTH_STATIC_CLIENT_ID=${OAUTH_STATIC_CLIENT_ID:-claude-ai}
+            - OAUTH_STATIC_REDIRECT_URIS=${OAUTH_STATIC_REDIRECT_URIS:-https://claude.ai/api/mcp/auth_callback}
             - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
             - PLAYWRIGHT_SERVER_URL=${PLAYWRIGHT_SERVER_URL:-ws://playwright-server:3003/ws}
             - PLAYWRIGHT_CDP_URL=${PLAYWRIGHT_CDP_URL:-}
@@ -97,6 +105,12 @@ services:
             - MCP_TRANSPORT=http
             - MCP_PORT=3010
             - FINANCE_TRACKER_URL=http://backend:3001
+            - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-http://localhost:3010}
+            # The backend's externally-reachable URL — used as the OAuth issuer
+            # identifier, NOT for API calls (those still go via FINANCE_TRACKER_URL's
+            # internal hostname above). Must be HTTPS or localhost, or mcp-server
+            # fails to start (see packages/mcp-server/src/oauth-metadata.ts).
+            - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL:-http://localhost:3001}
         depends_on:
             backend:
                 condition: service_healthy

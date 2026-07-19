@@ -6,6 +6,7 @@ import {ApiTokensService} from '#api-tokens/api-tokens.service.js';
 @Module({
     imports: [DatabaseModule],
     controllers: [ApiTokensController],
-    providers: [ApiTokensService]
+    providers: [ApiTokensService],
+    exports: [ApiTokensService]
 })
 export class ApiTokensModule {}

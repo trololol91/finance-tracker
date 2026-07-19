@@ -15,6 +15,7 @@ import {DashboardModule} from '#dashboard/dashboard.module.js';
 import {AiCategorizationModule} from '#ai-categorization/index.js';
 import {CategoryRulesModule} from '#category-rules/category-rules.module.js';
 import {ApiTokensModule} from '#api-tokens/api-tokens.module.js';
+import {OAuthModule} from '#oauth/oauth.module.js';
 
 @Module({
     imports: [
@@ -35,7 +36,8 @@ import {ApiTokensModule} from '#api-tokens/api-tokens.module.js';
         DashboardModule,
         AiCategorizationModule,
         CategoryRulesModule,
-        ApiTokensModule
+        ApiTokensModule,
+        OAuthModule
     ],
     controllers: [AppController],
     providers: [AppService]

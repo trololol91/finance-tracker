@@ -2699,6 +2699,50 @@
           "api-tokens"
         ]
       }
+    },
+    "/api/oauth/consent": {
+      "post": {
+        "description": "Called by the frontend consent screen (not by the OAuth client itself). Re-validates client_id/redirect_uri server-side and, on approval, issues an authorization code.",
+        "operationId": "OAuthController_consent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentDecisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Where to redirect the browser next",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown client or unregistered redirect_uri"
+          },
+          "401": {
+            "description": "Not logged into the frontend session"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Approve or deny an OAuth connector request",
+        "tags": [
+          "oauth"
+        ]
+      }
     }
   },
   "info": {
@@ -4809,6 +4853,51 @@
           "lastUsedAt",
           "expiresAt",
           "createdAt"
+        ]
+      },
+      "ConsentDecisionDto": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "redirect_uri": {
+            "type": "string"
+          },
+          "code_challenge": {
+            "type": "string"
+          },
+          "code_challenge_method": {
+            "type": "string",
+            "enum": [
+              "S256"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "approved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "client_id",
+          "redirect_uri",
+          "code_challenge",
+          "code_challenge_method",
+          "approved"
+        ]
+      },
+      "ConsentResponseDto": {
+        "type": "object",
+        "properties": {
+          "redirectTo": {
+            "type": "string",
+            "description": "Where the frontend should navigate the browser next (the client's redirect_uri, with ?code=... or ?error=access_denied)"
+          }
+        },
+        "required": [
+          "redirectTo"
         ]
       }
     }

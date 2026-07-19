@@ -1,0 +1,117 @@
+import {
+    describe, it, expect, beforeEach, vi
+} from 'vitest';
+import {
+    render, screen, waitFor
+} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {MemoryRouter} from 'react-router-dom';
+import {ConsentScreen} from '@features/oauth/components/ConsentScreen.js';
+
+const mockMutateAsync = vi.fn();
+
+vi.mock('@/api/oauth/oauth.js', () => ({
+    useOAuthControllerConsent: () => ({mutateAsync: mockMutateAsync, isPending: false})
+}));
+
+const OAUTH_QUERY =
+    '?client_id=claude-ai&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
+    '&code_challenge=challenge-value&code_challenge_method=S256' +
+    '&scope=transactions%3Aread+transactions%3Awrite+accounts%3Aread+categories%3Aread+dashboard%3Aread' +
+    '&state=xyz';
+
+const renderConsentScreen = (search = OAUTH_QUERY): void => {
+    render(
+        <MemoryRouter initialEntries={[`/oauth/consent${search}`]}>
+            <ConsentScreen />
+        </MemoryRouter>
+    );
+};
+
+describe('ConsentScreen', () => {
+    const originalLocation = window.location;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        Object.defineProperty(window, 'location', {
+            value: {...originalLocation, href: ''},
+            writable: true
+        });
+    });
+
+    it('shows a fallback message when required OAuth params are missing from the URL', () => {
+        renderConsentScreen('');
+
+        expect(screen.getByRole('alert')).toHaveTextContent(/missing required information/i);
+        expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('lists permissions driven by the scope param, not a hardcoded guess', () => {
+        renderConsentScreen();
+
+        expect(screen.getByText('View your transactions')).toBeInTheDocument();
+        expect(screen.getByText('Add new transactions')).toBeInTheDocument();
+    });
+
+    it('renders an unrecognized scope as its raw string instead of silently omitting it', () => {
+        renderConsentScreen(
+            '?client_id=claude-ai&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
+            '&code_challenge=challenge-value&code_challenge_method=S256&scope=budgets%3Aread'
+        );
+
+        expect(screen.getByText('budgets:read')).toBeInTheDocument();
+    });
+
+    it('shows the fallback message when scope is missing from the URL, same as any other required param', () => {
+        renderConsentScreen(
+            '?client_id=claude-ai&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
+            '&code_challenge=challenge-value&code_challenge_method=S256'
+        );
+
+        expect(screen.getByRole('alert')).toHaveTextContent(/missing required information/i);
+    });
+
+    it('submits approved: true and redirects to the returned redirectTo on Approve', async () => {
+        const user = userEvent.setup();
+        mockMutateAsync.mockResolvedValue({redirectTo: 'https://claude.ai/callback?code=abc&state=xyz'});
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /approve/i}));
+
+        expect(mockMutateAsync).toHaveBeenCalledWith({
+            data: {
+                client_id: 'claude-ai',
+                redirect_uri: 'https://claude.ai/callback',
+                code_challenge: 'challenge-value',
+                code_challenge_method: 'S256',
+                state: 'xyz',
+                approved: true
+            }
+        });
+        await waitFor(() => {
+            expect(window.location.href).toBe('https://claude.ai/callback?code=abc&state=xyz');
+        });
+    });
+
+    it('submits approved: false on Deny', async () => {
+        const user = userEvent.setup();
+        mockMutateAsync.mockResolvedValue({redirectTo: 'https://claude.ai/callback?error=access_denied&state=xyz'});
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /deny/i}));
+
+        expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({approved: false})
+        }));
+    });
+
+    it('shows an error message if the consent request fails', async () => {
+        const user = userEvent.setup();
+        mockMutateAsync.mockRejectedValue(new Error('network error'));
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /approve/i}));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(/something went wrong/i);
+    });
+});

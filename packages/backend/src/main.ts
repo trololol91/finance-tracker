@@ -1,6 +1,6 @@
 import {NestFactory} from '@nestjs/core';
 import {
-    Logger, ValidationPipe
+    Logger, ValidationPipe, RequestMethod
 } from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {
@@ -19,7 +19,13 @@ const bootstrap = async (): Promise<void> => {
 
     // All controller routes are prefixed with /api so any reverse proxy
     // (nginx, Cloudflare Tunnel, etc.) can forward without path stripping.
-    app.setGlobalPrefix('api');
+    // RFC 8414 authorization-server metadata is conventionally expected at
+    // the site root, so it's excluded here — /oauth/* itself stays under
+    // /api, since OAuth clients only ever reach it via the absolute URLs
+    // this metadata document hands out.
+    app.setGlobalPrefix('api', {
+        exclude: [{path: '.well-known/oauth-authorization-server', method: RequestMethod.GET}]
+    });
 
     // Enable validation pipes globally
     app.useGlobalPipes(new ValidationPipe({

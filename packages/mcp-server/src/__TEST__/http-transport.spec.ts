@@ -165,11 +165,41 @@ describe('createHttpApp', () => {
         });
     });
 
+    describe('OAuth discovery (RFC 9728 / RFC 8414)', () => {
+        it('serves protected-resource metadata at the path-suffixed well-known URL', async () => {
+            const res = await request(buildTestServer()).get('/.well-known/oauth-protected-resource/mcp');
+
+            expect(res.status).toBe(200);
+            expect(res.body).toEqual(expect.objectContaining({
+                resource: 'http://localhost:3010/mcp',
+                authorization_servers: ['http://localhost:3001']
+            }));
+        });
+
+        it('mirrors the backend\'s authorization-server metadata at its own well-known path', async () => {
+            const res = await request(buildTestServer()).get('/.well-known/oauth-authorization-server');
+
+            expect(res.status).toBe(200);
+            expect(res.body).toEqual(expect.objectContaining({
+                issuer: 'http://localhost:3001',
+                authorization_endpoint: 'http://localhost:3001/api/oauth/authorize',
+                token_endpoint: 'http://localhost:3001/api/oauth/token'
+            }));
+        });
+    });
+
     describe('auth requirement', () => {
         it('returns 401 with no Authorization header', async () => {
             const res = await request(buildTestServer()).post('/mcp').send(initializeBody);
             expect(res.status).toBe(401);
             expect(res.body).toEqual({error: 'Unauthorized'});
+        });
+
+        it('points WWW-Authenticate at the protected-resource metadata URL when no token is given', async () => {
+            const res = await request(buildTestServer()).post('/mcp').send(initializeBody);
+            expect(res.headers['www-authenticate']).toBe(
+                'Bearer resource_metadata="http://localhost:3010/.well-known/oauth-protected-resource/mcp"'
+            );
         });
 
         it('returns 401 for a non-Bearer Authorization header', async () => {
@@ -188,6 +218,7 @@ describe('createHttpApp', () => {
                 .send(initializeBody);
             expect(res.status).toBe(401);
             expect(res.body).toEqual({error: 'Unauthorized'});
+            expect(res.headers['www-authenticate']).toContain('resource_metadata=');
         });
 
         it('returns 405 for an unsupported method with a syntactically valid token', async () => {

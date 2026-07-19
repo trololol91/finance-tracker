@@ -71,6 +71,9 @@
             ],
             "#api-tokens/*": [
                 "./src/api-tokens/*"
+            ],
+            "#oauth/*": [
+                "./src/oauth/*"
             ]
         },
         "incremental": true,

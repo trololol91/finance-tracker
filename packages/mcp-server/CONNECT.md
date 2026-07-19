@@ -7,9 +7,38 @@ The finance tracker MCP server supports two transports:
 | **Stdio** | Local dev, Claude Desktop, any client that spawns processes |
 | **HTTP (Streamable HTTP)** | Remote/hosted, Docker, clients that connect over a URL |
 
+For the HTTP transport, there are now **two ways to authenticate** — pick
+whichever fits your client:
+
+| Method | Use when |
+|---|---|
+| **claude.ai "Add custom connector"** (OAuth 2.1) | Connecting from claude.ai or the Claude mobile apps — their connector dialog has no field to paste a token, only OAuth Client ID/Secret. See "OAuth (claude.ai custom connector)" below — no manual steps needed, Claude drives the whole browser login/consent flow itself. |
+| **Manually pasted API token** (Steps 1–2 below) | Claude Desktop's config file, or any other MCP client that lets you paste a bearer token directly |
+
+## OAuth (claude.ai custom connector)
+
+1. In claude.ai, go to **Settings → Connectors → Add custom connector**.
+2. Enter this mcp-server's URL (e.g. `https://your-mcp-host/mcp`) as the
+   **Remote MCP server URL**. Leave Client ID/Secret blank — Claude
+   discovers everything else itself.
+3. Claude will open a browser window, redirect you to log in to the finance
+   tracker web app (if not already), then show a consent screen listing
+   what it's requesting access to. Approve it.
+4. Claude is redirected back and immediately usable — no token to copy.
+
+Under the hood: the mcp-server returns a `401` + `WWW-Authenticate` header
+pointing at its own protected-resource metadata (RFC 9728), which names the
+backend as the trusted authorization server; the backend then runs the
+actual OAuth 2.1 + PKCE flow and mints a normal `ApiToken` row scoped to
+`transactions:read`, `transactions:write`, `accounts:read`, `categories:read`,
+`dashboard:read` — the same token type Step 1 below creates by hand, so it
+shows up in **Settings → API Tokens** as `"Claude (OAuth)"` and can be
+revoked from there like any other token. Full protocol details:
+`test-plan/oauth-connector/implementation-plan.md`.
+
 ---
 
-## Step 1 — Generate an API token
+## Step 1 — Generate an API token (manual-token path only — skip if you used OAuth above)
 
 1. Log in to the finance tracker web app
 2. Go to **Settings → API Tokens**
@@ -97,6 +126,8 @@ GET http://your-host:3010/health
 ## Client configuration examples
 
 ### Claude Desktop
+
+> **Don't use the "Add custom connector" dialog for this server's HTTP transport.** That GUI (in Claude Desktop and on claude.ai) only exposes OAuth Client ID/Secret under Advanced settings — there's no field for a bearer token or custom header. Anthropic has a header-based auth mode (`static_headers`) that matches this server's design exactly, but as of writing it's still beta and not rolled out to every account, so the field may simply not appear for you. Edit the config file directly instead (below) — Claude Desktop honors the `headers` block from the file even though the GUI can't create it.
 
 Config file location:
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`

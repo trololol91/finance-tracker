@@ -40,5 +40,6 @@ export const APP_ROUTES = {
     MFA: '/mfa',
     SETTINGS: '/settings',
     ADMIN: '/admin',
-    SETUP: '/setup'
+    SETUP: '/setup',
+    OAUTH_CONSENT: '/oauth/consent'
 } as const;

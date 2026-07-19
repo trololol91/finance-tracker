@@ -26,6 +26,7 @@ const SettingsPage = lazy(() => import('@pages/SettingsPage.tsx'));
 const AdminPage = lazy(() => import('@pages/AdminPage.tsx'));
 const NotFoundPage = lazy(() => import('@pages/NotFoundPage.tsx'));
 const SetupPage = lazy(() => import('@pages/SetupPage.tsx'));
+const OAuthConsentPage = lazy(() => import('@pages/OAuthConsentPage.tsx'));
 
 export const router = createBrowserRouter([
     // Setup route — only accessible when no users exist
@@ -89,7 +90,10 @@ export const router = createBrowserRouter([
                         ]
                     }
                 ]
-            }
+            },
+            // OAuth consent screen — authenticated but deliberately outside
+            // AppShell (no sidebar/nav), same as the login/setup pages.
+            {path: APP_ROUTES.OAUTH_CONSENT, element: <OAuthConsentPage />}
         ]
     },
 
