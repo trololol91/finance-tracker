@@ -191,7 +191,44 @@ ngrok http 3010
 ```
 Use the `https://....ngrok-free.app/mcp` URL.
 
-**Production:** Put the server behind a TLS-terminating reverse proxy (nginx, Caddy).
+**Production:** Put the server behind a TLS-terminating reverse proxy (nginx, Caddy, Cloudflare Tunnel, etc.).
+
+**If your proxy routes by path prefix per service** (e.g. `/api/*` → backend,
+`/mcp/*` → mcp-server, everything else → frontend), you need **two more
+explicit rules** beyond the obvious ones, or OAuth discovery silently
+breaks. The well-known metadata paths are deliberately *not* under `/api`
+or `/mcp` — RFC 8414/RFC 9728 expect them at the site root — so a
+prefix-only proxy falls through its catch-all and routes both documents to
+the frontend instead. That's worse than a 404: the frontend returns its
+`index.html` with a `200`, so it looks like a response until a real OAuth
+client tries to parse HTML as the JSON metadata document it expected, and
+the whole connector setup fails with no obvious cause.
+
+Route these two paths to the **backend** and **mcp-server** respectively,
+in addition to your existing `/api` and `/mcp` rules (Cloudflare Tunnel
+`ingress` example — the same two extra rules apply to nginx/Caddy/Traefik
+just as path-match rules instead):
+```yaml
+ingress:
+  - hostname: your-host.example.com
+    path: ^/api(/.*)?$
+    service: http://127.0.0.1:3001        # backend
+  - hostname: your-host.example.com
+    path: ^/mcp(/.*)?$
+    service: http://127.0.0.1:3010        # mcp-server
+  - hostname: your-host.example.com
+    path: ^/\.well-known/oauth-authorization-server$
+    service: http://127.0.0.1:3001        # backend — RFC 8414
+  - hostname: your-host.example.com
+    path: ^/\.well-known/oauth-protected-resource(/.*)?$
+    service: http://127.0.0.1:3010        # mcp-server — RFC 9728
+```
+The protected-resource rule needs the `(/.*)?` suffix — the mcp-server's
+metadata router serves both the bare path and a path-suffixed form
+(`/.well-known/oauth-protected-resource/mcp`), and real clients try the
+suffixed form first (see `test-plan/oauth-connector/implementation-plan.md`
+§2, "Two discovery hops, two servers involved," for why). The
+authorization-server rule doesn't need it; that one's always served bare.
 
 Health check (no auth required):
 ```
