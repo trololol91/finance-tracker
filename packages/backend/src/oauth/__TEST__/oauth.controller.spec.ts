@@ -8,6 +8,7 @@ import {OAuthController} from '#oauth/oauth.controller.js';
 import {OAuthException} from '#oauth/oauth-exception.js';
 import type {OAuthClientsService} from '#oauth/oauth-clients.service.js';
 import type {OAuthCodesService} from '#oauth/oauth-codes.service.js';
+import type {OAuthInitialAccessTokensService} from '#oauth/oauth-initial-access-tokens.service.js';
 import type {ApiTokensService} from '#api-tokens/api-tokens.service.js';
 import type {User} from '#generated/prisma/client.js';
 
@@ -17,13 +18,18 @@ const redirectedUrl = (res: Response): URL => {
 };
 
 const mockOAuthClients = {
-    findByClientId: vi.fn()
+    findByClientId: vi.fn(),
+    register: vi.fn()
 } as unknown as OAuthClientsService;
 
 const mockOAuthCodes = {
     issue: vi.fn(),
     consume: vi.fn()
 } as unknown as OAuthCodesService;
+
+const mockInitialAccessTokens = {
+    issue: vi.fn()
+} as unknown as OAuthInitialAccessTokensService;
 
 const mockApiTokens = {
     create: vi.fn()
@@ -32,7 +38,7 @@ const mockApiTokens = {
 const registeredClient = {
     id: 'oc-1',
     clientId: 'claude-ai',
-    clientName: 'Claude (static)',
+    clientName: 'Claude',
     redirectUris: ['https://claude.ai/callback'],
     tokenEndpointAuthMethod: 'none',
     grantTypes: ['authorization_code'],
@@ -50,7 +56,9 @@ describe('OAuthController', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         config = {get: vi.fn().mockReturnValue('https://finance.example.com')} as unknown as ConfigService;
-        controller = new OAuthController(mockOAuthClients, mockOAuthCodes, mockApiTokens, config);
+        controller = new OAuthController(
+            mockOAuthClients, mockOAuthCodes, mockInitialAccessTokens, mockApiTokens, config
+        );
     });
 
     describe('authorize', () => {
@@ -104,7 +112,7 @@ describe('OAuthController', () => {
             expect(redirectUrl.searchParams.get('error')).toBe('invalid_request');
         });
 
-        it('redirects to the frontend consent screen with all params carried over on success', async () => {
+        it('redirects to the frontend consent screen with all params carried over on success, including the real client_name', async () => {
             vi.mocked(mockOAuthClients.findByClientId).mockResolvedValue(registeredClient as never);
             const res = buildRes();
 
@@ -113,6 +121,7 @@ describe('OAuthController', () => {
             const redirectUrl = redirectedUrl(res);
             expect(redirectUrl.origin + redirectUrl.pathname).toBe('https://finance.example.com/oauth/consent');
             expect(redirectUrl.searchParams.get('client_id')).toBe('claude-ai');
+            expect(redirectUrl.searchParams.get('client_name')).toBe('Claude');
             expect(redirectUrl.searchParams.get('redirect_uri')).toBe('https://claude.ai/callback');
             expect(redirectUrl.searchParams.get('code_challenge')).toBe('challenge-value');
             expect(redirectUrl.searchParams.get('code_challenge_method')).toBe('S256');
@@ -195,6 +204,7 @@ describe('OAuthController', () => {
             userId: 'user-1',
             userRole: 'USER' as const,
             clientId: 'claude-ai',
+            clientName: 'Claude',
             redirectUri: 'https://claude.ai/callback',
             scopes: ['transactions:read', 'dashboard:read'],
             codeChallenge,
@@ -236,7 +246,7 @@ describe('OAuthController', () => {
             expect(mockApiTokens.create).not.toHaveBeenCalled();
         });
 
-        it('mints an ApiToken with the code\'s scopes and returns a Bearer token on success', async () => {
+        it('mints an ApiToken named after the real requesting client, not a hardcoded string', async () => {
             vi.mocked(mockOAuthCodes.consume).mockResolvedValue(consumedCode);
             vi.mocked(mockApiTokens.create).mockResolvedValue({
                 id: 'tok-1',
@@ -250,6 +260,10 @@ describe('OAuthController', () => {
 
             const result = await controller.token(baseDto);
 
+            // clientName comes from the consumed code itself (denormalized via
+            // oauth-codes.service.ts's include), not a second findByClientId
+            // lookup — see oauth-codes.service.spec.ts for that coverage.
+            expect(mockOAuthClients.findByClientId).not.toHaveBeenCalled();
             expect(mockApiTokens.create).toHaveBeenCalledWith('user-1', 'USER', {
                 name: 'Claude (OAuth)',
                 scopes: consumedCode.scopes
@@ -258,6 +272,52 @@ describe('OAuthController', () => {
                 access_token: 'ft_rawtoken',
                 token_type: 'Bearer',
                 scope: 'transactions:read dashboard:read'
+            });
+        });
+    });
+
+    describe('issueInitialAccessToken', () => {
+        it('delegates to OAuthInitialAccessTokensService with the given label and expiresInHours', async () => {
+            const issued = {token: 'iat_raw', label: 'GitHub Copilot setup', expiresAt: new Date('2026-01-02T00:00:00.000Z')};
+            vi.mocked(mockInitialAccessTokens.issue).mockResolvedValue(issued);
+
+            const result = await controller.issueInitialAccessToken({label: 'GitHub Copilot setup', expiresInHours: 24});
+
+            expect(mockInitialAccessTokens.issue).toHaveBeenCalledWith('GitHub Copilot setup', 24);
+            expect(result).toBe(issued);
+        });
+    });
+
+    describe('register', () => {
+        it('delegates to OAuthClientsService.register and reshapes the result into RFC 7591 wire format', async () => {
+            vi.mocked(mockOAuthClients.register).mockResolvedValue({
+                id: 'oc-2',
+                clientId: 'abcd1234',
+                clientName: 'GitHub Copilot',
+                redirectUris: ['https://github.com/copilot/oauth/callback'],
+                tokenEndpointAuthMethod: 'none',
+                grantTypes: ['authorization_code'],
+                deletedAt: null,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            } as never);
+
+            const result = await controller.register({
+                client_name: 'GitHub Copilot',
+                redirect_uris: ['https://github.com/copilot/oauth/callback']
+            });
+
+            expect(mockOAuthClients.register).toHaveBeenCalledWith({
+                client_name: 'GitHub Copilot',
+                redirect_uris: ['https://github.com/copilot/oauth/callback']
+            });
+            expect(result).toEqual({
+                client_id: 'abcd1234',
+                client_name: 'GitHub Copilot',
+                redirect_uris: ['https://github.com/copilot/oauth/callback'],
+                token_endpoint_auth_method: 'none',
+                grant_types: ['authorization_code'],
+                response_types: ['code']
             });
         });
     });

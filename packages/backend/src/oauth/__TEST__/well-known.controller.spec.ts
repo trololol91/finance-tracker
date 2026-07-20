@@ -19,6 +19,7 @@ describe('WellKnownController', () => {
         expect(metadata.issuer).toBe('https://finance-api.example.com');
         expect(metadata.authorization_endpoint).toBe('https://finance-api.example.com/api/oauth/authorize');
         expect(metadata.token_endpoint).toBe('https://finance-api.example.com/api/oauth/token');
+        expect(metadata.registration_endpoint).toBe('https://finance-api.example.com/api/oauth/register');
     });
 
     it('advertises S256-only PKCE and the authorization_code grant', () => {

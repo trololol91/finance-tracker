@@ -8,6 +8,7 @@ describe('buildAuthorizationServerMetadata', () => {
         expect(metadata.issuer).toBe('http://backend:3001');
         expect(metadata.authorization_endpoint).toBe('http://backend:3001/api/oauth/authorize');
         expect(metadata.token_endpoint).toBe('http://backend:3001/api/oauth/token');
+        expect(metadata.registration_endpoint).toBe('http://backend:3001/api/oauth/register');
     });
 
     it('advertises S256-only PKCE and the authorization_code grant, matching the backend', () => {

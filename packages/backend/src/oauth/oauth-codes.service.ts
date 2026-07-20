@@ -8,7 +8,15 @@ import {PrismaClientKnownRequestError} from '#generated/prisma/internal/prismaNa
 import type {UserRole} from '#generated/prisma/enums.js';
 import type {OAuthAuthorizationCode} from '#generated/prisma/client.js';
 
-type DeletedCodeWithUser = OAuthAuthorizationCode & {user: {role: UserRole}};
+type DeletedCodeWithUser = OAuthAuthorizationCode & {
+    user: {role: UserRole};
+    // Nullable even though OAuthAuthorizationCode.client is a required Prisma
+    // relation (so a dangling reference can't exist today — no hard-delete
+    // path exists on OAuthClientsService, and Postgres FK integrity would
+    // block one anyway). Typed defensively so a future hard-delete/purge
+    // method can't turn this into an uncaught TypeError here.
+    client: {clientName: string} | null;
+};
 
 // Authorization codes are meant to be exchanged immediately after the
 // redirect — a short TTL limits the window a leaked code (e.g. via browser
@@ -28,6 +36,7 @@ export interface ConsumedOAuthCode {
     userId: string;
     userRole: UserRole;
     clientId: string;
+    clientName: string;
     redirectUri: string;
     scopes: string[];
     codeChallenge: string;
@@ -81,6 +90,7 @@ export class OAuthCodesService {
             userId: record.userId,
             userRole: record.user.role,
             clientId: record.clientId,
+            clientName: record.client?.clientName ?? 'Unknown Client',
             redirectUri: record.redirectUri,
             scopes: record.scopes,
             codeChallenge: record.codeChallenge,
@@ -92,7 +102,7 @@ export class OAuthCodesService {
         try {
             return await this.prisma.oAuthAuthorizationCode.delete({
                 where: {codeHash},
-                include: {user: {select: {role: true}}}
+                include: {user: {select: {role: true}}, client: {select: {clientName: true}}}
             });
         } catch (err) {
             // P2025 = no row matched the delete — unknown code, or already

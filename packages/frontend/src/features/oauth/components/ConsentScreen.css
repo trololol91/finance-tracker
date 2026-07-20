@@ -27,6 +27,12 @@
     color: var(--color-gray-700);
 }
 
+.consent-screen__redirect-domain {
+    font-size: var(--font-size-sm);
+    color: var(--color-gray-500);
+    margin: 0;
+}
+
 .consent-screen__api-error {
     padding: 0.75rem 1rem;
     background-color: var(--color-danger-bg);

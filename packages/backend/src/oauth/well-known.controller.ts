@@ -9,6 +9,7 @@ interface OAuthAuthorizationServerMetadata {
     issuer: string;
     authorization_endpoint: string;
     token_endpoint: string;
+    registration_endpoint: string;
     response_types_supported: string[];
     grant_types_supported: string[];
     code_challenge_methods_supported: string[];
@@ -22,6 +23,12 @@ interface OAuthAuthorizationServerMetadata {
  * in main.ts, since this well-known path is conventionally expected at the
  * site root — unlike /oauth/authorize etc., which stay under /api and are
  * only ever reached via the absolute URLs this document hands out.
+ *
+ * SYNC OBLIGATION: packages/mcp-server/src/oauth-metadata.ts's
+ * buildAuthorizationServerMetadata() hand-duplicates this exact shape (there's
+ * no shared module between the two packages). Adding, removing, or renaming a
+ * field here must be mirrored there too, or a client fetching metadata
+ * directly from mcp-server sees a stale/incomplete document.
  */
 @ApiExcludeController()
 @Controller()
@@ -36,6 +43,10 @@ export class WellKnownController {
             issuer: baseUrl,
             authorization_endpoint: `${baseUrl}/api/oauth/authorize`,
             token_endpoint: `${baseUrl}/api/oauth/token`,
+            // RFC 7591 dynamic client registration (Phase 2) — gated behind an
+            // admin-issued Initial Access Token, not open (see IatGuard /
+            // implementation plan §11.2 for why).
+            registration_endpoint: `${baseUrl}/api/oauth/register`,
             response_types_supported: ['code'],
             grant_types_supported: ['authorization_code'],
             code_challenge_methods_supported: ['S256'],

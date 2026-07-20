@@ -14,8 +14,15 @@ const OAUTH_FIXED_SCOPES = [
 
 /**
  * Mirrors what the backend's own well-known.controller.ts publishes at
- * /.well-known/oauth-authorization-server. Built from issuerUrl, which the
- * caller must pass as PUBLIC_API_BASE_URL (the backend's externally-facing
+ * /.well-known/oauth-authorization-server.
+ *
+ * SYNC OBLIGATION: this hand-duplicates packages/backend/src/oauth/
+ * well-known.controller.ts's OAuthAuthorizationServerMetadata shape field-for-
+ * field (no shared module between the two packages). If a field is added,
+ * removed, or renamed there, mirror it here too.
+ *
+ * Built from issuerUrl, which the caller must pass as PUBLIC_API_BASE_URL
+ * (the backend's externally-facing
  * URL) — not FINANCE_TRACKER_URL, mcp-server's internal service-to-service
  * URL for calling the backend's REST API. Those two are easy to conflate
  * since they usually point at the same host, but in a Docker deployment
@@ -30,6 +37,9 @@ export const buildAuthorizationServerMetadata = (issuerUrl: string): OAuthMetada
     issuer: issuerUrl,
     authorization_endpoint: `${issuerUrl}/api/oauth/authorize`,
     token_endpoint: `${issuerUrl}/api/oauth/token`,
+    // RFC 7591 dynamic client registration (Phase 2) — gated behind an
+    // admin-issued Initial Access Token on the backend, not open.
+    registration_endpoint: `${issuerUrl}/api/oauth/register`,
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code'],
     code_challenge_methods_supported: ['S256'],

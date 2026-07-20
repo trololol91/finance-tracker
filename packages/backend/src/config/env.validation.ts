@@ -33,6 +33,14 @@ export const envValidationSchema = Joi.object({
     OAUTH_STATIC_CLIENT_ID: Joi.string().required(),
     // Comma-separated list of redirect URIs registered for the static client.
     OAUTH_STATIC_REDIRECT_URIS: Joi.string().required(),
+    // Phase 2 dynamic client registration (RFC 7591) is gated behind an
+    // admin-issued Initial Access Token by default (IatGuard) — see
+    // test-plan/oauth-connector/implementation-plan.md §11.2 for why open
+    // self-registration isn't safe by default. Set to true only to
+    // temporarily allow open registration (e.g. testing a DCR-capable
+    // client that has no way to supply an IAT) — defaults to false/gated,
+    // so nothing changes unless this is explicitly set.
+    OAUTH_REGISTRATION_OPEN: Joi.boolean().default(false),
 
     // AI Categorization
     AI_PROVIDER: Joi.string().valid(...VALID_PROVIDERS).default('anthropic'),

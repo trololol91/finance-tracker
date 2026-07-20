@@ -19,12 +19,13 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 - **Push notifications** — Web Push (VAPID) and email (SMTP) alerts when a bank sync requires MFA; per-user notification preferences
 - **Export tools** — CLI scripts for exporting transactions by week (TD and CIBC formats)
 - **API tokens** — personal access tokens with configurable scopes (`transactions:read/write`, `accounts:read/write`, `categories:read/write`, `dashboard:read`, `admin`); SHA-256 hashed storage; optional expiry; soft-delete revocation; managed from Settings → API Tokens
+- **OAuth 2.1 authorization server** — lets Claude's "Add custom connector" dialog (and other OAuth 2.1 clients) authenticate via browser redirect + PKCE instead of a manually pasted token; issues a normal API token under the hood, so nothing downstream changes. Dynamic client registration (RFC 7591) is gated behind an admin-issued Initial Access Token by default, with an opt-in env flag to open it for testing DCR-capable clients. See [`packages/mcp-server/CONNECT.md`](./packages/mcp-server/CONNECT.md) for setup and [`test-plan/oauth-connector/implementation-plan.md`](./test-plan/oauth-connector/implementation-plan.md) for the full design
 
 ### MCP Server
 - **Model Context Protocol server** — exposes finance data to AI assistants (Claude, GitHub Copilot, Cursor, Windsurf, and any MCP-compatible client)
 - **Dual transport** — stdio mode for local/desktop clients; HTTP mode for remote/Docker deployments
-- **Token-based auth** — uses the same API tokens generated in Settings; no credentials in client config
-- **Tools** — `list_transactions` (full filter surface: date range, category, account, type, search), `get_transaction_totals`, `list_accounts`, `list_categories`, `get_dashboard_summary`
+- **Two ways to authenticate over HTTP** — OAuth 2.1 (Claude's "Add custom connector" dialog, or any RFC 7591 dynamic-registration-capable client), or a manually pasted API token in the client config
+- **Tools** — `list_transactions` (full filter surface: date range, category, account, type, search), `get_transaction_totals`, `list_accounts`, `list_categories`, `get_dashboard_summary`, `create_transaction`
 - See [`packages/mcp-server/CONNECT.md`](./packages/mcp-server/CONNECT.md) for client setup instructions
 
 ### Frontend
@@ -37,6 +38,7 @@ A self-hosted personal finance application for tracking transactions, accounts, 
 - **Admin** — user list and role management (admin users only)
 - **Reports / Budgets** — pages scaffolded, in development
 - **Settings — API Tokens** — generate, list, and revoke personal API tokens with scope selection; generated token shown once with copy prompt
+- **OAuth consent screen** — shown when an MCP client (Claude, or a dynamically-registered one) requests access; displays the real requesting client's name and its redirect URI's domain (the signal that can't be spoofed by a self-chosen name), Approve/Deny
 - **API layer** — auto-generated TypeScript client via Orval from OpenAPI spec; TanStack Query for data fetching and caching
 
 ## Tech Stack
@@ -60,6 +62,7 @@ finance-tracker/
 │   ├── backend/                # NestJS API (port 3001)
 │   │   ├── src/
 │   │   │   ├── accounts/       # Account management
+│   │   │   ├── api-tokens/     # Personal access token issuance & revocation
 │   │   │   ├── auth/           # JWT authentication
 │   │   │   ├── ai-categorization/ # LLM-based categorization (Anthropic / OpenAI)
 │   │   │   ├── categories/     # Hierarchical categories + default seeding
@@ -68,6 +71,8 @@ finance-tracker/
 │   │   │   ├── config/         # Centralized env validation (Joi)
 │   │   │   ├── dashboard/      # Monthly summary & spending breakdown
 │   │   │   ├── database/       # Prisma service
+│   │   │   ├── integrations/   # Google Drive integration
+│   │   │   ├── oauth/          # OAuth 2.1 authorization server (Claude/DCR clients)
 │   │   │   ├── push/           # Web Push + email notifications
 │   │   │   ├── scraper/        # Plugin-based bank scraper
 │   │   │   │   ├── admin/      # Admin test/reload endpoints
@@ -187,6 +192,20 @@ POSTGRES_USER=finance_user
 POSTGRES_DB=finance_tracker
 PORT=3001
 NODE_ENV=development
+
+# Frontend origin (optional but recommended in production — falls back to a
+# localhost dev default; also builds the OAuth consent-screen redirect URL)
+CORS_ORIGIN=http://localhost:3002
+
+# OAuth 2.1 authorization server (required — see packages/mcp-server/CONNECT.md)
+PUBLIC_API_BASE_URL=http://localhost:3001   # backend's externally-reachable URL
+OAUTH_STATIC_CLIENT_ID=claude-ai            # any string; type this into Claude's connector dialog
+OAUTH_STATIC_REDIRECT_URIS=https://claude.ai/api/mcp/auth_callback  # comma-separated
+MCP_PUBLIC_URL=http://localhost:3010        # mcp-server's own externally-reachable URL
+# OAUTH_REGISTRATION_OPEN=true   # optional — skips the Initial Access Token
+                                  # requirement on dynamic client registration;
+                                  # defaults to false (gated). See CONNECT.md
+                                  # "OAuth for other clients" before enabling.
 
 # AI categorization (optional — features disabled if not set)
 AI_PROVIDER=anthropic          # anthropic | openai

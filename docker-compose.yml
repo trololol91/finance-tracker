@@ -60,6 +60,9 @@ services:
             # from .env.example before actually connecting Claude.
             - OAUTH_STATIC_CLIENT_ID=${OAUTH_STATIC_CLIENT_ID:-claude-ai}
             - OAUTH_STATIC_REDIRECT_URIS=${OAUTH_STATIC_REDIRECT_URIS:-https://claude.ai/api/mcp/auth_callback}
+            # Dynamic client registration is IAT-gated unless explicitly opened —
+            # see .env.example. Defaults to false/gated.
+            - OAUTH_REGISTRATION_OPEN=${OAUTH_REGISTRATION_OPEN:-false}
             - SCRAPER_PLUGIN_DIR=/data/scraper-plugins
             - PLAYWRIGHT_SERVER_URL=${PLAYWRIGHT_SERVER_URL:-ws://playwright-server:3003/ws}
             - PLAYWRIGHT_CDP_URL=${PLAYWRIGHT_CDP_URL:-}

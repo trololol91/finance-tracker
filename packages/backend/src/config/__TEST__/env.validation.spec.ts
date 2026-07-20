@@ -62,4 +62,22 @@ describe('envValidationSchema', () => {
             expect(error).toBeDefined();
         });
     });
+
+    describe('OAUTH_REGISTRATION_OPEN', () => {
+        it('defaults to false when unset — dynamic client registration stays IAT-gated', () => {
+            const {error, value} = envValidationSchema.validate(baseEnv);
+
+            expect(error).toBeUndefined();
+            expect(value.OAUTH_REGISTRATION_OPEN).toBe(false);
+        });
+
+        it.each(['true', 'false'])('coerces the string env value "%s" into a real boolean', (raw) => {
+            const {error, value} = envValidationSchema.validate({
+                ...baseEnv, OAUTH_REGISTRATION_OPEN: raw
+            });
+
+            expect(error).toBeUndefined();
+            expect(value.OAUTH_REGISTRATION_OPEN).toBe(raw === 'true');
+        });
+    });
 });

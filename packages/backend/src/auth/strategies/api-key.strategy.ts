@@ -4,6 +4,7 @@ import {
 import {PassportStrategy} from '@nestjs/passport';
 import {PrismaService} from '#database/prisma.service.js';
 import {hashToken} from '#common/hash-token.js';
+import {extractBearerToken} from '#common/extract-bearer-token.js';
 import type {
     User, UserRole
 } from '#generated/prisma/client.js';
@@ -23,12 +24,11 @@ class ApiKeyBaseStrategy {
         success: (user: unknown) => void;
         validate: (req: unknown, token: string) => Promise<unknown>;
     }, req: {headers: Record<string, string | undefined>}): void {
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) {
+        const token = extractBearerToken(req.headers.authorization);
+        if (!token) {
             this.fail({message: 'Missing bearer token'}, 401);
             return;
         }
-        const token = authHeader.slice(7);
         this.validate(req, token)
             .then(user => { this.success(user); })
             .catch(err => { this.fail(err, 401); });

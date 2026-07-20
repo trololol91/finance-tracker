@@ -9,6 +9,8 @@ import {OAuthController} from './oauth.controller.js';
 import {WellKnownController} from './well-known.controller.js';
 import {OAuthClientsService} from './oauth-clients.service.js';
 import {OAuthCodesService} from './oauth-codes.service.js';
+import {OAuthInitialAccessTokensService} from './oauth-initial-access-tokens.service.js';
+import {IatGuard} from './iat.guard.js';
 
 @Module({
     imports: [
@@ -21,7 +23,7 @@ import {OAuthCodesService} from './oauth-codes.service.js';
         ThrottlerModule.forRoot([{name: 'default', ttl: 60000, limit: 20}])
     ],
     controllers: [OAuthController, WellKnownController],
-    providers: [OAuthClientsService, OAuthCodesService]
+    providers: [OAuthClientsService, OAuthCodesService, OAuthInitialAccessTokensService, IatGuard]
 })
 export class OAuthModule implements OnModuleInit {
     private readonly logger = new Logger(OAuthModule.name);

@@ -8,7 +8,8 @@ const mockPrisma = {
     oAuthClient: {
         findFirst: vi.fn(),
         findUnique: vi.fn(),
-        upsert: vi.fn()
+        upsert: vi.fn(),
+        create: vi.fn()
     }
 } as unknown as PrismaService;
 
@@ -25,7 +26,7 @@ describe('OAuthClientsService', () => {
             vi.mocked(mockPrisma.oAuthClient.findFirst).mockResolvedValue({
                 id: 'oc-1',
                 clientId: 'claude-ai',
-                clientName: 'Claude (static)',
+                clientName: 'Claude',
                 redirectUris: ['https://claude.ai/callback'],
                 tokenEndpointAuthMethod: 'none',
                 grantTypes: ['authorization_code'],
@@ -60,10 +61,10 @@ describe('OAuthClientsService', () => {
 
             expect(mockPrisma.oAuthClient.upsert).toHaveBeenCalledWith({
                 where: {clientId: 'claude-ai'},
-                update: {redirectUris: ['https://claude.ai/callback']},
+                update: {clientName: 'Claude', redirectUris: ['https://claude.ai/callback']},
                 create: {
                     clientId: 'claude-ai',
-                    clientName: 'Claude (static)',
+                    clientName: 'Claude',
                     redirectUris: ['https://claude.ai/callback'],
                     tokenEndpointAuthMethod: 'none',
                     grantTypes: ['authorization_code']
@@ -73,6 +74,7 @@ describe('OAuthClientsService', () => {
 
         it('upserts when the stored redirectUris differ from the configured value', async () => {
             vi.mocked(mockPrisma.oAuthClient.findUnique).mockResolvedValue({
+                clientName: 'Claude',
                 redirectUris: ['https://old.example.com/callback']
             } as never);
             vi.mocked(mockPrisma.oAuthClient.upsert).mockResolvedValue({} as never);
@@ -80,17 +82,64 @@ describe('OAuthClientsService', () => {
             await service.ensureStaticClient('claude-ai', ['https://claude.ai/callback']);
 
             expect(mockPrisma.oAuthClient.upsert).toHaveBeenCalledWith(expect.objectContaining({
-                update: {redirectUris: ['https://claude.ai/callback']}
+                update: {clientName: 'Claude', redirectUris: ['https://claude.ai/callback']}
             }));
         });
 
-        it('skips the write entirely when the stored redirectUris already match — avoids an UPDATE on every routine restart', async () => {
+        it('upserts to self-heal when the stored clientName is stale (e.g. a pre-fix "Claude (static)" row)', async () => {
             vi.mocked(mockPrisma.oAuthClient.findUnique).mockResolvedValue({
+                clientName: 'Claude (static)',
+                redirectUris: ['https://claude.ai/callback']
+            } as never);
+            vi.mocked(mockPrisma.oAuthClient.upsert).mockResolvedValue({} as never);
+
+            await service.ensureStaticClient('claude-ai', ['https://claude.ai/callback']);
+
+            expect(mockPrisma.oAuthClient.upsert).toHaveBeenCalledWith(expect.objectContaining({
+                update: {clientName: 'Claude', redirectUris: ['https://claude.ai/callback']}
+            }));
+        });
+
+        it('skips the write entirely when stored clientName and redirectUris already match — avoids an UPDATE on every routine restart', async () => {
+            vi.mocked(mockPrisma.oAuthClient.findUnique).mockResolvedValue({
+                clientName: 'Claude',
                 redirectUris: ['https://claude.ai/callback']
             } as never);
 
             await service.ensureStaticClient('claude-ai', ['https://claude.ai/callback']);
 
+            expect(mockPrisma.oAuthClient.upsert).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('register', () => {
+        it('creates a new row with a freshly generated clientId, none auth method, and authorization_code grant', async () => {
+            vi.mocked(mockPrisma.oAuthClient.create).mockResolvedValue({} as never);
+
+            await service.register({
+                client_name: 'GitHub Copilot',
+                redirect_uris: ['https://github.com/copilot/oauth/callback']
+            });
+
+            expect(mockPrisma.oAuthClient.create).toHaveBeenCalledWith({
+                data: expect.objectContaining({
+                    clientId: expect.stringMatching(/^[0-9a-f]{32}$/) as unknown,
+                    clientName: 'GitHub Copilot',
+                    redirectUris: ['https://github.com/copilot/oauth/callback'],
+                    tokenEndpointAuthMethod: 'none',
+                    grantTypes: ['authorization_code']
+                })
+            });
+        });
+
+        it('generates a different clientId on every call — no upsert/reuse, unlike ensureStaticClient', async () => {
+            vi.mocked(mockPrisma.oAuthClient.create).mockResolvedValue({} as never);
+
+            await service.register({client_name: 'Client A', redirect_uris: ['https://a.example.com/callback']});
+            await service.register({client_name: 'Client B', redirect_uris: ['https://b.example.com/callback']});
+
+            const [[firstCall], [secondCall]] = vi.mocked(mockPrisma.oAuthClient.create).mock.calls;
+            expect(firstCall.data.clientId).not.toBe(secondCall.data.clientId);
             expect(mockPrisma.oAuthClient.upsert).not.toHaveBeenCalled();
         });
     });

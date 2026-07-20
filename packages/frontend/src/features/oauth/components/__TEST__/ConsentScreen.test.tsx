@@ -15,7 +15,7 @@ vi.mock('@/api/oauth/oauth.js', () => ({
 }));
 
 const OAUTH_QUERY =
-    '?client_id=claude-ai&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
+    '?client_id=claude-ai&client_name=Claude&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
     '&code_challenge=challenge-value&code_challenge_method=S256' +
     '&scope=transactions%3Aread+transactions%3Awrite+accounts%3Aread+categories%3Aread+dashboard%3Aread' +
     '&state=xyz';
@@ -43,7 +43,26 @@ describe('ConsentScreen', () => {
         renderConsentScreen('');
 
         expect(screen.getByRole('alert')).toHaveTextContent(/missing required information/i);
+        expect(screen.getByRole('alert')).toHaveTextContent(/the app you were connecting/i);
         expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('names the real requesting client in the fallback message when client_name is present but another param is missing', () => {
+        renderConsentScreen(
+            '?client_id=claude-ai&client_name=GitHub+Copilot&redirect_uri=https%3A%2F%2Fgithub.com%2Fcallback' +
+            '&code_challenge=challenge-value&code_challenge_method=S256'
+        );
+
+        expect(screen.getByRole('alert')).toHaveTextContent(/restart the connection from GitHub Copilot/i);
+    });
+
+    it('shows the raw redirect_uri instead of a blank domain when it has no host component', () => {
+        renderConsentScreen(
+            '?client_id=abcd1234&client_name=Evil+App&redirect_uri=javascript%3Aalert(1)' +
+            '&code_challenge=challenge-value&code_challenge_method=S256&scope=transactions%3Aread'
+        );
+
+        expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument();
     });
 
     it('lists permissions driven by the scope param, not a hardcoded guess', () => {
@@ -55,7 +74,7 @@ describe('ConsentScreen', () => {
 
     it('renders an unrecognized scope as its raw string instead of silently omitting it', () => {
         renderConsentScreen(
-            '?client_id=claude-ai&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
+            '?client_id=claude-ai&client_name=Claude&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
             '&code_challenge=challenge-value&code_challenge_method=S256&scope=budgets%3Aread'
         );
 
@@ -64,11 +83,39 @@ describe('ConsentScreen', () => {
 
     it('shows the fallback message when scope is missing from the URL, same as any other required param', () => {
         renderConsentScreen(
-            '?client_id=claude-ai&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
+            '?client_id=claude-ai&client_name=Claude&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
             '&code_challenge=challenge-value&code_challenge_method=S256'
         );
 
         expect(screen.getByRole('alert')).toHaveTextContent(/missing required information/i);
+    });
+
+    it('shows the fallback message when client_name is missing from the URL', () => {
+        renderConsentScreen(
+            '?client_id=claude-ai&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcallback' +
+            '&code_challenge=challenge-value&code_challenge_method=S256&scope=transactions%3Aread'
+        );
+
+        expect(screen.getByRole('alert')).toHaveTextContent(/missing required information/i);
+    });
+
+    it('renders the real requesting client\'s name, not a hardcoded "Claude"', () => {
+        renderConsentScreen(
+            '?client_id=abcd1234&client_name=GitHub+Copilot&redirect_uri=https%3A%2F%2Fgithub.com%2Fcallback' +
+            '&code_challenge=challenge-value&code_challenge_method=S256&scope=transactions%3Aread'
+        );
+
+        expect(screen.getByText(/Connect GitHub Copilot to Finance Tracker/)).toBeInTheDocument();
+        expect(screen.getByText(/GitHub Copilot is requesting access/)).toBeInTheDocument();
+    });
+
+    it('shows the redirect URI\'s domain — the signal that can\'t be spoofed by a self-chosen client_name', () => {
+        renderConsentScreen(
+            '?client_id=abcd1234&client_name=Claude&redirect_uri=https%3A%2F%2Fattacker.evil%2Fcallback%3Fx%3D1' +
+            '&code_challenge=challenge-value&code_challenge_method=S256&scope=transactions%3Aread'
+        );
+
+        expect(screen.getByText('attacker.evil')).toBeInTheDocument();
     });
 
     it('submits approved: true and redirects to the returned redirectTo on Approve', async () => {

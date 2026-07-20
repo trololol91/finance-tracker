@@ -72,7 +72,7 @@ describe('OAuthCodesService', () => {
             expect(result).toBeNull();
             expect(mockPrisma.oAuthAuthorizationCode.delete).toHaveBeenCalledWith({
                 where: {codeHash},
-                include: {user: {select: {role: true}}}
+                include: {user: {select: {role: true}}, client: {select: {clientName: true}}}
             });
         });
 
@@ -95,7 +95,8 @@ describe('OAuthCodesService', () => {
                 codeChallengeMethod: 'S256',
                 expiresAt: new Date('2025-12-31T23:59:00.000Z'),
                 createdAt: new Date('2025-12-31T23:58:00.000Z'),
-                user: {role: 'USER'}
+                user: {role: 'USER'},
+                client: {clientName: 'Claude'}
             } as never);
 
             const result = await service.consume(rawCode);
@@ -103,7 +104,7 @@ describe('OAuthCodesService', () => {
             expect(result).toBeNull();
         });
 
-        it('returns the consumed code with the joined user role on success', async () => {
+        it('returns the consumed code with the joined user role and client name on success', async () => {
             vi.mocked(mockPrisma.oAuthAuthorizationCode.delete).mockResolvedValue({
                 id: 'oac-1',
                 codeHash,
@@ -115,7 +116,8 @@ describe('OAuthCodesService', () => {
                 codeChallengeMethod: 'S256',
                 expiresAt: new Date('2026-01-01T00:01:00.000Z'),
                 createdAt: now,
-                user: {role: 'ADMIN'}
+                user: {role: 'ADMIN'},
+                client: {clientName: 'Claude'}
             } as never);
 
             const result = await service.consume(rawCode);
@@ -124,11 +126,33 @@ describe('OAuthCodesService', () => {
                 userId: 'user-1',
                 userRole: 'ADMIN',
                 clientId: 'claude-ai',
+                clientName: 'Claude',
                 redirectUri: 'https://claude.ai/callback',
                 scopes: ['transactions:read', 'dashboard:read'],
                 codeChallenge: 'challenge-value',
                 codeChallengeMethod: 'S256'
             });
+        });
+
+        it('falls back to a generic client name instead of crashing if the joined client is somehow missing', async () => {
+            vi.mocked(mockPrisma.oAuthAuthorizationCode.delete).mockResolvedValue({
+                id: 'oac-1',
+                codeHash,
+                clientId: 'claude-ai',
+                userId: 'user-1',
+                redirectUri: 'https://claude.ai/callback',
+                scopes: ['transactions:read'],
+                codeChallenge: 'challenge-value',
+                codeChallengeMethod: 'S256',
+                expiresAt: new Date('2026-01-01T00:01:00.000Z'),
+                createdAt: now,
+                user: {role: 'USER'},
+                client: null
+            } as never);
+
+            const result = await service.consume(rawCode);
+
+            expect(result?.clientName).toBe('Unknown Client');
         });
 
         it('is single-use: a second consume() for the same code fails (delete rejects, since the row is gone)', async () => {
@@ -144,7 +168,8 @@ describe('OAuthCodesService', () => {
                     codeChallengeMethod: 'S256',
                     expiresAt: new Date('2026-01-01T00:01:00.000Z'),
                     createdAt: now,
-                    user: {role: 'USER'}
+                    user: {role: 'USER'},
+                    client: {clientName: 'Claude'}
                 } as never)
                 .mockRejectedValueOnce(p2025());
 

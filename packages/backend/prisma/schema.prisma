@@ -372,3 +372,14 @@ model OAuthAuthorizationCode {
   @@index([userId])
   @@map("oauth_authorization_codes")
 }
+
+model OAuthInitialAccessToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  label      String
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("oauth_initial_access_tokens")
+}

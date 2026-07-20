@@ -7,24 +7,38 @@ The finance tracker MCP server supports two transports:
 | **Stdio** | Local dev, Claude Desktop, any client that spawns processes |
 | **HTTP (Streamable HTTP)** | Remote/hosted, Docker, clients that connect over a URL |
 
-For the HTTP transport, there are now **two ways to authenticate** — pick
+For the HTTP transport, there are now **three ways to authenticate** — pick
 whichever fits your client:
 
 | Method | Use when |
 |---|---|
-| **claude.ai "Add custom connector"** (OAuth 2.1) | Connecting from claude.ai or the Claude mobile apps — their connector dialog has no field to paste a token, only OAuth Client ID/Secret. See "OAuth (claude.ai custom connector)" below — no manual steps needed, Claude drives the whole browser login/consent flow itself. |
-| **Manually pasted API token** (Steps 1–2 below) | Claude Desktop's config file, or any other MCP client that lets you paste a bearer token directly |
+| **"Add custom connector"** (OAuth 2.1, static client) | claude.ai, Claude Desktop, **or** the mobile apps — the same connector dialog and OAuth infrastructure backs all of them (per Anthropic's docs). Its dialog has no field to paste a token, only OAuth Client ID/Secret. See "OAuth (Add custom connector)" below — no manual steps needed, Claude drives the whole browser login/consent flow itself. |
+| **Dynamic Client Registration** (OAuth 2.1, RFC 7591) | Any other OAuth 2.1 client that supports DCR and has somewhere to configure a registration/Initial Access Token. See "OAuth for other clients" below — confirmed working via curl; not yet confirmed working against a real non-Claude client (see the GitHub Copilot section for what's actually known there). |
+| **Manually pasted API token** (Steps 1–2 below) | Claude Desktop's config file (if you'd rather not do OAuth there), GitHub Copilot (recommended for now — see that section), or any other MCP client that lets you paste a bearer token directly |
 
-## OAuth (claude.ai custom connector)
+## OAuth (Add custom connector — claude.ai, Desktop, or mobile)
 
-1. In claude.ai, go to **Settings → Connectors → Add custom connector**.
+1. In claude.ai (**Settings → Connectors**), Claude Desktop, or the mobile
+   app, open **Add custom connector**.
 2. Enter this mcp-server's URL (e.g. `https://your-mcp-host/mcp`) as the
-   **Remote MCP server URL**. Leave Client ID/Secret blank — Claude
-   discovers everything else itself.
-3. Claude will open a browser window, redirect you to log in to the finance
+   **Remote MCP server URL**.
+3. Expand **Advanced settings** and enter the static client ID
+   (`OAUTH_STATIC_CLIENT_ID`'s value, e.g. `claude-ai`) as the **OAuth
+   Client ID**. Leave **OAuth Client Secret** blank — this server issues
+   public clients with no secret. **Do not leave Client ID blank**: per
+   [Anthropic's connector docs](https://claude.com/docs/connectors/building/authentication),
+   supplying a Client ID "avoids dynamic client registration entirely,"
+   which is required here — this server's `POST /oauth/register` is
+   gated behind an admin-issued Initial Access Token (see
+   `test-plan/oauth-connector/implementation-plan.md` §11.2/§11.3), and
+   Claude's connector UI has no field to supply one. Leaving Client ID
+   blank makes Claude fall back to dynamic registration and fail with a
+   `401` at that endpoint, since this server doesn't advertise Client ID
+   Metadata Document support either.
+4. Claude will open a browser window, redirect you to log in to the finance
    tracker web app (if not already), then show a consent screen listing
    what it's requesting access to. Approve it.
-4. Claude is redirected back and immediately usable — no token to copy.
+5. Claude is redirected back and immediately usable — no token to copy.
 
 Under the hood: the mcp-server returns a `401` + `WWW-Authenticate` header
 pointing at its own protected-resource metadata (RFC 9728), which names the
@@ -35,6 +49,69 @@ actual OAuth 2.1 + PKCE flow and mints a normal `ApiToken` row scoped to
 shows up in **Settings → API Tokens** as `"Claude (OAuth)"` and can be
 revoked from there like any other token. Full protocol details:
 `test-plan/oauth-connector/implementation-plan.md`.
+
+---
+
+## OAuth for other clients — Dynamic Client Registration (RFC 7591)
+
+Claude connects using the one hardcoded ("static") OAuth client described
+above. Any *other* OAuth 2.1 client that supports Dynamic Client
+Registration (DCR) can register itself instead of needing a manually
+configured client ID — this is how GitHub Copilot was originally expected
+to connect (see `test-plan/oauth-connector/implementation-plan.md` §11 for
+the full design), though see the Copilot section below for what's actually
+confirmed to work today.
+
+Registration is gated behind an admin-issued **Initial Access Token**
+(IAT) — RFC 7591 §3 — rather than left open, so a stranger can't
+self-register a client that impersonates a trusted one and phish an
+already-logged-in user's consent (the full threat model is in the
+implementation plan §11.2). Concretely:
+
+1. **An admin issues an IAT**, once per new client:
+   ```bash
+   curl -s -X POST https://your-backend/api/oauth/initial-access-tokens \
+     -H "Authorization: Bearer <your admin JWT>" -H "Content-Type: application/json" \
+     -d '{"label": "GitHub Copilot setup"}'
+   # => {"token": "iat_...", "label": "...", "expiresAt": "<+24h by default>"}
+   ```
+   The raw token is shown once. It's valid for repeat registrations (not
+   single-use) until `expiresAt` — see the implementation plan §11.3 for
+   why. Set `expiresInHours` in the body for a different lifetime.
+
+2. **The client (or you, on its behalf via curl) registers**, presenting
+   that IAT as a Bearer token:
+   ```bash
+   curl -s -X POST https://your-backend/api/oauth/register \
+     -H "Authorization: Bearer iat_..." -H "Content-Type: application/json" \
+     -d '{"client_name": "GitHub Copilot", "redirect_uris": ["<the client'"'"'s real redirect_uri>"]}'
+   # => {"client_id": "...", "client_name": "...", "redirect_uris": [...], "token_endpoint_auth_method": "none", "grant_types": ["authorization_code"], "response_types": ["code"]}
+   ```
+   `redirect_uris` must be `http:`/`https:` — anything else is rejected.
+   No `client_secret` comes back; this server only issues public clients
+   (mandatory PKCE S256 instead).
+
+3. From here, the flow is identical to Claude's — `GET /oauth/authorize`
+   → consent screen → `POST /oauth/token` with the PKCE `code_verifier`.
+   If your client supports DCR *and* has somewhere to configure a
+   registration/Initial Access Token, it will do all of this automatically
+   the moment it discovers `registration_endpoint` in this server's
+   `/.well-known/oauth-authorization-server` metadata. If it doesn't have
+   that field, you'll need to either register on its behalf via curl (step
+   2) and paste the resulting `client_id` into a static Client ID field
+   (same as Claude), or fall back to a manually pasted API token.
+
+**If your client supports DCR but has nowhere to configure an IAT** (this
+is the actual situation for VS Code/GitHub Copilot today — see that section
+below), there's a backend-operator escape hatch: set
+`OAUTH_REGISTRATION_OPEN=true` in the backend's `.env` and restart. This
+skips the IAT check entirely, so any client's DCR attempt succeeds with no
+token. **This is a real security tradeoff, not a free option** — it means
+anyone who can reach `/oauth/register` can self-register a client (see the
+phishing walkthrough in the implementation plan §11.2); the redirect-domain
+display on the consent screen (§11.4) becomes the only remaining defense.
+Defaults to `false` (gated) — only turn it on for as long as you're
+actually testing/using a specific DCR client, then turn it back off.
 
 ---
 
@@ -127,7 +204,7 @@ GET http://your-host:3010/health
 
 ### Claude Desktop
 
-> **Don't use the "Add custom connector" dialog for this server's HTTP transport.** That GUI (in Claude Desktop and on claude.ai) only exposes OAuth Client ID/Secret under Advanced settings — there's no field for a bearer token or custom header. Anthropic has a header-based auth mode (`static_headers`) that matches this server's design exactly, but as of writing it's still beta and not rolled out to every account, so the field may simply not appear for you. Edit the config file directly instead (below) — Claude Desktop honors the `headers` block from the file even though the GUI can't create it.
+> **If you want to authenticate with a manually pasted API token instead of OAuth, don't use the "Add custom connector" dialog for that** — its GUI (in Claude Desktop and on claude.ai) only exposes OAuth Client ID/Secret under Advanced settings, with no field for a bearer token or custom header. Anthropic has a header-based auth mode (`static_headers`) that matches this server's design exactly, but as of writing it's still beta and not rolled out to every account, so the field may simply not appear for you. Edit the config file directly instead (below) — Claude Desktop honors the `headers` block from the file even though the GUI can't create it. **If OAuth is fine for you, "Add custom connector" works the same way here as it does on claude.ai — see the OAuth section above.**
 
 Config file location:
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -180,6 +257,33 @@ Config file location:
 ---
 
 ### GitHub Copilot (VS Code)
+
+> **OAuth is not recommended here yet — use the manually pasted token below.**
+> Researched this rather than assuming it works the same as Claude (sources
+> at the bottom of this file). What's confirmed: VS Code's MCP OAuth support
+> for arbitrary/custom remote servers defaults to Dynamic Client
+> Registration, and as of writing there's an **open, unresolved feature
+> request** (microsoft/vscode#252892) for VS Code to let you configure a
+> static OAuth Client ID at all — the capability this server's static
+> `claude-ai`-style client relies on doesn't appear to exist in VS Code's
+> config today. Separately, GitHub's own Copilot CLI (a different product
+> from VS Code's Copilot Chat) has a filed bug where it **ignores** any
+> configured `oauth.clientId` for remote servers and always uses DCR
+> regardless. Since this server's DCR (`/oauth/register`) is gated behind an
+> Initial Access Token and neither product's docs mention anywhere to supply
+> one, a DCR attempt from either would very likely fail with `401
+> invalid_token` — the same failure mode Claude's connector would hit if you
+> left its Client ID field blank (see the OAuth section above). This hasn't
+> been tested live end-to-end from this environment, so treat it as a
+> researched prediction, not a confirmed result. **The blocker is this
+> server's IAT gate, not VS Code** — VS Code's DCR support itself is real
+> and well-documented ("Dynamic Authentication Providers" is what it calls a
+> successful registration). If you want to actually try OAuth with Copilot,
+> set `OAUTH_REGISTRATION_OPEN=true` on the backend first (see "OAuth for
+> other clients" below for the tradeoff that entails), then attempt the
+> connection — this removes the only reason DCR would fail here.
+> for how to issue an Initial Access Token, and report back whether VS Code
+> or Copilot CLI ever prompts for one.
 
 Add to your VS Code `settings.json` or `.vscode/mcp.json`:
 
@@ -323,3 +427,14 @@ When using the **HTTP transport**, revoking an API token from Settings → API T
 **Implication:** if you revoke a token because you believe it was compromised, the attacker's open MCP sessions can continue for up to 30 minutes. To terminate them immediately, restart the MCP server process.
 
 The **stdio transport** is not affected — it validates the token at startup only, and the process lifespan is controlled by the client.
+
+---
+
+## Sources
+
+Claims about Claude's and GitHub Copilot's own OAuth/connector behavior above are sourced from official documentation and issue trackers, not assumed:
+
+- [Authentication for connectors - Claude.ai Documentation](https://claude.com/docs/connectors/building/authentication)
+- [Setting up the GitHub MCP Server - GitHub Docs](https://docs.github.com/en/copilot/how-tos/provide-context/use-mcp-in-your-ide/set-up-the-github-mcp-server)
+- [Feature: VSCode capability to register a clientId for MCP OAuth · Issue #252892 · microsoft/vscode](https://github.com/microsoft/vscode/issues/252892)
+- [Copilot CLI ignores `oauth.clientId` in mcp-config.json, always uses Dynamic Client Registration (DCR) · Issue #2717 · github/copilot-cli](https://github.com/github/copilot-cli/issues/2717)
