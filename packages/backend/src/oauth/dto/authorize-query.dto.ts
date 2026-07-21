@@ -39,4 +39,24 @@ export class AuthorizeQueryDto {
     @IsOptional()
     @IsString()
     state?: string;
+
+    // RFC 6749 §3.3 — real clients (Claude confirmed live) send this even
+    // though this server always grants the fixed OAUTH_FIXED_SCOPES block
+    // regardless of what's requested (see the "Scope grant" design decision
+    // in implementation-plan.md). Accepted so the strict whitelist doesn't
+    // 400 the request; deliberately not read anywhere in the controller.
+    @ApiProperty({required: false})
+    @IsOptional()
+    @IsString()
+    scope?: string;
+
+    // RFC 8707 Resource Indicators — real clients (Claude confirmed live)
+    // send this to name the protected resource (the MCP server) they're
+    // requesting a token for. This backend only ever serves one resource,
+    // so there's nothing to disambiguate; accepted so the strict whitelist
+    // doesn't 400 the request, not validated against anything.
+    @ApiProperty({required: false})
+    @IsOptional()
+    @IsString()
+    resource?: string;
 }

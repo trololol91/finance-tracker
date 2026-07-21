@@ -1,5 +1,5 @@
 import {
-    IsString, IsNotEmpty
+    IsString, IsNotEmpty, IsOptional
 } from 'class-validator';
 import {ApiProperty} from '@nestjs/swagger';
 
@@ -38,4 +38,14 @@ export class TokenRequestDto {
     @IsString()
     @IsNotEmpty()
     code_verifier!: string;
+
+    // RFC 8707 §2: a client that sent `resource` on the authorization
+    // request MUST send the same value on the token request. Claude
+    // confirmed live to send it on /authorize, so it will send it here too.
+    // Accepted so the strict whitelist doesn't 400 the request; this server
+    // only serves one resource, so there's nothing to validate it against.
+    @ApiProperty({required: false})
+    @IsOptional()
+    @IsString()
+    resource?: string;
 }
