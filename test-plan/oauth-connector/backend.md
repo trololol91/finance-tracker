@@ -44,7 +44,7 @@ Flow: `GET /oauth/authorize` (validates client + redirect_uri, 302s to the front
 | `src/oauth/__TEST__/iat.guard.spec.ts` | Phase 2. Missing/non-Bearer/invalid/expired → `401 invalid_token`; valid IAT allows the request through; **`OAUTH_REGISTRATION_OPEN=true` bypasses the check entirely without ever calling `validate()`** |
 | `src/oauth/__TEST__/register-client.dto.spec.ts` | `redirect_uris` restricted to `http:`/`https:` — rejects `javascript:`/`data:`/protocol-less strings, accepts `https://` and `http://localhost:PORT/...` (no TLD required for local testing); empty `redirect_uris`/`client_name` rejected |
 | `src/oauth/__TEST__/pkce.spec.ts` | S256 verifier/challenge match, mismatch, and that a `plain`-style equality check is rejected (S256 only) |
-| `src/oauth/__TEST__/oauth.controller.spec.ts` | Full `authorize`/`consent`/`token` branch coverage — unknown client, unregistered redirect_uri (no redirect, since that's an open-redirect vector), unsupported `response_type`/`code_challenge_method` (redirect-with-error once redirect_uri is trusted), consent re-validation, approve/deny, `unsupported_grant_type`, `invalid_grant` (unknown/expired code, client_id/redirect_uri mismatch, PKCE mismatch, invalid scope), successful mint named after the real client (not hardcoded, and without a second `findByClientId` lookup), `CORS_ORIGIN`-unset fallback; Phase 2: `issueInitialAccessToken` delegation, `register` delegation + RFC 7591 response reshaping |
+| `src/oauth/__TEST__/oauth.controller.spec.ts` | Full `authorize`/`consent`/`token` branch coverage — unknown client, unregistered redirect_uri (no redirect, since that's an open-redirect vector), unsupported `response_type`/`code_challenge_method` (redirect-with-error once redirect_uri is trusted), consent re-validation, approve/deny, `unsupported_grant_type`, `invalid_grant` (unknown/expired code, client_id/redirect_uri mismatch, PKCE mismatch, invalid scope), successful mint named after the real client (not hardcoded, and without a second `findByClientId` lookup), `CORS_ORIGIN`-unset fallback; Phase 2: `issueInitialAccessToken` delegation, `register` delegation + RFC 7591 response reshaping; **RFC 9207**: `iss` present on both `redirectWithError()` redirects and both `consent()` outcomes (approve/deny) |
 | `src/oauth/__TEST__/oauth-exception.filter.spec.ts` | RFC 6749 §5.2 `{error, error_description}` reshaping — passes an `OAuthException` body through unchanged, reshapes class-validator's default `{message: [...]}` array and a generic string `HttpException`, maps 401/429/5xx to `unauthorized`/`slow_down`/`server_error` instead of a blanket `invalid_request` |
 | `src/oauth/__TEST__/well-known.controller.spec.ts` | Absolute URL construction from `PUBLIC_API_BASE_URL`, advertised grant/PKCE/scope values, `registration_endpoint` (Phase 2) |
 | `src/oauth/__TEST__/oauth.module.spec.ts` | `onModuleInit` doesn't crash the whole app's boot if the static-client upsert fails |
@@ -69,14 +69,14 @@ All 11 cases below were run against a real local instance (temporary port, so as
 
 #### TC-M02: POST /oauth/consent — approved: true issues a code
 - **Type**: Smoke
-- **Expected**: `200`, `{"redirectTo": "<redirect_uri>?state=...&code=oac_..."}`
+- **Expected**: `200`, `{"redirectTo": "<redirect_uri>?state=...&iss=<PUBLIC_API_BASE_URL>&code=oac_..."}` (`iss` per RFC 9207, added 2026-07-24 — see the dated section below)
 - **curl**:
   ```bash
   curl -s -X POST http://localhost:3001/api/oauth/consent \
     -H "Authorization: Bearer ${JWT}" -H "Content-Type: application/json" \
     -d "{\"client_id\":\"claude-ai\",\"redirect_uri\":\"https://claude.ai/api/mcp/auth_callback\",\"code_challenge\":\"${CODE_CHALLENGE}\",\"code_challenge_method\":\"S256\",\"state\":\"xyz\",\"approved\":true}"
   ```
-- **Actual result**: `{"redirectTo":"https://claude.ai/api/mcp/auth_callback?state=xyz&code=oac_b0db8540...f371b79"}` — confirmed.
+- **Actual result**: `{"redirectTo":"https://claude.ai/api/mcp/auth_callback?state=xyz&code=oac_b0db8540...f371b79"}` — confirmed (pre-`iss`; re-confirmed with `iss` present in the dated section below).
 
 #### TC-M03: POST /oauth/token — correct code_verifier mints a real token
 - **Type**: Smoke
@@ -128,8 +128,8 @@ All 11 cases below were run against a real local instance (temporary port, so as
 #### TC-M10: Consent denial
 - **Type**: Smoke
 - **Request**: same as TC-M02 with `"approved": false`
-- **Expected**: `200`, `{"redirectTo": "<redirect_uri>?state=...&error=access_denied"}` — no code issued
-- **Actual result**: `{"redirectTo":"https://claude.ai/api/mcp/auth_callback?state=abc&error=access_denied"}` — confirmed.
+- **Expected**: `200`, `{"redirectTo": "<redirect_uri>?state=...&iss=<PUBLIC_API_BASE_URL>&error=access_denied"}` — no code issued (`iss` per RFC 9207, added 2026-07-24)
+- **Actual result**: `{"redirectTo":"https://claude.ai/api/mcp/auth_callback?state=abc&error=access_denied"}` — confirmed (pre-`iss`; re-confirmed with `iss` present in the dated section below).
 
 #### TC-M11: POST /oauth/consent with no Authorization header
 - **Type**: Security
@@ -235,6 +235,32 @@ restarted between them to change the env var (this flag is read once at
 - **Steps**: restart the backend with `OAUTH_REGISTRATION_OPEN=true`, repeat TC-M23's request with no `Authorization` header
 - **Expected**: `201`, RFC 7591 shape, same as a normal IAT-authenticated registration
 - **Actual result**: `{"client_id":"f5ba3f0f07bd6046979e673e52ea0c12","client_name":"Flag Test Client","redirect_uris":["https://example.com/callback"],"token_endpoint_auth_method":"none","grant_types":["authorization_code"],"response_types":["code"]}` — confirmed. Test client row deleted afterward (see Cleanup).
+
+---
+
+### RFC 9207 `iss` parameter verification (2026-07-24)
+
+Added per the MCP project's 2026-07-28 spec revision, whose "Authorization
+Hardening" section requires OAuth clients to validate the `iss` parameter
+on authorization responses (RFC 9207) to detect mix-up attacks in
+multi-authorization-server setups — MCP's single-client-many-servers
+deployment pattern is exactly the shape this mitigates. Sourced from the
+same `PUBLIC_API_BASE_URL` value already served as `issuer` in the RFC 8414
+metadata document (via a new shared `getIssuerUrl()` helper,
+`src/oauth/oauth-issuer.ts`) — no new env var. Run against a throwaway
+Postgres-backed instance (temporary container + fresh migrations, torn down
+afterward), not the shared dev database.
+
+#### TC-M25: `iss` present on every authorization response, byte-identical to the metadata `issuer`
+- **Type**: Security — proves the RFC 9207 exact-match requirement actually holds, not just that some `iss` value is present
+- **curl**:
+  ```bash
+  curl -s http://localhost:4099/.well-known/oauth-authorization-server
+  curl -si "http://localhost:4099/api/oauth/authorize?response_type=code&client_id=verify-client&redirect_uri=http://localhost:9999/callback&code_challenge=abc&code_challenge_method=plain&state=xyz"
+  # + POST /oauth/consent with approved:true and approved:false, as in TC-M02/TC-M10
+  ```
+- **Expected**: the metadata document's `issuer`, the `authorize()` error-redirect's `iss`, and both `consent()` outcomes' `iss` are all the same value
+- **Actual result**: `issuer: "http://localhost:4099"`; error redirect `Location: http://localhost:9999/callback?error=invalid_request&state=xyz&iss=http%3A%2F%2Flocalhost%3A4099`; consent deny `redirectTo` ending `...&iss=http%3A%2F%2Flocalhost%3A4099&error=access_denied`; consent approve `redirectTo` ending `...&iss=http%3A%2F%2Flocalhost%3A4099&code=oac_...` — all three decode to `http://localhost:4099`, byte-identical to the metadata `issuer`. Confirmed.
 
 ---
 

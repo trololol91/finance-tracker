@@ -100,6 +100,8 @@ describe('OAuthController', () => {
             expect(redirectUrl.origin + redirectUrl.pathname).toBe('https://claude.ai/callback');
             expect(redirectUrl.searchParams.get('error')).toBe('unsupported_response_type');
             expect(redirectUrl.searchParams.get('state')).toBe('xyz');
+            // RFC 9207 — lets the client detect mix-up attacks.
+            expect(redirectUrl.searchParams.get('iss')).toBe('https://finance.example.com');
         });
 
         it('redirects with an error for an unsupported code_challenge_method', async () => {
@@ -110,6 +112,7 @@ describe('OAuthController', () => {
 
             const redirectUrl = redirectedUrl(res);
             expect(redirectUrl.searchParams.get('error')).toBe('invalid_request');
+            expect(redirectUrl.searchParams.get('iss')).toBe('https://finance.example.com');
         });
 
         it('redirects to the frontend consent screen with all params carried over on success, including the real client_name', async () => {
@@ -169,6 +172,7 @@ describe('OAuthController', () => {
             const target = new URL(result.redirectTo);
             expect(target.searchParams.get('error')).toBe('access_denied');
             expect(target.searchParams.get('state')).toBe('xyz');
+            expect(target.searchParams.get('iss')).toBe('https://finance.example.com');
         });
 
         it('issues a code with the fixed scope set and returns the redirect with the code on approval', async () => {
@@ -187,6 +191,7 @@ describe('OAuthController', () => {
             const target = new URL(result.redirectTo);
             expect(target.searchParams.get('code')).toBe('oac_rawcode');
             expect(target.searchParams.get('state')).toBe('xyz');
+            expect(target.searchParams.get('iss')).toBe('https://finance.example.com');
         });
     });
 

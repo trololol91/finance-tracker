@@ -67,15 +67,18 @@ Claude's client talks to **two** origins during connector setup:
    `/.well-known/oauth-authorization-server` (RFC 8414) and the actual
    `/authorize` and `/token` endpoints.
 
-**Correction to an earlier assumption in this plan**: the installed
-`@modelcontextprotocol/sdk` already ships a full Express-based OAuth
-framework at `server/auth/` — `mcpAuthRouter`, `mcpAuthMetadataRouter`
-(explicitly documented for resource-server-only servers, i.e. exactly what
-mcp-server needs), `requireBearerAuth` middleware, and an
-`OAuthServerProvider` interface — it isn't Express-adjacent tooling, it's
-real. None of it fit `http-transport.ts`'s *previous* raw-`node:http` shape,
-which is exactly why the Express migration (now complete) was done first
-rather than hand-rolling the well-known endpoint and migrating later.
+**Correction to an earlier assumption in this plan**: the MCP SDK already
+ships a full Express-based OAuth framework — `mcpAuthRouter`,
+`mcpAuthMetadataRouter` (explicitly documented for resource-server-only
+servers, i.e. exactly what mcp-server needs), `requireBearerAuth`
+middleware, and an `OAuthServerProvider` interface — it isn't
+Express-adjacent tooling, it's real. (True of both the v1
+`@modelcontextprotocol/sdk` package this was originally written against and
+the v2 `@modelcontextprotocol/server`/`/express` packages mcp-server
+actually runs on now — see §5's note.) None of it fit `http-transport.ts`'s
+*previous* raw-`node:http` shape, which is exactly why the Express
+migration (now complete) was done first rather than hand-rolling the
+well-known endpoint and migrating later.
 
 So the OAuth *server* logic lives entirely in the backend; the mcp-server
 only grows a small discovery pointer.
@@ -189,45 +192,51 @@ idempotent upsert on module bootstrap, driven by `OAUTH_STATIC_CLIENT_ID`
 | `GET` | `/.well-known/oauth-protected-resource` | No | New — bare fallback form. Both return `{"resource": "<mcp public URL>", "authorization_servers": ["<backend public URL>"]}` |
 | any | `/mcp` | Bearer token | Existing 401 responses gain a `WWW-Authenticate: Bearer resource_metadata="..."` header |
 
-### mcp-server implementation specifics (post-migration)
+### mcp-server implementation specifics
 
-- **Use the SDK's `mcpAuthMetadataRouter` rather than hand-rolling the
-  well-known endpoint** — this requires bumping `@modelcontextprotocol/sdk`
-  from the currently-installed `1.10.2` to latest (`1.29.0`), which is where
-  `mcpAuthMetadataRouter` and `getOAuthProtectedResourceMetadataUrl` are
-  available. `express` is already a direct dependency of mcp-server as of
-  the migration, so mounting this is additive — a new `app.use(...)` /
-  `app.get(...)` registration in `createHttpApp()` (`http-transport.ts`),
-  positioned **before** the terminal 4-parameter error-handling middleware
-  that already exists there (Express requires terminal error handlers to
-  stay last).
-- **Both well-known paths above are real, not speculative**: traced the
-  SDK's own client-side discovery code (`client/auth.js`'s
-  `buildWellKnownPath`/`shouldAttemptFallback`) — it tries the
-  path-suffixed form first (`/.well-known/oauth-protected-resource/mcp`,
-  since the resource lives at `/mcp`) and falls back to the bare root path
-  only on a 4xx. `mcpAuthMetadataRouter` serves both conventions correctly
-  without hand-rolling either.
-- **New env var**: nothing today (`FINANCE_TRACKER_URL`, `MCP_TRANSPORT`,
-  `MCP_PORT`) captures the mcp-server's own externally-visible URL, which
-  the `resource` field needs. Add `MCP_PUBLIC_URL`. The
-  `authorization_servers` entry can reuse the existing `FINANCE_TRACKER_URL`
-  — no new var needed there.
-- **`WWW-Authenticate` on 401s stays hand-rolled**: the SDK's
-  `requireBearerAuth` middleware doesn't fit here, since this app validates
-  tokens against the NestJS backend (`validateBearerToken`) rather than via
-  an `OAuthServerProvider` — the header still needs adding by hand at the
-  two existing 401 sites (missing token, and invalid-token-on-session-init)
-  as Express middleware.
-- **Routing is now case-sensitive** (`app.set('case sensitive routing',
-  true)`, added during the migration) — the new well-known paths must
+> **Superseded 2026-07-24**: mcp-server migrated off `@modelcontextprotocol/sdk`
+> v1 entirely onto the split v2 beta packages
+> (`@modelcontextprotocol/server`/`/express`/`/node`, stateless 2026-07-28
+> protocol) — a bigger rewrite than originally scoped here, done as its own
+> piece of work. Full design/verification:
+> `test-plan/mcp-server/backend.md` and
+> `test-plan/mcp-server/backend-report-sdk-v2-migration.md`. The bullets
+> below are corrected to match what's actually running now; the original
+> "bump to `1.29.0`" plan this section described is stale and kept only for
+> history in git blame, not reproduced here.
+
+- **`mcpAuthMetadataRouter` and `requireBearerAuth` both come from
+  `@modelcontextprotocol/express`** (not `@modelcontextprotocol/sdk`, which
+  no longer exists in mcp-server's dependency tree at all). Mounted in
+  `createHttpApp()` (`http-transport.ts`), before the terminal 4-parameter
+  error-handling middleware, same positioning constraint as originally
+  planned.
+- **Both well-known paths are real, not speculative** (unchanged from the
+  original investigation): the SDK's client-side discovery code tries the
+  path-suffixed form first (`/.well-known/oauth-protected-resource/mcp`)
+  and falls back to the bare root path only on a 4xx this server never
+  produces — the bare fallback route is deliberately not hand-added, same
+  reasoning as before, re-confirmed against the v2 client's actual source.
+- **`MCP_PUBLIC_URL`**: added as planned, unchanged.
+- **`WWW-Authenticate` is no longer hand-rolled** — this is the one
+  substantive behavior change from the original plan. `requireBearerAuth`
+  (from `@modelcontextprotocol/express`) builds the header itself once
+  given a `resourceMetadataUrl`, backed by a small `BackendTokenVerifier`
+  class that wraps the existing backend check
+  (`checkTokenWithBackend`/`validateBearerToken` in `server.ts`). This was
+  only possible because the SDK's auth story changed shape between v1 and
+  v2 — v1's equivalent middleware assumed an `OAuthServerProvider`, which
+  didn't fit this app's NestJS-backend-validates-the-token model; v2's
+  `OAuthTokenVerifier` interface is a much narrower "just verify a token"
+  contract that does fit. There's also no more "session-init" 401 site to
+  special-case — auth is now checked on **every** request, not once per
+  session (the stateless migration's other headline change), so there's
+  exactly one 401 site, not two.
+- **Routing is case-sensitive** (unchanged) — the well-known paths must
   match exact case.
-- **CORS is unverified**: no CORS handling exists in `http-transport.ts`
-  today. Whether the well-known documents need direct browser `fetch()`
-  access from claude.ai's frontend (needing CORS) or are fetched
-  server-side by Anthropic's backend isn't confirmed by anything read so
-  far — confirm empirically, same as the redirect URI in the Implementation
-  Steps below.
+- **CORS is still unverified**: unchanged from the original plan — no CORS
+  handling exists in `http-transport.ts`. Still needs confirming
+  empirically with a real browser, not curl.
 
 ---
 
@@ -276,11 +285,14 @@ flow — this reuses the session established by the refresh-token work
 4. `OAuthController` (`/authorize`, `/consent`, `/token`) + `OAuthExceptionFilter` + unit tests.
 5. `well-known.controller.ts` + `main.ts` prefix-exclude wiring + `PUBLIC_API_BASE_URL` env var.
 6. `@nestjs/throttler` added, scoped to `OAuthController` only.
-7. `packages/mcp-server`: bump `@modelcontextprotocol/sdk` to latest
-   (`1.29.0`); add `MCP_PUBLIC_URL` env var; mount `mcpAuthMetadataRouter`
-   in `http-transport.ts`'s `createHttpApp()` (before the terminal error
-   handler) to serve both well-known paths; hand-add the
-   `WWW-Authenticate` header at the two existing 401 sites.
+7. `packages/mcp-server`: add `MCP_PUBLIC_URL` env var; mount
+   `mcpAuthMetadataRouter` + `requireBearerAuth` (both from
+   `@modelcontextprotocol/express`) in `http-transport.ts`'s
+   `createHttpApp()` (before the terminal error handler) to serve both
+   well-known paths and build the `WWW-Authenticate` header automatically —
+   no hand-rolled header code needed. (Superseded 2026-07-24: this step
+   originally assumed staying on `@modelcontextprotocol/sdk` v1; mcp-server
+   has since migrated to the v2 packages entirely — see §5's note.)
 8. Frontend: `/oauth/consent` route + `ConsentScreen` + `api/oauth/oauth.ts`.
 9. Manually register "Claude" as the static client via env vars — the exact redirect URI needs confirming empirically by attempting the connector once.
 10. Full backend + frontend test suites, typecheck, lint.
@@ -316,10 +328,24 @@ flow — this reuses the session established by the refresh-token work
 
 ### mcp-server
 - [x] Prerequisite: HTTP transport migrated to Express (commit `2010bb1`)
-- [x] `@modelcontextprotocol/sdk` bumped to `1.29.0`
+- [x] `@modelcontextprotocol/sdk` v1 bumped to `1.29.0`, then (2026-07-24)
+      migrated off it entirely onto the split v2 beta packages — see
+      `test-plan/mcp-server/backend-report-sdk-v2-migration.md`
 - [x] `MCP_PUBLIC_URL` env var added
-- [x] `mcpAuthMetadataRouter` mounted, serving the path-suffixed protected-resource route + the mirrored authorization-server metadata route. The bare (non-suffixed) protected-resource fallback path was deliberately **not** hand-added: traced the SDK's own client code (`client/auth.js`) and confirmed it only attempts that fallback after a 4xx from the path-suffixed route, which we never produce — hand-rolling it would be dead code the primary client never reaches.
-- [x] `WWW-Authenticate` header added to both existing 401 responses, verified via `packages/mcp-server/src/__TEST__/http-transport.spec.ts`
+- [x] `mcpAuthMetadataRouter` (now from `@modelcontextprotocol/express`)
+      mounted, serving the path-suffixed protected-resource route + the
+      mirrored authorization-server metadata route. The bare (non-suffixed)
+      protected-resource fallback path was deliberately **not** hand-added:
+      traced the SDK's own client code and confirmed it only attempts that
+      fallback after a 4xx from the path-suffixed route, which we never
+      produce — hand-rolling it would be dead code the primary client
+      never reaches. Re-confirmed against the v2 client during the SDK
+      migration.
+- [x] `WWW-Authenticate` header verified present on 401s — as of the SDK v2
+      migration this is built automatically by `requireBearerAuth` (from
+      `@modelcontextprotocol/express`), not hand-rolled code in this repo;
+      verified via `packages/mcp-server/src/__TEST__/http-transport.spec.ts`
+      and a live curl walk (see the SDK v2 migration report)
 - [ ] CORS requirement confirmed empirically (browser-fetched vs. server-fetched well-known document) — still needs a real browser, not curl
 
 ### Frontend
@@ -713,3 +739,68 @@ already registered*:
       Phase 2 results
 - [ ] Not committed yet — pending explicit go-ahead (Phase 1 was committed
       separately as `1fa4f60`; Phase 2 is still working-tree only)
+
+## 12. RFC 9207 Issuer Identification (`iss` parameter, implemented and live-verified 2026-07-24)
+
+### 12.1 Motivation
+
+The MCP project's 2026-07-28 spec revision includes an "Authorization
+Hardening" section (six SEPs aligning the spec more closely with real-world
+OAuth 2.0/OIDC deployments). One of them requires OAuth clients to validate
+the `iss` parameter on authorization responses per
+[RFC 9207](https://datatracker.ietf.org/doc/html/rfc9207), and says
+authorization servers "should begin supplying it now if they don't
+already." RFC 9207 defines `iss` as a query parameter the authorization
+server includes on every redirect back to the client (both success and
+error responses), naming itself so the client can detect mix-up attacks in
+multi-authorization-server setups — MCP's single-client-many-servers
+deployment pattern (one Claude/Copilot instance, potentially many MCP
+servers each with their own AS) is exactly the shape this mitigates.
+
+### 12.2 Design decision
+
+- `iss` is added to **every** authorization response this backend
+  produces: both branches of `redirectWithError()` (called from
+  `authorize()` for `unsupported_response_type`/`invalid_request`) and both
+  outcomes of `consent()` (approve and deny).
+- The value is the exact same one already served as `issuer` in the RFC
+  8414 metadata document (`well-known.controller.ts`, sourced from
+  `PUBLIC_API_BASE_URL`) — RFC 9207 requires `iss` to match that `issuer`
+  value exactly for client-side validation to succeed. **No new env var.**
+- Rather than three independent inline `config.get('PUBLIC_API_BASE_URL')`
+  reads (one pre-existing in `well-known.controller.ts`, two new ones this
+  would otherwise add to `oauth.controller.ts`), added one shared
+  `getIssuerUrl(config)` helper (`src/oauth/oauth-issuer.ts`, matching the
+  small-shared-constant convention already established by
+  `oauth-scopes.ts`) that all three call sites use. Reading the same env
+  var in three places independently is sync-by-convention, not
+  sync-by-construction — this codebase already has one real instance of
+  that failure mode (the backend/mcp-server metadata `SYNC OBLIGATION`,
+  undocumented in code since the two live in different npm packages); no
+  reason to accept the same risk here when `well-known.controller.ts` and
+  `oauth.controller.ts` are in the same package and it's a one-function fix.
+- No feature flag — purely additive query parameter, a client that doesn't
+  yet validate `iss` simply ignores it. Safe to ship unconditionally.
+- **Out of scope, deliberately**: `packages/mcp-server` is a resource
+  server only and never issues authorization responses — `iss` doesn't
+  touch it. No frontend changes either; the SPA only forwards `consent()`'s
+  `redirectTo` as an opaque URL string.
+
+### 12.3 Checklist
+
+- [x] `getIssuerUrl()` helper added; `well-known.controller.ts` switched to
+      it (behavior unchanged, confirmed via its existing test suite)
+- [x] `iss` added to `redirectWithError()` and both `consent()` branches
+- [x] Unit tests updated (`oauth.controller.spec.ts` — 4 assertions across
+      the 2 `authorize()` error cases and 2 `consent()` outcomes)
+- [x] Full backend suite passing (870 tests), zero TypeScript errors, zero
+      lint warnings
+- [x] Live curl verification against a throwaway Postgres-backed instance
+      (fresh container + migrations, torn down afterward — not the shared
+      dev database): confirmed `iss` byte-identical to the metadata
+      `issuer` across the `authorize()` error redirect and both
+      `consent()` outcomes — see `test-plan/oauth-connector/backend.md`
+      TC-M25
+- [x] `test-plan/oauth-connector/backend.md` updated (TC-M02/TC-M10
+      amended, TC-M25 added)
+- [ ] Not committed yet — pending explicit go-ahead

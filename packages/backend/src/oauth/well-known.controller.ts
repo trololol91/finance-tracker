@@ -4,6 +4,7 @@ import {
 import {ConfigService} from '@nestjs/config';
 import {ApiExcludeController} from '@nestjs/swagger';
 import {OAUTH_FIXED_SCOPES} from './oauth-scopes.js';
+import {getIssuerUrl} from './oauth-issuer.js';
 
 interface OAuthAuthorizationServerMetadata {
     issuer: string;
@@ -37,7 +38,7 @@ export class WellKnownController {
 
     @Get('.well-known/oauth-authorization-server')
     public getAuthorizationServerMetadata(): OAuthAuthorizationServerMetadata {
-        const baseUrl = this.config.get<string>('PUBLIC_API_BASE_URL')!;
+        const baseUrl = getIssuerUrl(this.config);
 
         return {
             issuer: baseUrl,

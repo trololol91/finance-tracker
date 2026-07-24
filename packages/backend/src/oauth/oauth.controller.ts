@@ -32,6 +32,7 @@ import {InitialAccessTokenResponseDto} from './dto/initial-access-token-response
 import {RegisterClientDto} from './dto/register-client.dto.js';
 import {RegisterClientResponseDto} from './dto/register-client-response.dto.js';
 import {OAUTH_FIXED_SCOPES} from './oauth-scopes.js';
+import {getIssuerUrl} from './oauth-issuer.js';
 
 interface TokenResponse {
     access_token: string;
@@ -142,6 +143,8 @@ export class OAuthController {
 
         const target = new URL(dto.redirect_uri);
         if (dto.state) target.searchParams.set('state', dto.state);
+        // RFC 9207 — applies to both the approve and deny outcomes below.
+        target.searchParams.set('iss', getIssuerUrl(this.config));
 
         if (!dto.approved) {
             target.searchParams.set('error', 'access_denied');
@@ -263,6 +266,8 @@ export class OAuthController {
         const target = new URL(redirectUri);
         target.searchParams.set('error', error);
         if (state) target.searchParams.set('state', state);
+        // RFC 9207 — lets the client detect mix-up attacks in multi-AS setups.
+        target.searchParams.set('iss', getIssuerUrl(this.config));
         res.redirect(target.toString());
     }
 }
