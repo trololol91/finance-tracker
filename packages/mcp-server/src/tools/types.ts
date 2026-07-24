@@ -1,6 +1,8 @@
+import type {JsonSchemaType} from '@modelcontextprotocol/server';
+
 export interface ToolInputSchema {
     type: 'object';
-    properties: Record<string, unknown>;
+    properties: Record<string, JsonSchemaType>;
     required?: string[];
 }
 

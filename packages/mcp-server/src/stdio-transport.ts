@@ -1,5 +1,4 @@
-import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
-
+import {StdioServerTransport} from '@modelcontextprotocol/server/stdio';
 import {createMcpServer, validateBearerToken, ALL_TOOLS} from './server.js';
 
 export const startStdioServer = async (): Promise<void> => {

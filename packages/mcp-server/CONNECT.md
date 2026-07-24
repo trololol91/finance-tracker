@@ -459,9 +459,9 @@ For read-only AI access, grant the four read scopes above. Add `transactions:wri
 
 ### Token revocation and HTTP sessions
 
-When using the **HTTP transport**, revoking an API token from Settings → API Tokens takes effect immediately for new connections. However, an already-established MCP session (created before the token was revoked) continues to work until it idles out — the server re-validates the token against the backend only when a new session is initialised, not on every tool call. Idle sessions time out after **30 minutes** of inactivity.
+When using the **HTTP transport**, revoking an API token from Settings → API Tokens takes effect **immediately** — the server has no session state and re-validates the token against the backend on every single request, not just when a connection is first established.
 
-**Implication:** if you revoke a token because you believe it was compromised, the attacker's open MCP sessions can continue for up to 30 minutes. To terminate them immediately, restart the MCP server process.
+**Implication:** if you revoke a token because you believe it was compromised, the very next request using it is rejected. There's no grace period and nothing to restart.
 
 The **stdio transport** is not affected — it validates the token at startup only, and the process lifespan is controlled by the client.
 

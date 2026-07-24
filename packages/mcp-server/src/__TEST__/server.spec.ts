@@ -1,15 +1,20 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
+import {Client} from '@modelcontextprotocol/client';
+import {InMemoryTransport} from '@modelcontextprotocol/server';
 import {ALL_TOOLS, createMcpServer, validateBearerToken} from '../server.js';
 
-// Pull a registered request handler out of the server by its method name.
-type AnyFn = (req: unknown) => Promise<unknown>;
-const getHandler = (server: ReturnType<typeof createMcpServer>, method: string): AnyFn => {
-    const handlers = (
-        server as unknown as {_requestHandlers: Map<string, AnyFn>}
-    )._requestHandlers;
-    const handler = handlers.get(method);
-    if (!handler) throw new Error(`No handler registered for ${method}`);
-    return handler;
+// Real protocol round-trip over an in-memory transport pair, rather than
+// reaching into the SDK's private _requestHandlers Map — that internal
+// wasn't guaranteed stable across the v1->v2 migration (and isn't a public
+// API in either version), so this exercises the same handlers the way a
+// real client actually would.
+const connectClient = async (token: string): Promise<Client> => {
+    const server = createMcpServer(token);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({name: 'test-client', version: '0.0.0'});
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    return client;
 };
 
 describe('ALL_TOOLS', () => {
@@ -50,10 +55,8 @@ describe('createMcpServer', () => {
 
     describe('ListTools handler', () => {
         it('returns tools with name, description, inputSchema — no handle', async () => {
-            const handler = getHandler(createMcpServer('test-token'), 'tools/list');
-            const result = await handler({method: 'tools/list', params: {}}) as {
-                tools: {name: string; description: string; inputSchema: unknown}[];
-            };
+            const client = await connectClient('test-token');
+            const result = await client.listTools();
 
             expect(result.tools).toBeInstanceOf(Array);
             expect(result.tools.length).toBeGreaterThan(0);
@@ -66,10 +69,8 @@ describe('createMcpServer', () => {
         });
 
         it('includes all expected tool names', async () => {
-            const handler = getHandler(createMcpServer('test-token'), 'tools/list');
-            const result = await handler({method: 'tools/list', params: {}}) as {
-                tools: {name: string}[];
-            };
+            const client = await connectClient('test-token');
+            const result = await client.listTools();
 
             const names = result.tools.map(t => t.name);
             expect(names).toContain('list_transactions');
@@ -84,15 +85,15 @@ describe('createMcpServer', () => {
             vi.unstubAllGlobals();
         });
 
-        it('returns error content for unknown tool name', async () => {
-            const handler = getHandler(createMcpServer('test-token'), 'tools/call');
-            const result = await handler({
-                method: 'tools/call',
-                params: {name: 'nonexistent_tool', arguments: {}}
-            }) as {content: {type: string; text: string}[]; isError: boolean};
-
-            expect(result.isError).toBe(true);
-            expect(result.content[0].text).toContain('Unknown tool: nonexistent_tool');
+        it('rejects an unknown tool name with a protocol-level error', async () => {
+            // McpServer's registerTool-based dispatch (unlike the old
+            // hand-rolled ALL_TOOLS.find(...) lookup) resolves an unknown
+            // tool name at the protocol level, not as an in-band
+            // {isError: true} CallToolResult — a real client sees this as a
+            // rejected callTool(), not a successful call with an error flag.
+            const client = await connectClient('test-token');
+            await expect(client.callTool({name: 'nonexistent_tool', arguments: {}}))
+                .rejects.toThrow('Tool nonexistent_tool not found');
         });
 
         it('calls the tool handle and returns JSON content on success', async () => {
@@ -100,11 +101,11 @@ describe('createMcpServer', () => {
                 new Response(JSON.stringify([{id: 'acc-1', name: 'Chequing'}]), {status: 200})
             ));
 
-            const handler = getHandler(createMcpServer('test-token'), 'tools/call');
-            const result = await handler({
-                method: 'tools/call',
-                params: {name: 'list_accounts', arguments: {}}
-            }) as {content: {type: string; text: string}[]; isError?: boolean};
+            const client = await connectClient('test-token');
+            const result = await client.callTool({name: 'list_accounts', arguments: {}}) as {
+                content: {type: string; text: string}[];
+                isError?: boolean;
+            };
 
             expect(result.isError).toBeFalsy();
             expect(result.content[0].type).toBe('text');
@@ -114,11 +115,11 @@ describe('createMcpServer', () => {
         it('returns error content when the tool handle throws', async () => {
             vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
 
-            const handler = getHandler(createMcpServer('test-token'), 'tools/call');
-            const result = await handler({
-                method: 'tools/call',
-                params: {name: 'list_accounts', arguments: {}}
-            }) as {content: {type: string; text: string}[]; isError: boolean};
+            const client = await connectClient('test-token');
+            const result = await client.callTool({name: 'list_accounts', arguments: {}}) as {
+                content: {type: string; text: string}[];
+                isError: boolean;
+            };
 
             expect(result.isError).toBe(true);
             expect(result.content[0].text).toContain('network down');
@@ -127,11 +128,11 @@ describe('createMcpServer', () => {
         it('handles non-Error throws by converting to string', async () => {
             vi.stubGlobal('fetch', vi.fn().mockRejectedValue('plain string error'));
 
-            const handler = getHandler(createMcpServer('test-token'), 'tools/call');
-            const result = await handler({
-                method: 'tools/call',
-                params: {name: 'list_accounts', arguments: {}}
-            }) as {content: {type: string; text: string}[]; isError: boolean};
+            const client = await connectClient('test-token');
+            const result = await client.callTool({name: 'list_accounts', arguments: {}}) as {
+                content: {type: string; text: string}[];
+                isError: boolean;
+            };
 
             expect(result.isError).toBe(true);
             expect(result.content[0].text).toBe('plain string error');

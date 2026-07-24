@@ -19,10 +19,13 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/server": "2.0.0-beta.5",
+    "@modelcontextprotocol/express": "2.0.0-beta.5",
+    "@modelcontextprotocol/node": "2.0.0-beta.5",
     "express": "^5.0.1"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0-beta.5",
     "@eslint/js": "9.18.0",
     "@stylistic/eslint-plugin": "4.2.0",
     "@types/express": "^5.0.6",

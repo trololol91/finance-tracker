@@ -1,4 +1,4 @@
-import type {OAuthMetadata} from '@modelcontextprotocol/sdk/shared/auth.js';
+import type {OAuthMetadata} from '@modelcontextprotocol/server';
 
 // Mirrors backend's src/oauth/oauth-scopes.ts OAUTH_FIXED_SCOPES — every
 // OAuth-issued token gets exactly this scope set. Duplicated here (not

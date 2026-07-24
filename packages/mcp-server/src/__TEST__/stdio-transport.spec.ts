@@ -12,7 +12,7 @@ vi.mock('../server.js', () => ({
 }));
 
 // Avoids wiring a real transport onto process.stdin/stdout during tests.
-vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => {
+vi.mock('@modelcontextprotocol/server/stdio', () => {
     class FakeStdioServerTransport {}
     return {StdioServerTransport: FakeStdioServerTransport};
 });
