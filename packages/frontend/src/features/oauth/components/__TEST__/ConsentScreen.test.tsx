@@ -161,4 +161,80 @@ describe('ConsentScreen', () => {
 
         expect(await screen.findByRole('alert')).toHaveTextContent(/something went wrong/i);
     });
+
+    it('shows a loading indicator only on the clicked button, and disables both, while the request is in flight', async () => {
+        const user = userEvent.setup();
+        let resolveConsent: (value: {redirectTo: string}) => void = () => undefined;
+        mockMutateAsync.mockReturnValue(new Promise((resolve) => { resolveConsent = resolve; }));
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /approve/i}));
+
+        expect(screen.getByRole('button', {name: /loading/i})).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: /deny/i})).toBeDisabled();
+        // Only one button relabels to "Loading..." — Deny must still be
+        // queryable by its own name, not swallowed into a second "Loading" button.
+        expect(screen.queryAllByRole('button', {name: /loading/i})).toHaveLength(1);
+
+        resolveConsent({redirectTo: 'https://claude.ai/callback?code=abc'});
+        await waitFor(() => {
+            expect(window.location.href).toBe('https://claude.ai/callback?code=abc');
+        });
+    });
+
+    it('shows the loading indicator on Deny, not Approve, when Deny is clicked', async () => {
+        const user = userEvent.setup();
+        mockMutateAsync.mockReturnValue(new Promise(() => undefined)); // never resolves
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /deny/i}));
+
+        expect(screen.getByRole('button', {name: /loading/i})).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: /approve/i})).toBeDisabled();
+    });
+
+    it('keeps the buttons disabled after the request resolves, through the redirect navigation', async () => {
+        const user = userEvent.setup();
+        mockMutateAsync.mockResolvedValue({redirectTo: 'https://claude.ai/callback?code=abc'});
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /approve/i}));
+
+        await waitFor(() => {
+            expect(window.location.href).toBe('https://claude.ai/callback?code=abc');
+        });
+        // The mutation has resolved and navigateTo() has run, but the buttons
+        // must not flash back to interactive — the real browser hasn't
+        // actually left this page yet at the equivalent point in production.
+        expect(screen.getByRole('button', {name: /deny/i})).toBeDisabled();
+    });
+
+    it('re-enables the buttons after a failed request so the user can retry', async () => {
+        const user = userEvent.setup();
+        mockMutateAsync.mockRejectedValue(new Error('network error'));
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /approve/i}));
+
+        await screen.findByRole('alert');
+        expect(screen.getByRole('button', {name: /^approve$/i})).toBeEnabled();
+        expect(screen.getByRole('button', {name: /^deny$/i})).toBeEnabled();
+    });
+
+    it.each([
+        ['an empty string', ''],
+        ['a non-URL string', 'not-a-url'],
+        ['a non-http(s) scheme', 'javascript:alert(1)']
+    ])('treats %s redirectTo as an error instead of leaving the buttons stuck disabled', async (_label, redirectTo) => {
+        const user = userEvent.setup();
+        mockMutateAsync.mockResolvedValue({redirectTo});
+        renderConsentScreen();
+
+        await user.click(screen.getByRole('button', {name: /approve/i}));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(/something went wrong/i);
+        expect(screen.getByRole('button', {name: /^approve$/i})).toBeEnabled();
+        expect(screen.getByRole('button', {name: /^deny$/i})).toBeEnabled();
+        expect(window.location.href).toBe('');
+    });
 });

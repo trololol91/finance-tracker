@@ -78,15 +78,42 @@ const navigateTo = (url: string): void => {
     window.location.href = url;
 };
 
+// pendingAction (below) is deliberately never reset after a successful
+// mutation — only navigateTo() actually unsticks it. An empty/malformed
+// redirectTo wouldn't throw on assignment to window.location.href, so
+// without this guard a bad value would leave the buttons permanently
+// disabled with no recovery but a manual page refresh. The backend already
+// validates redirect_uri against the client's registered list before ever
+// building this value, so this is defense against that contract being
+// violated, not an expected case.
+const isNavigableUrl = (url: string): boolean => {
+    if (!url) return false;
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+        return false;
+    }
+};
+
 export const ConsentScreen = (): React.JSX.Element => {
     const [searchParams] = useSearchParams();
     const params = readOAuthParams(searchParams);
     const [apiError, setApiError] = useState('');
+    // Tracks which button was clicked, independent of the mutation's own
+    // isPending: that flips back to false the instant the request resolves,
+    // but this stays set through the window.location.href navigation below
+    // (deliberately never reset on success — the page is about to unload,
+    // and resetting it would flash the buttons back to interactive between
+    // the request finishing and the browser actually leaving this page).
+    // Only reset in the catch branch, where the user needs to be able to retry.
+    const [pendingAction, setPendingAction] = useState<'approve' | 'deny' | null>(null);
     const consent = useOAuthControllerConsent();
 
     const decide = async (approved: boolean): Promise<void> => {
         if (!params) return;
         setApiError('');
+        setPendingAction(approved ? 'approve' : 'deny');
         try {
             // scopes/client_name are this page's own display concerns — the
             // backend always (re)computes the actual granted set server-side
@@ -95,10 +122,16 @@ export const ConsentScreen = (): React.JSX.Element => {
             const {scopes: _scopes, client_name: _clientName, ...decision} = params;
             const result = await consent.mutateAsync({data: {...decision, approved}});
             // redirectTo is validated server-side against the client's
-            // registered redirect_uri before being returned here — safe to
-            // navigate the browser to directly, including cross-origin.
+            // registered redirect_uri before being returned here — the
+            // isNavigableUrl check below isn't distrust of that, it's a
+            // guard against pendingAction getting stuck if the contract is
+            // ever violated (see isNavigableUrl's own comment).
+            if (!isNavigableUrl(result.redirectTo)) {
+                throw new Error('Received an invalid redirect URL');
+            }
             navigateTo(result.redirectTo);
         } catch {
+            setPendingAction(null);
             setApiError('Something went wrong. Please try again.');
         }
     };
@@ -147,7 +180,8 @@ export const ConsentScreen = (): React.JSX.Element => {
                 <Button
                     type="button"
                     variant="secondary"
-                    isLoading={consent.isPending}
+                    isLoading={pendingAction === 'deny'}
+                    disabled={pendingAction !== null}
                     onClick={() => { void decide(false); }}
                 >
                     Deny
@@ -155,7 +189,8 @@ export const ConsentScreen = (): React.JSX.Element => {
                 <Button
                     type="button"
                     variant="primary"
-                    isLoading={consent.isPending}
+                    isLoading={pendingAction === 'approve'}
+                    disabled={pendingAction !== null}
                     onClick={() => { void decide(true); }}
                 >
                     Approve
