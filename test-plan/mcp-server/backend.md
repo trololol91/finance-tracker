@@ -31,7 +31,7 @@ backend's endpoints (those are covered by the other `test-plan/` entries).
 | `src/tools/accounts.ts` | `list_accounts` tool | `src/tools/__TEST__/accounts.spec.ts` |
 | `src/tools/categories.ts` | `list_categories` tool | `src/tools/__TEST__/categories.spec.ts` |
 | `src/tools/dashboard.ts` | `get_dashboard_summary` tool | `src/tools/__TEST__/dashboard.spec.ts` |
-| `src/tools/transactions.ts` | `list_transactions`, `get_transaction_totals`, `create_transaction` tools | `src/tools/__TEST__/transactions.spec.ts` |
+| `src/tools/transactions.ts` | `list_transactions`, `get_transaction_totals`, `create_transaction`, `update_transaction` tools | `src/tools/__TEST__/transactions.spec.ts` |
 | `src/tools/enrich.ts` | Category/account name enrichment + 60s lookup cache used by the transaction tools | `src/tools/__TEST__/enrich.spec.ts` |
 | `src/index.ts` | Entrypoint — reads `MCP_TRANSPORT`, dispatches to stdio or HTTP | none (thin dispatcher, no branching logic worth unit testing) |
 | `src/tools/types.ts` | `ToolModule<T>` type only | none (no runtime code) |
@@ -172,12 +172,16 @@ backend's endpoints (those are covered by the other `test-plan/` entries).
   (including nested category structure), optional params included/omitted
   correctly, non-OK responses propagate as thrown errors.
 
-#### TC-17: tool modules — `list_transactions` / `get_transaction_totals` / `create_transaction`
+#### TC-17: tool modules — `list_transactions` / `get_transaction_totals` / `create_transaction` / `update_transaction`
 - **Type**: Unit
 - Query param handling (dates, array filters, search/limit/page); enriched
   transactions never leak raw `categoryId`/`accountId` fields; month-string
   validation and UTC month-boundary derivation (including leap-year
-  February) for totals; synthetic `fitid` derivation for dedup on create.
+  February) for totals; synthetic `fitid` derivation for dedup on create;
+  `update_transaction` requires `id`, sends only the fields provided in the
+  `PATCH` body (every other field omitted), and returns an enriched result
+  from the real `TransactionResponseDto` shape (not the `{status,
+  transaction}` wrapper `create_transaction`'s response uses).
 
 #### TC-18: `enrich.ts` — lookup maps and enrichment
 - **Type**: Unit
@@ -245,10 +249,11 @@ backend returning canned `/api/auth/me`/`/api/accounts` responses) on
   `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}` — **no
   `initialize` call first**, proving the stateless legacy fallback serves
   every claim-less request independently
-- **Expected result**: `200`, `result.tools` contains exactly 6 tools —
+- **Expected result**: `200`, `result.tools` contains exactly 7 tools —
   `list_transactions`, `get_transaction_totals`, `create_transaction`,
-  `list_accounts`, `list_categories`, `get_dashboard_summary` — each with a
-  populated `inputSchema` matching what's documented in `CONNECT.md`'s
+  `update_transaction`, `list_accounts`, `list_categories`,
+  `get_dashboard_summary` — each with a populated `inputSchema` matching
+  what's documented in `CONNECT.md`'s
   "Available tools" table
 
 #### TC-M04: `POST /mcp` `tools/call` — `list_accounts` against real data

@@ -255,7 +255,7 @@ export class TransactionsController {
     @RequireScopes('transactions:write')
     @ApiOperation({
         summary: 'Update transaction',
-        description: 'Partially update a transaction. transactionType cannot be changed. originalDate is never modified.'
+        description: 'Partially update a transaction. originalDate is never modified.'
     })
     @ApiParam({name: 'id', description: 'Transaction UUID', type: String})
     @ApiBody({type: UpdateTransactionDto})

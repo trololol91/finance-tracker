@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 
 import type {CreateTransactionResponseDto} from '../api/model/createTransactionResponseDto.js';
 import type {PaginatedTransactionsResponseDto} from '../api/model/paginatedTransactionsResponseDto.js';
+import type {TransactionResponseDto} from '../api/model/transactionResponseDto.js';
 import type {TransactionTotalsResponseDto} from '../api/model/transactionTotalsResponseDto.js';
 import {tokenStorage, mcpFetcher} from '../services/fetcher.js';
 import {fetchLookupMaps, enrichTransaction, type EnrichedTransaction} from './enrich.js';
@@ -212,8 +213,88 @@ const createTransaction: ToolModule<EnrichedTransaction> = {
     }
 };
 
+const updateTransaction: ToolModule<EnrichedTransaction> = {
+    name: 'update_transaction',
+    description:
+        'Partially update an existing transaction — only the fields provided are changed. Commonly used to correct the category or account after creation.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            id: {
+                type: 'string',
+                description: 'UUID of the transaction to update.'
+            },
+            amount: {
+                type: 'number',
+                description: 'New transaction amount (positive number).'
+            },
+            description: {
+                type: 'string',
+                description: 'New transaction description.'
+            },
+            notes: {
+                type: 'string',
+                description: 'New notes value.'
+            },
+            categoryId: {
+                type: 'string',
+                description: 'New category UUID.'
+            },
+            accountId: {
+                type: 'string',
+                description: 'New account UUID.'
+            },
+            date: {
+                type: 'string',
+                description: 'New transaction date in ISO 8601 format.'
+            },
+            isActive: {
+                type: 'boolean',
+                description: 'Whether the transaction is active (used to archive without deleting).'
+            },
+            transactionType: {
+                type: 'string',
+                enum: ['income', 'expense', 'transfer'],
+                description: 'New transaction type.'
+            },
+            transferDirection: {
+                type: 'string',
+                enum: ['in', 'out'],
+                description: 'Required when setting transactionType to "transfer".'
+            }
+        },
+        required: ['id']
+    },
+    handle: async (token, args) => {
+        if (typeof args.id !== 'string' || !args.id) {
+            throw new Error('id is required');
+        }
+        const id = args.id;
+
+        const data: Record<string, unknown> = {};
+        if (args.amount !== undefined) data.amount = args.amount;
+        if (args.description !== undefined) data.description = args.description;
+        if (args.notes !== undefined) data.notes = args.notes;
+        if (args.categoryId !== undefined) data.categoryId = args.categoryId;
+        if (args.accountId !== undefined) data.accountId = args.accountId;
+        if (args.date !== undefined) data.date = args.date;
+        if (args.isActive !== undefined) data.isActive = args.isActive;
+        if (args.transactionType !== undefined) data.transactionType = args.transactionType;
+        if (args.transferDirection !== undefined) data.transferDirection = args.transferDirection;
+
+        const [result, {accountsById, categoriesById}] = await Promise.all([
+            tokenStorage.run(token, () =>
+                mcpFetcher<TransactionResponseDto>({url: `/api/transactions/${id}`, method: 'PATCH', data})
+            ),
+            fetchLookupMaps(token)
+        ]);
+        return enrichTransaction(result, accountsById, categoriesById);
+    }
+};
+
 export const transactionTools: ToolModule[] = [
     listTransactions,
     getTransactionTotals,
-    createTransaction
+    createTransaction,
+    updateTransaction
 ];

@@ -438,6 +438,7 @@ For clients that follow the MCP spec directly:
 | `list_categories` | All categories for the authenticated user |
 | `get_dashboard_summary` | Net worth, income, expenses and savings rate for a given month |
 | `create_transaction` | Create a new transaction; auto-generates a `fitid` from the fields to prevent AI-driven duplicates |
+| `update_transaction` | Partially update an existing transaction — only the fields provided are changed (e.g. correct the category or account) |
 
 ---
 
@@ -446,12 +447,12 @@ For clients that follow the MCP spec directly:
 | Scope | Grants access to |
 |---|---|
 | `transactions:read` | `list_transactions`, `get_transaction_totals` |
-| `transactions:write` | `create_transaction` |
+| `transactions:write` | `create_transaction`, `update_transaction` |
 | `accounts:read` | `list_accounts` |
 | `categories:read` | `list_categories` |
 | `dashboard:read` | `get_dashboard_summary` |
 
-For read-only AI access, grant the four read scopes above. Add `transactions:write` only if you want the AI to be able to create transactions via `create_transaction`. The `admin` scope is never needed for MCP use.
+For read-only AI access, grant the four read scopes above. Add `transactions:write` only if you want the AI to be able to create or modify transactions via `create_transaction`/`update_transaction`. The `admin` scope is never needed for MCP use.
 
 ---
 

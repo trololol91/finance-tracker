@@ -15,6 +15,7 @@ interface EnrichedPage {
 const listTransactions = transactionTools.find(t => t.name === 'list_transactions')!;
 const getTransactionTotals = transactionTools.find(t => t.name === 'get_transaction_totals')!;
 const createTransaction = transactionTools.find(t => t.name === 'create_transaction')!;
+const updateTransaction = transactionTools.find(t => t.name === 'update_transaction')!;
 
 const makeAccount = (id: string, name: string) => ({id, name, type: 'chequing', balance: 0, currency: 'CAD', isActive: true, createdAt: '', updatedAt: ''});
 const makeCategory = (id: string, name: string, children: unknown[] = []) => ({id, name, children});
@@ -443,6 +444,113 @@ describe('transactionTools', () => {
                 transactionType: 'expense',
                 date: '2025-03-15T00:00:00.000Z'
             }) as EnrichedTransaction;
+
+            expect(result.categoryName).toBeNull();
+            expect(result.accountName).toBeNull();
+        });
+    });
+
+    describe('update_transaction', () => {
+        it('throws when id is missing', async () => {
+            await expect(updateTransaction.handle('test-token', {description: 'New desc'}))
+                .rejects.toThrow('id is required');
+        });
+
+        it('updates a transaction and returns an enriched result', async () => {
+            const updatedTx = makeTx({id: 'tx-1', categoryId: 'cat-2', accountId: 'acc-2'});
+            mockFetchByPath({
+                '/api/transactions/tx-1': updatedTx,
+                '/api/accounts': [makeAccount('acc-2', 'Savings')],
+                '/api/categories': [makeCategory('cat-2', 'Groceries')]
+            });
+
+            const result = await updateTransaction.handle('test-token', {
+                id: 'tx-1',
+                categoryId: 'cat-2',
+                accountId: 'acc-2'
+            }) as EnrichedTransaction;
+
+            expect(result.id).toBe('tx-1');
+            expect(result.categoryName).toBe('Groceries');
+            expect(result.accountName).toBe('Savings');
+        });
+
+        it('PATCHes /api/transactions/:id', async () => {
+            mockFetchByPath({
+                '/api/transactions/tx-1': makeTx(),
+                '/api/accounts': [],
+                '/api/categories': []
+            });
+
+            await updateTransaction.handle('test-token', {id: 'tx-1', description: 'Renamed'});
+
+            expect(capturedUrls.some((url) => new URL(url).pathname === '/api/transactions/tx-1')).toBe(true);
+        });
+
+        it('sends only the fields provided, omitting the rest', async () => {
+            mockFetchByPath({
+                '/api/transactions/tx-1': makeTx(),
+                '/api/accounts': [],
+                '/api/categories': []
+            });
+
+            await updateTransaction.handle('test-token', {id: 'tx-1', categoryId: 'cat-2'});
+
+            const patchBody = capturedBodies.find(() => true) as Record<string, unknown>;
+            expect(patchBody.categoryId).toBe('cat-2');
+            expect(patchBody).not.toHaveProperty('amount');
+            expect(patchBody).not.toHaveProperty('description');
+            expect(patchBody).not.toHaveProperty('accountId');
+            expect(patchBody).not.toHaveProperty('notes');
+            expect(patchBody).not.toHaveProperty('date');
+            expect(patchBody).not.toHaveProperty('isActive');
+            expect(patchBody).not.toHaveProperty('transactionType');
+            expect(patchBody).not.toHaveProperty('transferDirection');
+        });
+
+        it('sends every provided field', async () => {
+            mockFetchByPath({
+                '/api/transactions/tx-1': makeTx(),
+                '/api/accounts': [],
+                '/api/categories': []
+            });
+
+            await updateTransaction.handle('test-token', {
+                id: 'tx-1',
+                amount: 30,
+                description: 'Updated desc',
+                notes: 'updated notes',
+                categoryId: 'cat-3',
+                accountId: 'acc-3',
+                date: '2025-04-01T00:00:00.000Z',
+                isActive: false,
+                transactionType: 'transfer',
+                transferDirection: 'in'
+            });
+
+            const patchBody = capturedBodies.find(() => true) as Record<string, unknown>;
+            expect(patchBody).toEqual({
+                amount: 30,
+                description: 'Updated desc',
+                notes: 'updated notes',
+                categoryId: 'cat-3',
+                accountId: 'acc-3',
+                date: '2025-04-01T00:00:00.000Z',
+                isActive: false,
+                transactionType: 'transfer',
+                transferDirection: 'in'
+            });
+        });
+
+        it('returns enriched transaction with null names when IDs not in maps', async () => {
+            const updatedTx = makeTx({categoryId: 'unknown-cat', accountId: 'unknown-acc'});
+            mockFetchByPath({
+                '/api/transactions/tx-1': updatedTx,
+                '/api/accounts': [],
+                '/api/categories': []
+            });
+
+            const result = await updateTransaction.handle('test-token', {id: 'tx-1', description: 'x'}) as EnrichedTransaction;
 
             expect(result.categoryName).toBeNull();
             expect(result.accountName).toBeNull();
