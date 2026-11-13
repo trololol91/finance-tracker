@@ -2,6 +2,7 @@ import http from 'node:http';
 
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import request from 'supertest';
+import {Client, StreamableHTTPClientTransport} from '@modelcontextprotocol/client';
 import type * as ServerModule from '../server.js';
 
 const {mockCheckTokenWithBackend, mockCreateMcpServer} = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ const {
     createHttpApp: buildRawApp,
     startHttpServer
 } = await import('../http-transport.js');
+const {ALL_TOOLS} = await import('../server.js');
 
 // supertest wraps a bare Express app in a *new* http.createServer(...).listen(0)
 // on every request() call, leaking a never-closed listener each time. Wrapping
@@ -216,6 +218,38 @@ describe('createHttpApp', () => {
                 .send(listToolsBody);
 
             expect(res.status).toBe(200);
+        });
+
+        // Real SDK client over a real HTTP listener, one test per protocol era
+        // — the hand-rolled supertest bodies above only cover the legacy
+        // stateless leg, so these guard the modern (2026-07-28) leg too,
+        // including the standard headers (MCP-Protocol-Version, Mcp-Method,
+        // Content-Type) that SDK 2.1+ enforces on modern POSTs.
+        it.each([
+            ['legacy (initialize handshake)', {mode: 'legacy'}, (v: string | undefined) => expect(v).not.toBe('2026-07-28')],
+            ['modern (2026-07-28)', {mode: {pin: '2026-07-28'}}, (v: string | undefined) => expect(v).toBe('2026-07-28')]
+        ] as const)('lists every tool to a real SDK client negotiating the %s era', async (_era, versionNegotiation, expectVersion) => {
+            const server = buildTestServer();
+            await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+            const address = server.address();
+            if (address === null || typeof address === 'string') {
+                throw new Error('expected an AddressInfo from the listening server');
+            }
+
+            const client = new Client({name: 'test-client', version: '0.0.0'}, {versionNegotiation});
+            const transport = new StreamableHTTPClientTransport(
+                new URL(`http://127.0.0.1:${address.port}/mcp`),
+                {requestInit: {headers: {Authorization: 'Bearer valid-token'}}}
+            );
+            try {
+                await client.connect(transport);
+                expectVersion(client.getNegotiatedProtocolVersion());
+                const {tools} = await client.listTools();
+                expect(tools.map(t => t.name).sort()).toEqual(ALL_TOOLS.map(t => t.name).sort());
+                expect(mockCheckTokenWithBackend).toHaveBeenCalledWith('valid-token');
+            } finally {
+                await client.close();
+            }
         });
 
         it('GET /mcp is not a supported legacy session operation under the stateless fallback', async () => {
