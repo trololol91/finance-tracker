@@ -11,7 +11,7 @@
 # but is not copied to the production image — types are erased at runtime.
 
 # ---- Stage 1: Builder --------------------------------------------------------
-FROM node:24.13.0-alpine AS builder
+FROM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 
 WORKDIR /usr/src/app
 
@@ -44,7 +44,7 @@ RUN cd packages/backend && npx prisma generate
 RUN npm run build -w packages/backend
 
 # ---- Stage 2: Production -----------------------------------------------------
-FROM node:24.13.0-alpine AS production
+FROM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS production
 
 RUN apk add --no-cache dumb-init su-exec
 
